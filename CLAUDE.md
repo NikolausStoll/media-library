@@ -208,6 +208,21 @@ npm run build
 - ESC-Key events must be dispatched on `document` directly:
   `document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`
 
+### Important Test-Specific Selectors
+- `.search-input` - Search/filter input field
+- `.add-game-input` - Input for adding games (external ID)
+- `.add-game-btn` - Button to add a game
+- `.play-next-section` - Play Next area in Backlog tab
+- `.status-btn` - Status change buttons in overlay (e.g., "Completed")
+- `.delete-trigger-btn` - Initial delete button in overlay
+- `.delete-confirm-btn` - Confirmation button for delete action
+
+### Test Patterns
+- **Default Tab**: Tests must account for `activeTab = 'started'` as the default
+- Most tests need to explicitly switch to `'backlog'` tab to test ZELDA (status: backlog)
+- Always check if elements exist before interacting: `expect(element.exists()).toBe(true)`
+- Use specific CSS class selectors instead of searching by text for better reliability
+
 ---
 
 ## Environment Variables
@@ -236,6 +251,8 @@ FRONTEND_URL=http://localhost:5173       # CORS origin (default: http://localhos
 - `vue-draggable` is mocked implicitly via JSDOM - emit `'end'` directly on the component to test drag callbacks
 - `getPlatformLogo` always returns `null` in tests (mocked)
 - The `filterSectionsOpen` ref uses an object: `{ platformStorefront: true, sort: true }`
-- `addGame(externalId, activeTab.value)` - second param is the initial status
+- `addGame(externalId, status, platforms)` - **3 parameters**: externalId, initial status, platforms array
 - After `deleteGame`, the item must be removed from `gameList` locally (no full reload)
 - After `updateGame` (status change), `showOverlay` is set to `false` and `overlayGame` to `null`
+- Status buttons in overlay use labels from `statusOptions`: "Wishlist", "Backlog", "Started", "Shelved", "Completed", "Retired"
+- Add-game button (`.add-game-btn`) is disabled when input is empty via `:disabled` attribute
