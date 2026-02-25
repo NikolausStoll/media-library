@@ -1,15 +1,13 @@
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8787/api';
-
-// ─── Games ────────────────────────────────────────────────────────────────────
+const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8787/api'
 
 export async function loadGames() {
   try {
-    const res = await fetch(`${API_BASE}/games`);
-    if (!res.ok) throw new Error(`Games fetch failed: ${res.status}`);
-    return await res.json();
+    const res = await fetch(`${API_BASE}/games`)
+    if (!res.ok) throw new Error(`Games fetch failed: ${res.status}`)
+    return await res.json()
   } catch (err) {
-    console.error('loadGames:', err);
-    return [];
+    console.error('loadGames:', err)
+    return []
   }
 }
 
@@ -18,14 +16,14 @@ export async function addGame(externalId, status, platforms = []) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ externalId, status, platforms }),
-  });
+  })
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Unbekannter Fehler' }));
-    throw new Error(err.error ?? `Fehler ${res.status}`);
+    const err = await res.json().catch(() => ({ error: 'Unbekannter Fehler' }))
+    throw new Error(err.error ?? `Fehler ${res.status}`)
   }
 
-  return await res.json();
+  return await res.json()
 }
 
 export async function updateGame(id, data) {
@@ -34,11 +32,11 @@ export async function updateGame(id, data) {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
-    });
-    if (!res.ok) throw new Error(`updateGame failed: ${res.status}`);
-    return await res.json();
+    })
+    if (!res.ok) throw new Error(`updateGame failed: ${res.status}`)
+    return await res.json()
   } catch (err) {
-    console.error('updateGame:', err);
+    console.error('updateGame:', err)
   }
 }
 
@@ -48,20 +46,20 @@ export async function updateGamePlatforms(id, platforms) {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ platforms }),
-    });
-    if (!res.ok) throw new Error(`updateGamePlatforms failed: ${res.status}`);
-    return await res.json();
+    })
+    if (!res.ok) throw new Error(`updateGamePlatforms failed: ${res.status}`)
+    return await res.json()
   } catch (err) {
-    console.error('updateGamePlatforms:', err);
+    console.error('updateGamePlatforms:', err)
   }
 }
 
 export async function deleteGame(id) {
   try {
-    const res = await fetch(`${API_BASE}/games/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error(`deleteGame failed: ${res.status}`);
+    const res = await fetch(`${API_BASE}/games/${id}`, { method: 'DELETE' })
+    if (!res.ok) throw new Error(`deleteGame failed: ${res.status}`)
   } catch (err) {
-    console.error('deleteGame:', err);
+    console.error('deleteGame:', err)
   }
 }
 
@@ -70,25 +68,22 @@ export async function updateGameTags(gameId, tags) {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ tags }),
-  });
-  if (!res.ok) throw new Error(`updateGameTags failed: ${res.status}`);
-  return res.json();
+  })
+  if (!res.ok) throw new Error(`updateGameTags failed: ${res.status}`)
+  return res.json()
 }
-
-
-// ─── Sort Order ───────────────────────────────────────────────────────────────
 
 export async function loadSortOrder() {
   try {
-    const res = await fetch(`${API_BASE}/sort-order`);
-    if (!res.ok) throw new Error(`loadSortOrder failed: ${res.status}`);
-    const data = await res.json();
+    const res = await fetch(`${API_BASE}/sort-order`)
+    if (!res.ok) throw new Error(`loadSortOrder failed: ${res.status}`)
+    const data = await res.json()
     return data
       .sort((a, b) => a.position - b.position)
-      .map(entry => String(entry.gameId));
+      .map(entry => String(entry.gameId))
   } catch (err) {
-    console.error('loadSortOrder:', err);
-    return [];
+    console.error('loadSortOrder:', err)
+    return []
   }
 }
 
@@ -98,24 +93,22 @@ export async function saveSortOrder(orderedGameIds) {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ order: orderedGameIds.map(Number) }),
-    });
-    if (!res.ok) throw new Error(`saveSortOrder failed: ${res.status}`);
+    })
+    if (!res.ok) throw new Error(`saveSortOrder failed: ${res.status}`)
   } catch (err) {
-    console.error('saveSortOrder:', err);
+    console.error('saveSortOrder:', err)
   }
 }
 
-// ─── Play Next ────────────────────────────────────────────────────────────────
-
 export async function loadPlayNext() {
   try {
-    const res = await fetch(`${API_BASE}/play-next`);
-    if (!res.ok) throw new Error(`loadPlayNext failed: ${res.status}`);
-    const data = await res.json();
-    return data.map(entry => String(entry.gameId));
+    const res = await fetch(`${API_BASE}/play-next`)
+    if (!res.ok) throw new Error(`loadPlayNext failed: ${res.status}`)
+    const data = await res.json()
+    return data.map(entry => String(entry.gameId))
   } catch (err) {
-    console.error('loadPlayNext:', err);
-    return [];
+    console.error('loadPlayNext:', err)
+    return []
   }
 }
 
@@ -124,10 +117,10 @@ export async function savePlayNext(gameIds) {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ids: gameIds.map(Number) }),
-  });
+  })
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: `Status ${res.status}` }));
-    throw new Error(err.error ?? `savePlayNext failed: ${res.status}`);
+    const err = await res.json().catch(() => ({ error: `Status ${res.status}` }))
+    throw new Error(err.error ?? `savePlayNext failed: ${res.status}`)
   }
 }
 
@@ -135,9 +128,9 @@ export async function removeFromPlayNextApi(gameId) {
   try {
     const res = await fetch(`${API_BASE}/play-next/${gameId}`, {
       method: 'DELETE',
-    });
-    if (!res.ok) throw new Error(`removeFromPlayNext failed: ${res.status}`);
+    })
+    if (!res.ok) throw new Error(`removeFromPlayNext failed: ${res.status}`)
   } catch (err) {
-    console.error('removeFromPlayNext:', err);
+    console.error('removeFromPlayNext:', err)
   }
 }

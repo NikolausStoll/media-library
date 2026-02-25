@@ -1,11 +1,11 @@
-import Database from 'better-sqlite3';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import Database from 'better-sqlite3'
+import { join, dirname } from 'path'
+import { fileURLToPath } from 'url'
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-export const db = new Database(join(__dirname, '../../backend.db'));
+const __dirname = dirname(fileURLToPath(import.meta.url))
+export const db = new Database(join(__dirname, '../../backend.db'))
 
-db.pragma('foreign_keys = ON');
+db.pragma('foreign_keys = ON')
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS games (
@@ -42,17 +42,17 @@ db.exec(`
     gameId INTEGER NOT NULL UNIQUE,
     FOREIGN KEY (gameId) REFERENCES games(id) ON DELETE CASCADE
   );
-`);
+`)
 
 export function getGameWithPlatforms(id) {
-  const game = db.prepare('SELECT * FROM games WHERE id = ?').get(id);
-  if (!game) return null;
+  const game = db.prepare('SELECT * FROM games WHERE id = ?').get(id)
+  if (!game) return null
   const platforms = db
     .prepare('SELECT id, platform, storefront FROM game_platforms WHERE gameId = ?')
-    .all(id);
+    .all(id)
   const tags = db
     .prepare('SELECT tag FROM game_tags WHERE gameId = ?')
     .all(id)
-    .map(r => r.tag);
-  return { ...game, platforms, tags };
+    .map(r => r.tag)
+  return { ...game, platforms, tags }
 }

@@ -1,8 +1,8 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-import draggable from 'vuedraggable';
-import { storefronts, availablePlatforms } from '../data/games.js';
-import { getPlatformLogo } from '../data/platformLogos.js';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import draggable from 'vuedraggable'
+import { storefronts, availablePlatforms } from '../data/games.js'
+import { getPlatformLogo } from '../data/platformLogos.js'
 import {
   loadGames,
   addGame,
@@ -15,51 +15,51 @@ import {
   savePlayNext,
   removeFromPlayNextApi,
   updateGameTags,
-} from '../services/gameStorage.js';
+} from '../services/gameStorage.js'
 
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
+const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8787/api'
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
-const gameList       = ref([]);
-const startedOrder   = ref([]);
-const playNextList   = ref([]);
-const drag           = ref(false);
-const activeTab      = ref('started');
-const loading        = ref(true);
+const gameList       = ref([])
+const startedOrder   = ref([])
+const playNextList   = ref([])
+const drag           = ref(false)
+const activeTab      = ref('started')
+const loading        = ref(true)
 
 // Add Game
-const newExternalId  = ref('');
-const addLoading     = ref(false);
-const addError       = ref('');
-const addSuccess     = ref(false);
+const newExternalId  = ref('')
+const addLoading     = ref(false)
+const addError       = ref('')
+const addSuccess     = ref(false)
 
 // UI
-const sidebarOpen        = ref(true);
-const darkMode = ref(localStorage.getItem('darkMode') !== 'false');
-const filterSectionsOpen = ref({ platformStorefront: true, sort: true });
+const sidebarOpen        = ref(true)
+const darkMode = ref(localStorage.getItem('darkMode') !== 'false')
+const filterSectionsOpen = ref({ platformStorefront: true, sort: true })
 
 // Overlays
-const overlayGame        = ref(null);
-const showOverlay        = ref(false);
-const deleteConfirm      = ref(false);
-const platformEditor     = ref(null);
-const showPlatformEditor = ref(false);
-const showSearchOverlay  = ref(false);
-const overlaySearchQuery = ref('');
+const overlayGame        = ref(null)
+const showOverlay        = ref(false)
+const deleteConfirm      = ref(false)
+const platformEditor     = ref(null)
+const showPlatformEditor = ref(false)
+const showSearchOverlay  = ref(false)
+const overlaySearchQuery = ref('')
 
 // Filter & Sort
-const searchQuery      = ref('');
-const platformFilter   = ref([]);
-const storefrontFilter = ref([]);
-const sortBy           = ref('custom');
-const sortDirection    = ref('asc');
+const searchQuery      = ref('')
+const platformFilter   = ref([])
+const storefrontFilter = ref([])
+const sortBy           = ref('custom')
+const sortDirection    = ref('asc')
 
 // HLTB Search
-const hltbResults  = ref([]);
-const hltbLoading  = ref(false);
-const hltbError    = ref('');
-const hltbSearched = ref(false);
+const hltbResults  = ref([])
+const hltbLoading  = ref(false)
+const hltbError    = ref('')
+const hltbSearched = ref(false)
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
@@ -70,7 +70,7 @@ const tabs = [
   { id: 'completed', label: 'Completed' },
   { id: 'retired',   label: 'Retired'   },
   { id: 'all',       label: 'All'       },
-];
+]
 
 const statusOptions = [
   { id: 'wishlist',  label: 'Wishlist'  },
@@ -79,175 +79,175 @@ const statusOptions = [
   { id: 'shelved',   label: 'Shelved'   },
   { id: 'completed', label: 'Completed' },
   { id: 'retired',   label: 'Retired'   },
-];
+]
 
-const viewMode = ref(localStorage.getItem('viewMode') || 'grid');
+const viewMode = ref(localStorage.getItem('viewMode') || 'grid')
 
-const tagFilter = ref([]);
+const tagFilter = ref([])
 
 // Watches zum Speichern
-watch(viewMode, val => localStorage.setItem('viewMode', val));
-watch(darkMode, val => localStorage.setItem('darkMode', val));
+watch(viewMode, val => localStorage.setItem('viewMode', val))
+watch(darkMode, val => localStorage.setItem('darkMode', val))
 
 watch(activeTab, newTab => {
   if (newTab === 'started') {
-    sortBy.value = 'custom';
+    sortBy.value = 'custom'
   } else {
-    sortBy.value = 'name';
-    sortDirection.value = 'asc';
+    sortBy.value = 'name'
+    sortDirection.value = 'asc'
   }
-});
+})
 
 watch(showOverlay, val => {
-  if (!val) deleteConfirm.value = false;
-});
+  if (!val) deleteConfirm.value = false
+})
 
 watch(overlaySearchQuery, () => {
-  hltbResults.value  = [];
-  hltbSearched.value = false;
-  hltbError.value    = '';
-});
+  hltbResults.value  = []
+  hltbSearched.value = false
+  hltbError.value    = ''
+})
 
 // ─── Add Game ─────────────────────────────────────────────────────────────────
 
 async function handleAddGame() {
-  const id = newExternalId.value.trim();
+  const id = newExternalId.value.trim()
   if (!id) { addError.value = 'Please enter an external ID.'; return; }
 
-  addError.value = ''; addSuccess.value = false; addLoading.value = true;
+  addError.value = ''; addSuccess.value = false; addLoading.value = true
 
   try {
-    const newGame = await addGame(id, activeTab.value, []);
-    gameList.value.push(newGame);
-    newExternalId.value = '';
-    addSuccess.value = true;
-    setTimeout(() => (addSuccess.value = false), 2500);
+    const newGame = await addGame(id, activeTab.value, [])
+    gameList.value.push(newGame)
+    newExternalId.value = ''
+    addSuccess.value = true
+    setTimeout(() => (addSuccess.value = false), 2500)
   } catch (err) {
-    addError.value = err.message;
+    addError.value = err.message
   } finally {
-    addLoading.value = false;
+    addLoading.value = false
   }
 }
 
 function onAddKeydown(e) {
-  if (e.key === 'Enter') handleAddGame();
+  if (e.key === 'Enter') handleAddGame()
 }
 
 // ─── Logo / Label Helper ──────────────────────────────────────────────────────
 
 function resolveLogo(plat) {
-  return getPlatformLogo(plat.platform, plat.storefront);
+  return getPlatformLogo(plat.platform, plat.storefront)
 }
 
 function getPlatformLabel(plat) {
   if (plat.storefront)
-    return storefronts.find(s => s.id === plat.storefront)?.label ?? plat.storefront;
-  return availablePlatforms.find(p => p.id === plat.platform)?.label ?? plat.platform;
+    return storefronts.find(s => s.id === plat.storefront)?.label ?? plat.storefront
+  return availablePlatforms.find(p => p.id === plat.platform)?.label ?? plat.platform
 }
 
 // ─── Rating / Time Format ─────────────────────────────────────────────────────
 
 function formatRating(rating) {
-  const val = rating % 1 === 0 ? Math.floor(rating) : rating;
-  return `${val} %`;
+  const val = rating % 1 === 0 ? Math.floor(rating) : rating
+  return `${val} %`
 }
 
 // ─── Computed ─────────────────────────────────────────────────────────────────
 
 const startedGames = computed(() => {
-  const games = gameList.value.filter(g => g.status === 'started');
-  if (!startedOrder.value.length) return games;
-  const map = new Map(games.map(g => [String(g.id), g]));
-  const ordered = startedOrder.value.map(id => map.get(String(id))).filter(Boolean);
-  const seen = new Set(startedOrder.value.map(String));
-  games.filter(g => !seen.has(String(g.id))).forEach(g => ordered.push(g));
-  return ordered;
-});
+  const games = gameList.value.filter(g => g.status === 'started')
+  if (!startedOrder.value.length) return games
+  const map = new Map(games.map(g => [String(g.id), g]))
+  const ordered = startedOrder.value.map(id => map.get(String(id))).filter(Boolean)
+  const seen = new Set(startedOrder.value.map(String))
+  games.filter(g => !seen.has(String(g.id))).forEach(g => ordered.push(g))
+  return ordered
+})
 
 const shelvedGames = computed(() => {
-  let base = gameList.value.filter(g => g.status === 'shelved');
+  let base = gameList.value.filter(g => g.status === 'shelved')
 
   if (tagFilter.value.length)
-    base = base.filter(g => tagFilter.value.every(t => g.tags?.includes(t)));
+    base = base.filter(g => tagFilter.value.every(t => g.tags?.includes(t)))
 
   if (platformFilter.value.includes('none'))
-    base = base.filter(g => g.platforms.length === 0);
+    base = base.filter(g => g.platforms.length === 0)
   else if (platformFilter.value.length)
-    base = base.filter(g => g.platforms.some(p => platformFilter.value.includes(p.platform)));
+    base = base.filter(g => g.platforms.some(p => platformFilter.value.includes(p.platform)))
 
   if (storefrontFilter.value.length)
-    base = base.filter(g => g.platforms.some(p => p.storefront && storefrontFilter.value.includes(p.storefront)));
+    base = base.filter(g => g.platforms.some(p => p.storefront && storefrontFilter.value.includes(p.storefront)))
 
   if (searchQuery.value.trim())
-    base = base.filter(g => fuzzyMatch(g.name, searchQuery.value));
+    base = base.filter(g => fuzzyMatch(g.name, searchQuery.value))
 
-  return applySort(base);
-});
+  return applySort(base)
+})
 
 const playNextGames = computed(() => {
   let base = playNextList.value
     .map(id => gameList.value.find(g => String(g.id) === String(id)))
-    .filter(g => g && g.status === 'backlog');
+    .filter(g => g && g.status === 'backlog')
 
   if (tagFilter.value.length)
-    base = base.filter(g => tagFilter.value.every(t => g.tags?.includes(t)));
+    base = base.filter(g => tagFilter.value.every(t => g.tags?.includes(t)))
 
   if (platformFilter.value.includes('none'))
-    base = base.filter(g => g.platforms.length === 0);
+    base = base.filter(g => g.platforms.length === 0)
   else if (platformFilter.value.length)
-    base = base.filter(g => g.platforms.some(p => platformFilter.value.includes(p.platform)));
+    base = base.filter(g => g.platforms.some(p => platformFilter.value.includes(p.platform)))
 
   if (storefrontFilter.value.length)
-    base = base.filter(g => g.platforms.some(p => p.storefront && storefrontFilter.value.includes(p.storefront)));
+    base = base.filter(g => g.platforms.some(p => p.storefront && storefrontFilter.value.includes(p.storefront)))
 
   if (searchQuery.value.trim())
-    base = base.filter(g => fuzzyMatch(g.name, searchQuery.value));
+    base = base.filter(g => fuzzyMatch(g.name, searchQuery.value))
 
-  return applySort(base);
-});
+  return applySort(base)
+})
 
 const normalBacklogGames = computed(() =>
   gameList.value.filter(
     g => g.status === 'backlog' && !playNextList.value.includes(String(g.id)),
   ),
-);
+)
 
 function fuzzyMatch(str, query) {
-  const s = str.toLowerCase();
-  const q = query.toLowerCase().trim();
-  if (!q) return true;
-  let si = 0;
+  const s = str.toLowerCase()
+  const q = query.toLowerCase().trim()
+  if (!q) return true
+  let si = 0
   for (let qi = 0; qi < q.length; qi++) {
-    const found = s.indexOf(q[qi], si);
-    if (found === -1) return false;
-    si = found + 1;
+    const found = s.indexOf(q[qi], si)
+    if (found === -1) return false
+    si = found + 1
   }
-  return true;
+  return true
 }
 
 function applySort(list) {
-  const dir = sortDirection.value === 'asc' ? 1 : -1;
+  const dir = sortDirection.value === 'asc' ? 1 : -1
 
   if (sortBy.value === 'name')
-    return [...list].sort((a, b) => a.name.localeCompare(b.name) * dir);
+    return [...list].sort((a, b) => a.name.localeCompare(b.name) * dir)
 
   if (sortBy.value === 'rating')
     return [...list].sort((a, b) => {
-      if (a.rating == null && b.rating == null) return 0;
-      if (a.rating == null) return 1;
-      if (b.rating == null) return -1;
-      return (a.rating - b.rating) * dir;
-    });
+      if (a.rating == null && b.rating == null) return 0
+      if (a.rating == null) return 1
+      if (b.rating == null) return -1
+      return (a.rating - b.rating) * dir
+    })
 
   if (sortBy.value === 'playtime')
     return [...list].sort((a, b) => {
-      if (a.gameplayAll == null && b.gameplayAll == null) return 0;
-      if (a.gameplayAll == null) return 1;
-      if (b.gameplayAll == null) return -1;
-      return (a.gameplayAll - b.gameplayAll) * dir;
-    });
+      if (a.gameplayAll == null && b.gameplayAll == null) return 0
+      if (a.gameplayAll == null) return 1
+      if (b.gameplayAll == null) return -1
+      return (a.gameplayAll - b.gameplayAll) * dir
+    })
 
-  return list;
+  return list
 }
 
 const filteredGames = computed(() => {
@@ -255,47 +255,47 @@ const filteredGames = computed(() => {
     activeTab.value === 'all'     ? gameList.value.filter(g => g.status !== 'wishlist') :
     activeTab.value === 'started' ? startedGames.value :
     activeTab.value === 'backlog' ? normalBacklogGames.value :
-    gameList.value.filter(g => g.status === activeTab.value);
+    gameList.value.filter(g => g.status === activeTab.value)
 
   if (tagFilter.value.length)
-    base = base.filter(g => tagFilter.value.every(t => g.tags?.includes(t)));
+    base = base.filter(g => tagFilter.value.every(t => g.tags?.includes(t)))
 
   if (platformFilter.value.includes('none'))
-    base = base.filter(g => g.platforms.length === 0);
+    base = base.filter(g => g.platforms.length === 0)
   else if (platformFilter.value.length)
-    base = base.filter(g => g.platforms.some(p => platformFilter.value.includes(p.platform)));
+    base = base.filter(g => g.platforms.some(p => platformFilter.value.includes(p.platform)))
 
   if (storefrontFilter.value.length)
-    base = base.filter(g => g.platforms.some(p => p.storefront && storefrontFilter.value.includes(p.storefront)));
+    base = base.filter(g => g.platforms.some(p => p.storefront && storefrontFilter.value.includes(p.storefront)))
 
   if (searchQuery.value.trim())
-    base = base.filter(g => fuzzyMatch(g.name, searchQuery.value));
+    base = base.filter(g => fuzzyMatch(g.name, searchQuery.value))
 
-  if (sortBy.value === 'custom') return base;
-  return applySort(base);
-});
+  if (sortBy.value === 'custom') return base
+  return applySort(base)
+})
 
-const filteredIds = computed(() => new Set(filteredGames.value.map(g => String(g.id))));
+const filteredIds = computed(() => new Set(filteredGames.value.map(g => String(g.id))))
 
 const statusCounts = computed(() => {
-  const c = {};
-  tabs.forEach(t => { c[t.id] = gameList.value.filter(g => g.status === t.id).length; });
-  c['started'] += gameList.value.filter(g => g.status === 'shelved').length;
-  c['all'] = gameList.value.filter(g => g.status !== 'wishlist').length;
-  return c;
-});
+  const c = {}
+  tabs.forEach(t => { c[t.id] = gameList.value.filter(g => g.status === t.id).length; })
+  c['started'] += gameList.value.filter(g => g.status === 'shelved').length
+  c['all'] = gameList.value.filter(g => g.status !== 'wishlist').length
+  return c
+})
 
 
 async function toggleTag(tag) {
-  if (!overlayGame.value) return;
-  const game = overlayGame.value;
-  const current = game.tags ?? [];
+  if (!overlayGame.value) return
+  const game = overlayGame.value
+  const current = game.tags ?? []
   const updated = current.includes(tag)
     ? current.filter(t => t !== tag)
-    : [...current, tag];
+    : [...current, tag]
 
-  game.tags = updated;
-  await updateGameTags(game.id, updated);
+  game.tags = updated
+  await updateGameTags(game.id, updated)
 }
 
 
@@ -303,258 +303,258 @@ async function toggleTag(tag) {
 
 function toggleNameSort() {
   if (sortBy.value !== 'name') {
-    sortBy.value = 'name';
-    sortDirection.value = 'asc';
+    sortBy.value = 'name'
+    sortDirection.value = 'asc'
   } else {
-    sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
+    sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc'
   }
 }
 
 function toggleRatingSort() {
   if (sortBy.value !== 'rating') {
-    sortBy.value = 'rating';
-    sortDirection.value = 'desc';
+    sortBy.value = 'rating'
+    sortDirection.value = 'desc'
   } else {
-    sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
+    sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc'
   }
 }
 
 function togglePlaytimeSort() {
   if (sortBy.value !== 'playtime') {
-    sortBy.value = 'playtime';
-    sortDirection.value = 'asc';
+    sortBy.value = 'playtime'
+    sortDirection.value = 'asc'
   } else {
-    sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
+    sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc'
   }
 }
 
 async function onDragEnd() {
-  drag.value = false;
+  drag.value = false
   if (activeTab.value === 'started') {
-    const ids = startedGames.value.map(g => String(g.id));
-    startedOrder.value = ids;
-    await saveSortOrder(ids);
+    const ids = startedGames.value.map(g => String(g.id))
+    startedOrder.value = ids
+    await saveSortOrder(ids)
   }
 }
 
 // ─── Overlay / Status ─────────────────────────────────────────────────────────
 
 function openOverlay(game, event) {
-  event.stopPropagation();
-  overlayGame.value = game;
-  showOverlay.value = true;
+  event.stopPropagation()
+  overlayGame.value = game
+  showOverlay.value = true
 }
 
 async function changeStatus(newStatus) {
-  if (!overlayGame.value) return;
-  const game = overlayGame.value;
-  const gameId = String(game.id);
-  const wasInPlayNext = playNextList.value.includes(gameId);
-  const wasStarted = game.status === 'started';
+  if (!overlayGame.value) return
+  const game = overlayGame.value
+  const gameId = String(game.id)
+  const wasInPlayNext = playNextList.value.includes(gameId)
+  const wasStarted = game.status === 'started'
 
-  game.status = newStatus;
-  showOverlay.value = false;
-  overlayGame.value = null;
+  game.status = newStatus
+  showOverlay.value = false
+  overlayGame.value = null
 
   if (wasInPlayNext && newStatus !== 'backlog') {
-    playNextList.value = playNextList.value.filter(id => String(id) !== gameId);
-    await removeFromPlayNextApi(game.id);
+    playNextList.value = playNextList.value.filter(id => String(id) !== gameId)
+    await removeFromPlayNextApi(game.id)
   }
 
   if (wasStarted && newStatus !== 'started') {
-    startedOrder.value = startedOrder.value.filter(id => String(id) !== gameId);
-    await saveSortOrder(startedOrder.value);
+    startedOrder.value = startedOrder.value.filter(id => String(id) !== gameId)
+    await saveSortOrder(startedOrder.value)
   }
 
-  await updateGame(game.id, { status: newStatus });
+  await updateGame(game.id, { status: newStatus })
 }
 
 async function handleDeleteGame() {
-  if (!overlayGame.value) return;
-  const game = overlayGame.value;
-  const gameId = String(game.id);
-  const wasInPlayNext = playNextList.value.includes(gameId);
+  if (!overlayGame.value) return
+  const game = overlayGame.value
+  const gameId = String(game.id)
+  const wasInPlayNext = playNextList.value.includes(gameId)
 
-  showOverlay.value = false;
-  overlayGame.value = null;
-  gameList.value = gameList.value.filter(g => String(g.id) !== gameId);
+  showOverlay.value = false
+  overlayGame.value = null
+  gameList.value = gameList.value.filter(g => String(g.id) !== gameId)
 
   if (wasInPlayNext) {
-    playNextList.value = playNextList.value.filter(id => String(id) !== gameId);
-    await removeFromPlayNextApi(game.id);
+    playNextList.value = playNextList.value.filter(id => String(id) !== gameId)
+    await removeFromPlayNextApi(game.id)
   }
 
-  await deleteGame(game.id);
+  await deleteGame(game.id)
 }
 
 async function clearGameCache(game) {
   try {
-    const res = await fetch(`${API_BASE}/hltb/cache/${game.externalId}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error(`clearCache failed: ${res.status}`);
+    const res = await fetch(`${API_BASE}/hltb/cache/${game.externalId}`, { method: 'DELETE' })
+    if (!res.ok) throw new Error(`clearCache failed: ${res.status}`)
   } catch (err) {
-    console.error('clearGameCache:', err);
+    console.error('clearGameCache:', err)
   }
 }
 
 // ─── Platform Editor ──────────────────────────────────────────────────────────
 
 function openPlatformEditor(game, event) {
-  event.stopPropagation();
-  platformEditor.value = { ...game, platforms: game.platforms.map(p => ({ ...p })) };
-  showPlatformEditor.value = true;
+  event.stopPropagation()
+  platformEditor.value = { ...game, platforms: game.platforms.map(p => ({ ...p })) }
+  showPlatformEditor.value = true
 }
 
 async function savePlatformEditor() {
-  if (!platformEditor.value) return;
-  const game = gameList.value.find(g => String(g.id) === String(platformEditor.value.id));
-  if (game) game.platforms = platformEditor.value.platforms;
-  await updateGamePlatforms(platformEditor.value.id, platformEditor.value.platforms);
-  showPlatformEditor.value = false;
-  platformEditor.value = null;
+  if (!platformEditor.value) return
+  const game = gameList.value.find(g => String(g.id) === String(platformEditor.value.id))
+  if (game) game.platforms = platformEditor.value.platforms
+  await updateGamePlatforms(platformEditor.value.id, platformEditor.value.platforms)
+  showPlatformEditor.value = false
+  platformEditor.value = null
 }
 
 function removePlatform(index) {
   if (platformEditor.value.platforms.length > 1)
-    platformEditor.value.platforms.splice(index, 1);
+    platformEditor.value.platforms.splice(index, 1)
 }
 
 function addPlatform(platformId) {
-  if (!platformId) return;
-  const plat = { platform: platformId };
-  if (platformId === 'pc') plat.storefront = 'steam';
-  platformEditor.value.platforms.push(plat);
+  if (!platformId) return
+  const plat = { platform: platformId }
+  if (platformId === 'pc') plat.storefront = 'steam'
+  platformEditor.value.platforms.push(plat)
 }
 
 function changeStorefront(plat, storefrontId) { plat.storefront = storefrontId; }
 
 function changePlatform(index, newPlatformId) {
-  const plat = { platform: newPlatformId };
-  if (newPlatformId === 'pc') plat.storefront = 'steam';
-  platformEditor.value.platforms[index] = plat;
+  const plat = { platform: newPlatformId }
+  if (newPlatformId === 'pc') plat.storefront = 'steam'
+  platformEditor.value.platforms[index] = plat
 }
 
 // ─── Play Next ────────────────────────────────────────────────────────────────
 
 async function addToPlayNext(game) {
-  const gameId = String(game.id);
-  if (playNextList.value.length >= 6 || playNextList.value.includes(gameId)) return;
+  const gameId = String(game.id)
+  if (playNextList.value.length >= 6 || playNextList.value.includes(gameId)) return
 
-  playNextList.value = [...playNextList.value, gameId];
+  playNextList.value = [...playNextList.value, gameId]
 
   try {
-    await savePlayNext(playNextList.value);
+    await savePlayNext(playNextList.value)
   } catch (err) {
-    playNextList.value = playNextList.value.filter(id => id !== gameId);
-    console.error('addToPlayNext failed:', err);
+    playNextList.value = playNextList.value.filter(id => id !== gameId)
+    console.error('addToPlayNext failed:', err)
   }
 }
 
 async function removeFromPlayNext(gameId) {
-  const id = String(gameId);
-  playNextList.value = playNextList.value.filter(i => String(i) !== id);
-  await removeFromPlayNextApi(gameId);
+  const id = String(gameId)
+  playNextList.value = playNextList.value.filter(i => String(i) !== id)
+  await removeFromPlayNextApi(gameId)
 }
 
 // ─── Search Overlay ───────────────────────────────────────────────────────────
 
 function openSearchOverlay() {
-  showSearchOverlay.value = true;
+  showSearchOverlay.value = true
 }
 
 function closeSearchOverlay() {
-  showSearchOverlay.value = false;
-  overlaySearchQuery.value = '';
-  hltbResults.value  = [];
-  hltbSearched.value = false;
-  hltbError.value    = '';
+  showSearchOverlay.value = false
+  overlaySearchQuery.value = ''
+  hltbResults.value  = []
+  hltbSearched.value = false
+  hltbError.value    = ''
 }
 
 async function searchHltb() {
-  const q = overlaySearchQuery.value.trim();
-  if (q.length < 3) return;
-  hltbLoading.value  = true;
-  hltbError.value    = '';
-  hltbSearched.value = true;
+  const q = overlaySearchQuery.value.trim()
+  if (q.length < 3) return
+  hltbLoading.value  = true
+  hltbError.value    = ''
+  hltbSearched.value = true
   try {
-    const res = await fetch(`${API_BASE}/hltb/search?q=${encodeURIComponent(q)}`);
-    if (!res.ok) throw new Error(`Error ${res.status}`);
-    const data = await res.json();
-    const existingIds = new Set(gameList.value.map(g => String(g.externalId)));
-    hltbResults.value = data.filter(r => !existingIds.has(String(r.id)));
+    const res = await fetch(`${API_BASE}/hltb/search?q=${encodeURIComponent(q)}`)
+    if (!res.ok) throw new Error(`Error ${res.status}`)
+    const data = await res.json()
+    const existingIds = new Set(gameList.value.map(g => String(g.externalId)))
+    hltbResults.value = data.filter(r => !existingIds.has(String(r.id)))
   } catch (err) {
-    hltbError.value = err.message;
+    hltbError.value = err.message
   } finally {
-    hltbLoading.value = false;
+    hltbLoading.value = false
   }
 }
 
 async function addFromHltb(result) {
   try {
-    const newGame = await addGame(result.id, activeTab.value, []);
-    gameList.value.push(newGame);
-    hltbResults.value = hltbResults.value.filter(r => String(r.id) !== String(result.id));
+    const newGame = await addGame(result.id, activeTab.value, [])
+    gameList.value.push(newGame)
+    hltbResults.value = hltbResults.value.filter(r => String(r.id) !== String(result.id))
   } catch (err) {
-    hltbError.value = err.message;
+    hltbError.value = err.message
   }
 }
 
 async function addFromHltbToStatus(result, status) {
-  if (!status) return;
+  if (!status) return
   try {
-    const newGame = await addGame(result.id, status, []);
-    gameList.value.push(newGame);
-    hltbResults.value = hltbResults.value.filter(r => String(r.id) !== String(result.id));
+    const newGame = await addGame(result.id, status, [])
+    gameList.value.push(newGame)
+    hltbResults.value = hltbResults.value.filter(r => String(r.id) !== String(result.id))
   } catch (err) {
-    hltbError.value = err.message;
+    hltbError.value = err.message
   }
 }
 
 // ─── Filter ───────────────────────────────────────────────────────────────────
 
 function toggleFilter(arr, val) {
-  const i = arr.indexOf(val);
-  if (i > -1) arr.splice(i, 1); else arr.push(val);
+  const i = arr.indexOf(val)
+  if (i > -1) arr.splice(i, 1); else arr.push(val)
 }
 
 function toggleFilterSection(s) {
-  filterSectionsOpen.value[s] = !filterSectionsOpen.value[s];
+  filterSectionsOpen.value[s] = !filterSectionsOpen.value[s]
 }
 
 // ─── Dark Mode ────────────────────────────────────────────────────────────────
 
 function toggleDarkMode() {
-  darkMode.value = !darkMode.value;
-  document.body.classList.toggle('light-mode', !darkMode.value);
+  darkMode.value = !darkMode.value
+  document.body.classList.toggle('light-mode', !darkMode.value)
 }
 
 // ─── Keyboard ─────────────────────────────────────────────────────────────────
 
 function handleGlobalKeydown(e) {
   if (e.key === 'Escape') {
-    if (showSearchOverlay.value)       closeSearchOverlay();
-    else if (showOverlay.value)        showOverlay.value = false;
-    else if (showPlatformEditor.value) showPlatformEditor.value = false;
+    if (showSearchOverlay.value)       closeSearchOverlay()
+    else if (showOverlay.value)        showOverlay.value = false
+    else if (showPlatformEditor.value) showPlatformEditor.value = false
   }
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 onMounted(async () => {
-  document.addEventListener('keydown', handleGlobalKeydown);
-  document.body.classList.toggle('light-mode', !darkMode.value);
-  loading.value = true;
+  document.addEventListener('keydown', handleGlobalKeydown)
+  document.body.classList.toggle('light-mode', !darkMode.value)
+  loading.value = true
   const [games, sortOrder, playNext] = await Promise.all([
     loadGames(), loadSortOrder(), loadPlayNext(),
-  ]);
-  gameList.value     = games;
-  startedOrder.value = sortOrder;
-  playNextList.value = playNext;
-  loading.value      = false;
-});
+  ])
+  gameList.value     = games
+  startedOrder.value = sortOrder
+  playNextList.value = playNext
+  loading.value      = false
+})
 
 onUnmounted(() => {
-  document.removeEventListener('keydown', handleGlobalKeydown);
-});
+  document.removeEventListener('keydown', handleGlobalKeydown)
+})
 </script>
 
 <template>

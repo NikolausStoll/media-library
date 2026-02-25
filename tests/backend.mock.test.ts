@@ -4,27 +4,35 @@ import { flushPromises } from '@vue/test-utils'
 import { mountApp, ZELDA } from './helpers'
 
 vi.mock('../src/services/gameStorage.js', () => ({
-  loadGames: vi.fn(), addGame: vi.fn(), updateGame: vi.fn(),
-  updateGamePlatforms: vi.fn(), deleteGame: vi.fn(),
-  loadSortOrder: vi.fn(), saveSortOrder: vi.fn(),
-  loadPlayNext: vi.fn(), savePlayNext: vi.fn(),
+  loadGames: vi.fn(),
+  addGame: vi.fn(),
+  updateGame: vi.fn(),
+  updateGamePlatforms: vi.fn(),
+  deleteGame: vi.fn(),
+  loadSortOrder: vi.fn(),
+  saveSortOrder: vi.fn(),
+  loadPlayNext: vi.fn(),
+  savePlayNext: vi.fn(),
   removeFromPlayNextApi: vi.fn(),
 }))
 
 vi.mock('../src/data/games.js', () => ({
-  storefronts:        [{ id: 'nintendo', label: 'Nintendo' }],
-  availablePlatforms: [{ id: 'switch',   label: 'Switch'   }],
+  storefronts: [{ id: 'nintendo', label: 'Nintendo' }],
+  availablePlatforms: [{ id: 'switch', label: 'Switch' }],
 }))
 
-vi.mock('../src/data/platformLogos.js', () => ({ getPlatformLogo: vi.fn(() => null) }))
+vi.mock('../src/data/platformLogos.js', () => ({
+  getPlatformLogo: vi.fn(() => null),
+}))
 
 global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => [] })
 
-afterEach(() => { vi.clearAllMocks(); document.body.innerHTML = '' })
+afterEach(() => {
+  vi.clearAllMocks()
+  document.body.innerHTML = ''
+})
 
 describe('Backend-Mock – API Calls', () => {
-  // ── onMounted ─────────────────────────────────────────────────────────────
-
   it('ruft loadGames, loadSortOrder und loadPlayNext beim Mount auf', async () => {
     const { loadGames, loadSortOrder, loadPlayNext } =
       await import('../src/services/gameStorage.js')
@@ -37,17 +45,14 @@ describe('Backend-Mock – API Calls', () => {
     wrapper.unmount()
   })
 
-  // ── addGame ───────────────────────────────────────────────────────────────
-
   it('addGame wird mit externalId + activeTab aufgerufen', async () => {
     const { addGame } = await import('../src/services/gameStorage.js')
     ;(addGame as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ...ZELDA, id: '99',
+      ...ZELDA,
+      id: '99',
     })
 
     const wrapper = await mountApp()
-
-    // Zu Backlog wechseln
     const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
     await backlogTab!.trigger('click')
     await nextTick()
@@ -85,26 +90,19 @@ describe('Backend-Mock – API Calls', () => {
     await addBtn.trigger('click')
     await nextTick()
 
-    // Die Fehlermeldung könnte anders sein oder gar nicht erscheinen
-    // wenn der Button disabled ist
     expect(addBtn.attributes('disabled')).toBeDefined()
     wrapper.unmount()
   })
-
-  // ── deleteGame ────────────────────────────────────────────────────────────
 
   it('deleteGame wird nach Bestätigung aufgerufen', async () => {
     const { deleteGame } = await import('../src/services/gameStorage.js')
     ;(deleteGame as ReturnType<typeof vi.fn>).mockResolvedValue(undefined)
 
     const wrapper = await mountApp({ games: [ZELDA] })
-
-    // Zu Backlog wechseln (ZELDA ist in backlog)
     const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
     await backlogTab!.trigger('click')
     await nextTick()
 
-    // Overlay öffnen
     const card = wrapper.find('.game-card')
     await card.trigger('click')
     await nextTick()
@@ -123,15 +121,14 @@ describe('Backend-Mock – API Calls', () => {
     wrapper.unmount()
   })
 
-  // ── updateGame ────────────────────────────────────────────────────────────
-
   it('updateGame wird beim Status-Wechsel aufgerufen', async () => {
     const { updateGame } = await import('../src/services/gameStorage.js')
-    ;(updateGame as ReturnType<typeof vi.fn>).mockResolvedValue({ ...ZELDA, status: 'completed' })
+    ;(updateGame as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ...ZELDA,
+      status: 'completed',
+    })
 
     const wrapper = await mountApp({ games: [ZELDA] })
-
-    // Zu Backlog wechseln (ZELDA ist in backlog)
     const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
     await backlogTab!.trigger('click')
     await nextTick()
@@ -139,9 +136,9 @@ describe('Backend-Mock – API Calls', () => {
     await wrapper.find('.game-card').trigger('click')
     await nextTick()
 
-    const completedBtn = wrapper.findAll('.status-btn').find(b =>
-      b.text().includes('Completed')
-    )
+    const completedBtn = wrapper
+      .findAll('.status-btn')
+      .find(b => b.text().includes('Completed'))
     expect(completedBtn).toBeDefined()
     await completedBtn!.trigger('click')
     await flushPromises()
@@ -158,8 +155,6 @@ describe('Backend-Mock – API Calls', () => {
     ;(addGame as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Server Error'))
 
     const wrapper = await mountApp()
-
-    // Zu Backlog wechseln
     const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
     await backlogTab!.trigger('click')
     await nextTick()

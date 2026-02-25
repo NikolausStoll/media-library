@@ -19,8 +19,8 @@ and an Express.js backend on Node.js.
 
 ### Backend
 - **Runtime:** Node.js with Express.js
-- **API Base:** `import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api'`
-- **Port:** Default 3000 (configurable via `PORT` env variable)
+- **API Base:** `import.meta.env.VITE_API_URL ?? 'http://localhost:8787/api'`
+- **Port:** Default 8787 (configurable via `PORT` env variable)
 - **Key Endpoints:**
   - `GET    /api/games`                 -> load all games
   - `POST   /api/games`                 -> add game

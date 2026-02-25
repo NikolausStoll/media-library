@@ -1,11 +1,11 @@
-import Database from 'better-sqlite3';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import Database from 'better-sqlite3'
+import { join, dirname } from 'path'
+import { fileURLToPath } from 'url'
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const db = new Database(join(__dirname, '../../backend.db'));
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const db = new Database(join(__dirname, '../../backend.db'))
 
-db.pragma('foreign_keys = ON');
+db.pragma('foreign_keys = ON')
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS hltb_cache (
@@ -20,14 +20,14 @@ db.exec(`
     dlcs             TEXT,
     updatedAt        INTEGER
   )
-`);
+`)
 
-const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
 
 export function getFromCache(id) {
-  const row = db.prepare('SELECT * FROM hltb_cache WHERE id = ?').get(id);
-  if (!row) return null;
-  if (Date.now() - row.updatedAt > SEVEN_DAYS_MS) return null;
+  const row = db.prepare('SELECT * FROM hltb_cache WHERE id = ?').get(id)
+  if (!row) return null
+  if (Date.now() - row.updatedAt > SEVEN_DAYS_MS) return null
 
   return {
     id: row.id,
@@ -39,7 +39,7 @@ export function getFromCache(id) {
     gameplayAll: row.gameplayAll,
     rating: row.rating,
     dlcs: JSON.parse(row.dlcs ?? '[]'),
-  };
+  }
 }
 
 export function saveToCache(game) {
@@ -60,9 +60,9 @@ export function saveToCache(game) {
     ...game,
     dlcs: JSON.stringify(game.dlcs ?? []),
     updatedAt: Date.now(),
-  });
+  })
 }
 
 export function deleteFromCache(id) {
-  db.prepare('DELETE FROM hltb_cache WHERE id = ?').run(id);
+  db.prepare('DELETE FROM hltb_cache WHERE id = ?').run(id)
 }
