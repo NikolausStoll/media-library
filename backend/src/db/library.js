@@ -31,8 +31,8 @@ db.exec(`
   );
 
   CREATE TABLE IF NOT EXISTS sortorder (
-    id      INTEGER PRIMARY KEY AUTOINCREMENT,
-    gameId  INTEGER NOT NULL UNIQUE,
+    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    gameId   INTEGER NOT NULL UNIQUE,
     position INTEGER NOT NULL,
     FOREIGN KEY (gameId) REFERENCES games(id) ON DELETE CASCADE
   );
@@ -66,6 +66,19 @@ db.exec(`
     UNIQUE(mediaId, mediaType, provider)
   );
 
+  CREATE TABLE IF NOT EXISTS hltbcache (
+    id               TEXT PRIMARY KEY,
+    name             TEXT,
+    imageUrl         TEXT,
+    gameplayMain     REAL,
+    gameplayExtra    REAL,
+    gameplayComplete REAL,
+    gameplayAll      REAL,
+    rating           REAL,
+    dlcs             TEXT,
+    updatedAt        INTEGER
+  );
+
   CREATE TABLE IF NOT EXISTS tmdbcache (
     id            TEXT NOT NULL,
     mediaType     TEXT NOT NULL CHECK(mediaType IN ('movie','series')),
@@ -83,19 +96,6 @@ db.exec(`
     originalLang  TEXT,
     updatedAt     INTEGER,
     PRIMARY KEY(id, mediaType)
-  );
-
-  CREATE TABLE IF NOT EXISTS hltbcache (
-    id           TEXT PRIMARY KEY,
-    name         TEXT,
-    imageUrl     TEXT,
-    gameplayMain REAL,
-    gameplayExtra REAL,
-    gameplayComplete REAL,
-    gameplayAll  REAL,
-    rating       REAL,
-    dlcs         TEXT,
-    updatedAt    INTEGER
   );
 `)
 

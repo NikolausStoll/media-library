@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { db, getGameWithPlatforms } from '../db/library.js'
-import { getFromCache, saveToCache, deleteFromCache } from '../services/db.js'
+import { getFromCache, saveToCache, deleteFromCache } from '../services/hltbCache.js'
 import { getGame as fetchFromHltb } from '../services/hltbService.js'
 
 const router = Router()

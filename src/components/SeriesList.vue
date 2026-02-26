@@ -1,0 +1,1 @@
+<template><div style="padding:2rem;color:#888">SeriesList – coming in Phase 4</div></template>
