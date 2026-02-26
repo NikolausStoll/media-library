@@ -94,6 +94,7 @@ db.exec(`
     genres        TEXT,
     linkUrl       TEXT,
     originalLang  TEXT,
+    streamingProviders TEXT,
     updatedAt     INTEGER,
     PRIMARY KEY(id, mediaType)
   );

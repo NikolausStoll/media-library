@@ -18,20 +18,21 @@ async function aggregateMovie(movie) {
     }
   }
   return {
-    id:           String(movie.id),
-    externalId:   movie.externalId,
-    status:       movie.status,
-    userRating:   movie.userRating ?? null,
-    providers:    movie.providers ?? [],
-    title:        tmdb?.titleEn ?? tmdb?.titleDe ?? movie.externalId,
-    titleDe:      tmdb?.titleDe ?? null,
-    imageUrl:     tmdb?.imageUrl ?? null,
-    year:         tmdb?.year ?? null,
-    certification: tmdb?.certification ?? null,
-    rating:       tmdb?.rating ?? null,
-    runtime:      tmdb?.runtime ?? null,
-    genres:       JSON.parse(tmdb?.genres ?? '[]'),
-    linkUrl:      tmdb?.linkUrl ?? null,
+    id:                 String(movie.id),
+    externalId:         movie.externalId,
+    status:             movie.status,
+    userRating:         movie.userRating ?? null,
+    providers:          movie.providers ?? [],
+    title:              tmdb?.titleEn ?? tmdb?.titleDe ?? movie.externalId,
+    titleDe:            tmdb?.titleDe ?? null,
+    imageUrl:           tmdb?.imageUrl ?? null,
+    year:               tmdb?.year ?? null,
+    certification:      tmdb?.certification ?? null,
+    rating:             tmdb?.rating ?? null,
+    runtime:            tmdb?.runtime ?? null,
+    genres:             JSON.parse(tmdb?.genres ?? '[]'),
+    streamingProviders: JSON.parse(tmdb?.streamingProviders ?? '[]'),
+    linkUrl:            tmdb?.linkUrl ?? null,
   }
 }
 
