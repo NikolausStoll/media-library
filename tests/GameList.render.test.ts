@@ -98,4 +98,35 @@ describe('GameList – Rendering', () => {
     expect(wrapper.text()).toContain('SORT')
     wrapper.unmount()
   })
+
+  it('Klick auf List-Button fügt list-view Klasse hinzu', async () => {
+    const wrapper = await mountApp()
+
+    const listBtn = wrapper.findAll('button').find(b => b.text().includes('List'))
+    expect(listBtn).toBeDefined()
+
+    await listBtn!.trigger('click')
+    await nextTick()
+
+    expect(wrapper.find('.game-list-container').classes()).toContain('list-view')
+
+    wrapper.unmount()
+  })
+
+  it('Klick auf Grid-Button entfernt list-view Klasse wieder', async () => {
+    const wrapper = await mountApp()
+
+    const listBtn = wrapper.findAll('button').find(b => b.text().includes('List'))
+    const gridBtn = wrapper.findAll('button').find(b => b.text().includes('Grid'))
+
+    await listBtn!.trigger('click')
+    await nextTick()
+    expect(wrapper.find('.game-list-container').classes()).toContain('list-view')
+
+    await gridBtn!.trigger('click')
+    await nextTick()
+    expect(wrapper.find('.game-list-container').classes()).not.toContain('list-view')
+
+    wrapper.unmount()
+  })
 })

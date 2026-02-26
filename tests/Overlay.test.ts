@@ -255,4 +255,61 @@ describe('Overlay – Game-Detail', () => {
 
     wrapper.unmount()
   })
+  
+  it('Platform Editor öffnet sich beim Klick auf Platform-Badge', async () => {
+    const wrapper = await mountApp()
+
+    // Started-Tab ist default, MARIO hat status: started
+    const cards = wrapper.findAll('.game-card')
+    expect(cards.length).toBeGreaterThan(0)
+
+    // Platform-Badge klicken (nicht die Karte selbst)
+    const platformBadge = cards[0].find('.card-platform')
+    expect(platformBadge.exists()).toBe(true)
+    await platformBadge.trigger('click')
+    await nextTick()
+
+    // Platform Editor sollte offen sein, NICHT der Status-Overlay
+    expect(wrapper.find('.editor-content').exists()).toBe(true)
+    expect(wrapper.find('.overlay-content').exists()).toBe(false)
+
+    wrapper.unmount()
+  })
+
+  it('Platform Editor schließt sich nach Done-Klick', async () => {
+    const wrapper = await mountApp()
+
+    const platformBadge = wrapper.findAll('.game-card')[0].find('.card-platform')
+    await platformBadge.trigger('click')
+    await nextTick()
+
+    expect(wrapper.find('.editor-content').exists()).toBe(true)
+
+    await wrapper.find('.close-btn').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.find('.editor-content').exists()).toBe(false)
+
+    wrapper.unmount()
+  })
+
+  it('Platform Editor schließt sich mit ESC', async () => {
+    const wrapper = await mountApp()
+
+    const platformBadge = wrapper.findAll('.game-card')[0].find('.card-platform')
+    await platformBadge.trigger('click')
+    await nextTick()
+
+    expect(wrapper.find('.editor-content').exists()).toBe(true)
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await nextTick()
+
+    expect(wrapper.find('.editor-content').exists()).toBe(false)
+
+    wrapper.unmount()
+  })
+
+
 })

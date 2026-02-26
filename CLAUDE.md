@@ -50,32 +50,37 @@ and an Express.js backend on Node.js.
 /
 ├── src/
 │   ├── components/
-│   │   └── GameList.vue          # Main component (all logic lives here)
+│   │   ├── games/
+│   │   │   ├── GameCard.vue          # Einzelne Spielkarte (Cover, Titel, Platform, Playtime, Rating, DLC, Tags)
+│   │   │   ├── GameFilters.vue       # Rechte Sidebar (Filter, Sortierung, Suche, View-Toggle, Dark Mode)
+│   │   │   ├── GameSearchOverlay.vue # HLTB-Suchoverlay (Suche, Ergebnisse, Spiel hinzufügen)
+│   │   │   └── StatusOverlay.vue     # Spiel-Detail-Overlay (Status ändern, Tags, Cache, Löschen)
+│   │   └── GameList.vue              # Main component (all logic lives here)
 │   ├── data/
-│   │   ├── games.js              # storefronts[], availablePlatforms[]
-│   │   └── platformLogos.js      # getPlatformLogo(platform, storefront)
+│   │   ├── games.js                  # storefronts[], availablePlatforms[]
+│   │   └── platformLogos.js          # getPlatformLogo(platform, storefront)
 │   ├── services/
-│   │   └── gameStorage.js        # All API calls (loadGames, addGame, etc.)
+│   │   └── gameStorage.js            # All API calls (loadGames, addGame, etc.)
 │   └── main.js
 ├── tests/
-│   ├── helpers.ts                # mountApp(), shared fixtures (ZELDA, MARIO, METROID)
-│   ├── GameList.render.test.ts   # Tab rendering, card counts
-│   ├── Filters.test.ts           # Platform/Storefront filter, fuzzy search, sort
-│   ├── GameBadges.test.ts        # PlayNext badge, statusCounts, cover fallback
-│   ├── GameList.drag.test.ts     # Drag & Drop, startedOrder, saveSortOrder
-│   ├── Overlay.test.ts           # Overlay functionality tests
-│   ├── backend.mock.test.ts      # API call mocks: addGame, deleteGame, updateGame
-│   └── setup.ts                  # Global test setup (afterEach cleanup)
+│   ├── helpers.ts                    # mountApp(), shared fixtures (ZELDA, MARIO, METROID)
+│   ├── GameList.render.test.ts       # Tab rendering, card counts
+│   ├── Filters.test.ts               # Platform/Storefront filter, fuzzy search, sort
+│   ├── GameBadges.test.ts            # PlayNext badge, statusCounts, cover fallback
+│   ├── GameList.drag.test.ts         # Drag & Drop, startedOrder, saveSortOrder
+│   ├── Overlay.test.ts               # Overlay functionality tests
+│   ├── backend.mock.test.ts          # API call mocks: addGame, deleteGame, updateGame
+│   └── setup.ts                      # Global test setup (afterEach cleanup)
 ├── backend/
 │   ├── src/
-│   │   ├── index.js              # Express server entry point
-│   │   ├── routes/               # API route handlers
-│   │   ├── services/             # Business logic (HLTB, database)
-│   │   └── db/                   # Database setup and seeds
+│   │   ├── index.js                  # Express server entry point
+│   │   ├── routes/                   # API route handlers
+│   │   ├── services/                 # Business logic (HLTB, database)
+│   │   └── db/                       # Database setup and seeds
 │   └── package.json
 ├── vitest.config.ts
 ├── vite.config.ts
-├── CLAUDE.md                     # This file
+├── CLAUDE.md                         # This file
 └── README.md
 ```
 
