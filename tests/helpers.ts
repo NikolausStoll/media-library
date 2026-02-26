@@ -41,12 +41,12 @@ export async function mountApp(overrides?: {
   sortOrder?: string[]
   playNext?: string[]
 }) {
-  const { loadGames, loadSortOrder, loadPlayNext } =
+  const { loadGames, loadSortOrder, loadNext } =
     await import('../src/services/gameStorage.js')
 
   ;(loadGames as ReturnType<typeof vi.fn>).mockResolvedValue(overrides?.games ?? [ZELDA, MARIO, METROID])
   ;(loadSortOrder as ReturnType<typeof vi.fn>).mockResolvedValue(overrides?.sortOrder ?? [])
-  ;(loadPlayNext as ReturnType<typeof vi.fn>).mockResolvedValue(overrides?.playNext ?? [])
+  ;(loadNext as ReturnType<typeof vi.fn>).mockResolvedValue(overrides?.playNext ?? [])
 
   const wrapper = mount(GameList, { attachTo: document.body })
   await flushPromises()

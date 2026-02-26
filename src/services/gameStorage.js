@@ -100,37 +100,36 @@ export async function saveSortOrder(orderedGameIds) {
   }
 }
 
-export async function loadPlayNext() {
+export async function loadNext(mediaType = 'game') {
   try {
-    const res = await fetch(`${API_BASE}/play-next`)
-    if (!res.ok) throw new Error(`loadPlayNext failed: ${res.status}`)
+    const res = await fetch(`${API_BASE}/next?type=${mediaType}`)
+    if (!res.ok) throw new Error(`loadNext failed: ${res.status}`)
     const data = await res.json()
-    return data.map(entry => String(entry.gameId))
+    return data.map(entry => String(entry.mediaId))
   } catch (err) {
-    console.error('loadPlayNext:', err)
+    console.error('loadNext', err)
     return []
   }
 }
 
-export async function savePlayNext(gameIds) {
-  const res = await fetch(`${API_BASE}/play-next`, {
+export async function saveNext(mediaIds, mediaType = 'game') {
+  const items = mediaIds.map(id => ({ mediaId: Number(id), mediaType }))
+  const res = await fetch(`${API_BASE}/next`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ids: gameIds.map(Number) }),
+    body: JSON.stringify(items),
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: `Status ${res.status}` }))
-    throw new Error(err.error ?? `savePlayNext failed: ${res.status}`)
+    throw new Error(err.error ?? `saveNext failed: ${res.status}`)
   }
 }
 
-export async function removeFromPlayNextApi(gameId) {
+export async function removeFromNext(mediaId, mediaType = 'game') {
   try {
-    const res = await fetch(`${API_BASE}/play-next/${gameId}`, {
-      method: 'DELETE',
-    })
-    if (!res.ok) throw new Error(`removeFromPlayNext failed: ${res.status}`)
+    const res = await fetch(`${API_BASE}/next/${mediaId}?type=${mediaType}`, { method: 'DELETE' })
+    if (!res.ok) throw new Error(`removeFromNext failed: ${res.status}`)
   } catch (err) {
-    console.error('removeFromPlayNext:', err)
+    console.error('removeFromNext', err)
   }
 }

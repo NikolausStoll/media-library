@@ -40,10 +40,10 @@ router.get('/', async (req, res) => {
     const rawGames = db.prepare('SELECT * FROM games').all().map((g) => ({
       ...g,
       platforms: db
-        .prepare('SELECT id, platform, storefront FROM game_platforms WHERE gameId = ?')
+        .prepare('SELECT id, platform, storefront FROM gameplatforms WHERE gameId = ?')
         .all(g.id),
       tags: db
-        .prepare('SELECT tag FROM game_tags WHERE gameId = ?')
+        .prepare('SELECT tag FROM gametags WHERE gameId = ?')
         .all(g.id)
         .map(r => r.tag),
     }))
@@ -85,7 +85,7 @@ router.post('/', async (req, res) => {
   if (!externalId || !status)
     return res.status(400).json({ error: 'externalId und status sind Pflichtfelder' })
 
-  const VALID = ['backlog', 'wishlist', 'started', 'completed', 'retired', 'shelved']
+  const VALID = ['backlog', 'wishlist', 'started', 'completed', 'dropped', 'shelved']
   if (!VALID.includes(status))
     return res.status(400).json({ error: `Ungültiger status. Erlaubt: ${VALID.join(', ')}` })
 
@@ -100,7 +100,7 @@ router.post('/', async (req, res) => {
         .run(externalId, status)
 
       for (const p of platforms) {
-        db.prepare('INSERT INTO game_platforms (gameId, platform, storefront) VALUES (?, ?, ?)')
+        db.prepare('INSERT INTO gameplatforms (gameId, platform, storefront) VALUES (?, ?, ?)')
           .run(lastInsertRowid, p.platform, p.storefront ?? null)
       }
       return lastInsertRowid
@@ -117,7 +117,7 @@ router.put('/:id', async (req, res) => {
   const existing = db.prepare('SELECT * FROM games WHERE id = ?').get(id)
   if (!existing) return res.status(404).json({ error: 'Spiel nicht gefunden' })
 
-  const VALID = ['backlog', 'wishlist', 'started', 'completed', 'retired', 'shelved']
+  const VALID = ['backlog', 'wishlist', 'started', 'completed', 'dropped', 'shelved']
   if (req.body.status && !VALID.includes(req.body.status))
     return res.status(400).json({ error: `Ungültiger status. Erlaubt: ${VALID.join(', ')}` })
 
@@ -146,9 +146,9 @@ router.put('/:id/platforms', async (req, res) => {
 
   try {
     db.transaction(() => {
-      db.prepare('DELETE FROM game_platforms WHERE gameId = ?').run(id)
+      db.prepare('DELETE FROM gameplatforms WHERE gameId = ?').run(id)
       for (const p of platforms) {
-        db.prepare('INSERT INTO game_platforms (gameId, platform, storefront) VALUES (?, ?, ?)')
+        db.prepare('INSERT INTO gameplatforms (gameId, platform, storefront) VALUES (?, ?, ?)')
           .run(id, p.platform, p.storefront ?? null)
       }
     })()
@@ -177,8 +177,8 @@ router.put('/:id/tags', async (req, res) => {
 
   try {
     db.transaction(() => {
-      db.prepare('DELETE FROM game_tags WHERE gameId = ?').run(id)
-      const stmt = db.prepare('INSERT OR IGNORE INTO game_tags (gameId, tag) VALUES (?, ?)')
+      db.prepare('DELETE FROM gametags WHERE gameId = ?').run(id)
+      const stmt = db.prepare('INSERT OR IGNORE INTO gametags (gameId, tag) VALUES (?, ?)')
       for (const tag of tags) stmt.run(id, tag)
     })()
     res.json(await aggregateGame(getGameWithPlatforms(id)))

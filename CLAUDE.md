@@ -94,7 +94,7 @@ interface Game {
   id: string
   externalId: string        // HowLongToBeat ID
   name: string
-  status: 'backlog' | 'wishlist' | 'started' | 'shelved' | 'completed' | 'retired'
+  status: 'backlog' | 'wishlist' | 'started' | 'shelved' | 'completed' | 'dropped'
   coverUrl: string | null
   rating: number | null     // 1-10
   gameplayAll: number | null // HLTB hours
@@ -148,7 +148,7 @@ interface Platform {
 ## Important Business Logic
 
 ### Tabs
-- Tabs: `backlog`, `wishlist`, `started`, `completed`, `retired`
+- Tabs: `backlog`, `wishlist`, `started`, `completed`, `dropped`
 - Switching to `started` tab automatically sets `sortBy = 'custom'`
 - Switching away from `started` resets `sortBy = 'name'`, `sortDirection = 'asc'`
 
@@ -259,5 +259,5 @@ FRONTEND_URL=http://localhost:5173       # CORS origin (default: http://localhos
 - `addGame(externalId, status, platforms)` - **3 parameters**: externalId, initial status, platforms array
 - After `deleteGame`, the item must be removed from `gameList` locally (no full reload)
 - After `updateGame` (status change), `showOverlay` is set to `false` and `overlayGame` to `null`
-- Status buttons in overlay use labels from `statusOptions`: "Wishlist", "Backlog", "Started", "Shelved", "Completed", "Retired"
+- Status buttons in overlay use labels from `statusOptions`: "Wishlist", "Backlog", "Started", "Shelved", "Completed", "Dropped"
 - Add-game button (`.add-game-btn`) is disabled when input is empty via `:disabled` attribute

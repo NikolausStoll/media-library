@@ -11,9 +11,9 @@ vi.mock('../src/services/gameStorage.js', () => ({
   deleteGame: vi.fn(),
   loadSortOrder: vi.fn(),
   saveSortOrder: vi.fn(),
-  loadPlayNext: vi.fn(),
-  savePlayNext: vi.fn(),
-  removeFromPlayNextApi: vi.fn(),
+  loadNext: vi.fn(),
+  saveNext: vi.fn(),
+  removeFromNext: vi.fn(),
 }))
 
 vi.mock('../src/data/games.js', () => ({
@@ -49,12 +49,12 @@ const MARIO = {
 }
 
 async function mountApp() {
-  const { loadGames, loadSortOrder, loadPlayNext } =
+  const { loadGames, loadSortOrder, loadNext } =
     await import('../src/services/gameStorage.js')
 
   ;(loadGames as ReturnType<typeof vi.fn>).mockResolvedValue([ZELDA, MARIO])
   ;(loadSortOrder as ReturnType<typeof vi.fn>).mockResolvedValue([])
-  ;(loadPlayNext as ReturnType<typeof vi.fn>).mockResolvedValue([])
+  ;(loadNext as ReturnType<typeof vi.fn>).mockResolvedValue([])
 
   const wrapper = mount(GameList, { attachTo: document.body })
   await flushPromises()
@@ -255,7 +255,7 @@ describe('Overlay – Game-Detail', () => {
 
     wrapper.unmount()
   })
-  
+
   it('Platform Editor öffnet sich beim Klick auf Platform-Badge', async () => {
     const wrapper = await mountApp()
 

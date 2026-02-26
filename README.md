@@ -8,7 +8,7 @@ Built with **Vue 3** + **Express.js** on Node.js.
 
 ## Features
 
-- 6 tabs: Wishlist / Backlog / Started / Completed / Retired / All
+- 6 tabs: Wishlist / Backlog / Started / Completed / Dropped / All
 - HLTB Integration: Search HowLongToBeat to add games with cover art & playtime data
 - Platform & Storefront tags: Tag games with platform (Switch, PC, Xbox, 3DS) and storefront (Steam, Epic, GOG, Battle.net, Ubisoft, EA, Xbox App)
 - Game tags: Mark games as "physical" or "100%"
@@ -183,11 +183,11 @@ All 42 tests passing ✅
 
 ### Tables
 - **games**: `id`, `externalId` (HLTB ID), `status`
-- **game_platforms**: `gameId`, `platform`, `storefront`
-- **game_tags**: `gameId`, `tag` (`physical`, `100%`)
-- **sort_order**: `gameId`, `position` (for Started tab drag order)
-- **play_next**: `gameId` (max 6 entries)
-- **hltb_cache**: HLTB data cache with 7-day TTL
+- **gameplatforms**: `gameId`, `platform`, `storefront`
+- **gametags**: `gameId`, `tag` (`physical`, `100%`)
+- **sortorder**: `gameId`, `position` (for Started tab drag order)
+- **playnext**: `gameId` (max 6 entries)
+- **hltbcache**: HLTB data cache with 7-day TTL
 
 All tables use foreign keys with `ON DELETE CASCADE`.
 
@@ -198,7 +198,7 @@ All tables use foreign keys with `ON DELETE CASCADE`.
 ```
 wishlist -> backlog -> started -> completed
                    -> shelved -> started
-                   -> retired
+                   -> dropped
 ```
 
 **Special behavior:**
@@ -220,7 +220,7 @@ wishlist -> backlog -> started -> completed
 - Manual cache invalidation per game available
 
 ### Drag & Drop (Started Tab)
-- Custom sort order persisted in `sort_order` table
+- Custom sort order persisted in `sortorder` table
 - Automatically switches to `custom` sort when entering Started tab
 - Games not in sort order append to end
 

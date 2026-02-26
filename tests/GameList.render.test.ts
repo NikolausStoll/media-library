@@ -11,9 +11,9 @@ vi.mock('../src/services/gameStorage.js', () => ({
   deleteGame: vi.fn(),
   loadSortOrder: vi.fn(),
   saveSortOrder: vi.fn(),
-  loadPlayNext: vi.fn(),
-  savePlayNext: vi.fn(),
-  removeFromPlayNextApi: vi.fn(),
+  loadNext: vi.fn(),
+  saveNext: vi.fn(),
+  removeFromNext: vi.fn(),
 }))
 
 vi.mock('../src/data/games.js', () => ({
@@ -35,7 +35,7 @@ afterEach(() => {
 describe('GameList – Rendering', () => {
   it('zeigt alle Tab-Labels', async () => {
     const wrapper = await mountApp()
-    const tabLabels = ['Backlog', 'Wishlist', 'Started', 'Completed', 'Retired']
+    const tabLabels = ['Backlog', 'Wishlist', 'Started', 'Completed', 'Dropped']
     tabLabels.forEach(label => {
       expect(wrapper.text()).toContain(label)
     })

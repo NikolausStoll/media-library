@@ -8,7 +8,7 @@ const db = new Database(join(__dirname, '../../backend.db'))
 db.pragma('foreign_keys = ON')
 
 db.exec(`
-  CREATE TABLE IF NOT EXISTS hltb_cache (
+  CREATE TABLE IF NOT EXISTS hltbcache (
     id               TEXT PRIMARY KEY,
     name             TEXT,
     imageUrl         TEXT,
@@ -25,7 +25,7 @@ db.exec(`
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
 
 export function getFromCache(id) {
-  const row = db.prepare('SELECT * FROM hltb_cache WHERE id = ?').get(id)
+  const row = db.prepare('SELECT * FROM hltbcache WHERE id = ?').get(id)
   if (!row) return null
   if (Date.now() - row.updatedAt > SEVEN_DAYS_MS) return null
 
@@ -44,7 +44,7 @@ export function getFromCache(id) {
 
 export function saveToCache(game) {
   db.prepare(`
-    INSERT INTO hltb_cache (id, name, imageUrl, gameplayMain, gameplayExtra, gameplayComplete, gameplayAll, rating, dlcs, updatedAt)
+    INSERT INTO hltbcache (id, name, imageUrl, gameplayMain, gameplayExtra, gameplayComplete, gameplayAll, rating, dlcs, updatedAt)
     VALUES (@id, @name, @imageUrl, @gameplayMain, @gameplayExtra, @gameplayComplete, @gameplayAll, @rating, @dlcs, @updatedAt)
     ON CONFLICT(id) DO UPDATE SET
       name             = excluded.name,
@@ -64,5 +64,5 @@ export function saveToCache(game) {
 }
 
 export function deleteFromCache(id) {
-  db.prepare('DELETE FROM hltb_cache WHERE id = ?').run(id)
+  db.prepare('DELETE FROM hltbcache WHERE id = ?').run(id)
 }

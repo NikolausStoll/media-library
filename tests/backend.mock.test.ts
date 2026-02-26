@@ -11,9 +11,9 @@ vi.mock('../src/services/gameStorage.js', () => ({
   deleteGame: vi.fn(),
   loadSortOrder: vi.fn(),
   saveSortOrder: vi.fn(),
-  loadPlayNext: vi.fn(),
-  savePlayNext: vi.fn(),
-  removeFromPlayNextApi: vi.fn(),
+  loadNext: vi.fn(),
+  saveNext: vi.fn(),
+  removeFromNext: vi.fn(),
 }))
 
 vi.mock('../src/data/games.js', () => ({
@@ -128,15 +128,15 @@ describe('Backend-Mock – API Calls', () => {
       return Promise.resolve({ ok: true, json: async () => [] })
     })
   })
-  it('ruft loadGames, loadSortOrder und loadPlayNext beim Mount auf', async () => {
-    const { loadGames, loadSortOrder, loadPlayNext } =
+  it('ruft loadGames, loadSortOrder und loadNext beim Mount auf', async () => {
+    const { loadGames, loadSortOrder, loadNext } =
       await import('../src/services/gameStorage.js')
 
     const wrapper = await mountApp()
 
     expect(loadGames).toHaveBeenCalledTimes(1)
     expect(loadSortOrder).toHaveBeenCalledTimes(1)
-    expect(loadPlayNext).toHaveBeenCalledTimes(1)
+    expect(loadNext).toHaveBeenCalledTimes(1)
     wrapper.unmount()
   })
 

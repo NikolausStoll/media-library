@@ -11,9 +11,9 @@ import {
   deleteGame,
   loadSortOrder,
   saveSortOrder,
-  loadPlayNext,
-  savePlayNext,
-  removeFromPlayNextApi,
+  loadNext,
+  saveNext,
+  removeFromNext,
   updateGameTags,
 } from '../services/gameStorage.js'
 
@@ -73,7 +73,7 @@ const tabs = [
   { id: 'backlog',   label: 'Backlog'   },  
   { id: 'started',   label: 'Started'   },
   { id: 'completed', label: 'Completed' },
-  { id: 'retired',   label: 'Retired'   },
+  { id: 'dropped',   label: 'Dropped'   },
   { id: 'all',       label: 'All'       },
 ]
 
@@ -83,7 +83,7 @@ const statusOptions = [
   { id: 'started',   label: 'Started'   },
   { id: 'shelved',   label: 'Shelved'   },
   { id: 'completed', label: 'Completed' },
-  { id: 'retired',   label: 'Retired'   },
+  { id: 'dropped',   label: 'Dropped'   },
 ]
 
 const viewMode = ref(localStorage.getItem('viewMode') || 'grid')
@@ -363,7 +363,7 @@ async function changeStatus(newStatus) {
 
   if (wasInPlayNext && newStatus !== 'backlog') {
     playNextList.value = playNextList.value.filter(id => String(id) !== gameId)
-    await removeFromPlayNextApi(game.id)
+    await removeFromNext(game.id)
   }
 
   if (wasStarted && newStatus !== 'started') {
@@ -386,7 +386,7 @@ async function handleDeleteGame() {
 
   if (wasInPlayNext) {
     playNextList.value = playNextList.value.filter(id => String(id) !== gameId)
-    await removeFromPlayNextApi(game.id)
+    await removeFromNext(game.id)
   }
 
   await deleteGame(game.id)
@@ -447,7 +447,7 @@ async function addToPlayNext(game) {
   playNextList.value = [...playNextList.value, gameId]
 
   try {
-    await savePlayNext(playNextList.value)
+    await saveNext(playNextList.value)
   } catch (err) {
     playNextList.value = playNextList.value.filter(id => id !== gameId)
     console.error('addToPlayNext failed:', err)
@@ -457,7 +457,7 @@ async function addToPlayNext(game) {
 async function removeFromPlayNext(gameId) {
   const id = String(gameId)
   playNextList.value = playNextList.value.filter(i => String(i) !== id)
-  await removeFromPlayNextApi(gameId)
+  await removeFromNext(gameId)
 }
 
 // ─── Search Overlay ───────────────────────────────────────────────────────────
@@ -538,7 +538,7 @@ onMounted(async () => {
   document.body.classList.toggle('light-mode', !darkMode.value)
   loading.value = true
   const [games, sortOrder, playNext] = await Promise.all([
-    loadGames(), loadSortOrder(), loadPlayNext(),
+    loadGames(), loadSortOrder(), loadNext(),
   ])
   gameList.value     = games
   startedOrder.value = sortOrder

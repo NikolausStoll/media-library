@@ -23,9 +23,9 @@ const games = [
   },
 ];
 
-db.prepare('DELETE FROM play_next').run();
-db.prepare('DELETE FROM sort_order').run();
-db.prepare('DELETE FROM game_platforms').run();
+db.prepare('DELETE FROM playnext').run();
+db.prepare('DELETE FROM sortorder').run();
+db.prepare('DELETE FROM gameplatforms').run();
 db.prepare('DELETE FROM games').run();
 
 const insertGame = db.transaction((g) => {
@@ -34,7 +34,7 @@ const insertGame = db.transaction((g) => {
     .run(g.externalId, g.status);
 
   for (const p of g.platforms) {
-    db.prepare('INSERT INTO game_platforms (gameId, platform, storefront) VALUES (?, ?, ?)')
+    db.prepare('INSERT INTO gameplatforms (gameId, platform, storefront) VALUES (?, ?, ?)')
       .run(gameId, p.platform, p.storefront ?? null);
   }
   return gameId;
@@ -47,7 +47,7 @@ const startedIds = games
   .filter(({ g }) => g.status === 'started')
   .map(({ id }) => id);
 
-const insertSort = db.prepare('INSERT INTO sort_order (gameId, position) VALUES (?, ?)');
+const insertSort = db.prepare('INSERT INTO sortorder (gameId, position) VALUES (?, ?)');
 startedIds.forEach((gameId, position) => insertSort.run(gameId, position));
 
 console.log('Seed fertig ✓');
