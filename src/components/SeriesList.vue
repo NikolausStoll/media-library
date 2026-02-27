@@ -122,15 +122,14 @@ const allGenres = computed(() => {
   return [...set].sort()
 })
 
-const availableProviders = computed(() => {
-  const map = new Map()
-  for (const s of seriesList.value) {
-    for (const p of s.streamingProviders ?? []) {
-      map.set(p.id, p.name)
-    }
-  }
-  return [...map.entries()].map(([id, name]) => ({ id, name }))
-})
+const providerDefinitions = [
+  { id: 8, name: 'Netflix', logo: '/streamingProviders/netflix.webp' },
+  { id: 337, name: 'Disney', logo: '/streamingProviders/disney.webp' },
+  { id: 9, name: 'Prime', logo: '/streamingProviders/prime.webp' },
+  { id: 30, name: 'Wow', logo: '/streamingProviders/wow.webp' },
+  { id: 2, name: 'Apple', logo: '/streamingProviders/apple.webp' },
+  { id: 531, name: 'Paramount', logo: '/streamingProviders/paramount.webp' },
+]
 
 function applySort(list) {
   const base =
@@ -644,35 +643,35 @@ function handleGlobalKeydown(e) {
           </div>
         </div>
 
-        <div class="sidebar-section">
-          <div class="sidebar-section-label">Filters</div>
-          <div v-if="allGenres.length">
-            <div class="filter-subsection-label">Genres</div>
-            <div class="filter-options">
-              <button
-                v-for="g in allGenres"
-                :key="g"
-                :class="['filter-btn', { active: genreFilter.includes(g) }]"
-                @click="toggleGenre(g)"
-              >
-                <span>{{ g }}</span>
-              </button>
+          <div class="sidebar-section">
+            <div class="sidebar-section-label">Filters</div>
+            <div v-if="allGenres.length">
+              <div class="filter-subsection-label">Genres</div>
+              <div class="filter-options">
+                <button
+                  v-for="g in allGenres"
+                  :key="g"
+                  :class="['filter-btn', { active: genreFilter.includes(g) }]"
+                  @click="toggleGenre(g)"
+                >
+                  <span>{{ g }}</span>
+                </button>
+              </div>
+            </div>
+            <div>
+              <div class="filter-subsection-label">Streaming Providers</div>
+              <div class="provider-grid">
+                <button
+                  v-for="provider in providerDefinitions"
+                  :key="provider.id"
+                  :class="['provider-logo-btn', { active: providerFilter.includes(provider.id) }]"
+                  @click="toggleProvider(provider.id)"
+                >
+                  <img :src="provider.logo" :alt="provider.name" />
+                </button>
+              </div>
             </div>
           </div>
-          <div v-if="availableProviders.length">
-            <div class="filter-subsection-label">Streaming Providers</div>
-            <div class="filter-options">
-              <button
-                v-for="p in availableProviders"
-                :key="p.id"
-                :class="['filter-btn', { active: providerFilter.includes(p.id) }]"
-                @click="toggleProvider(p.id)"
-              >
-                <span>{{ p.name }}</span>
-              </button>
-            </div>
-          </div>
-        </div>
 
         <div class="sidebar-footer">
           <div class="view-section">

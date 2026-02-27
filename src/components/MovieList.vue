@@ -81,15 +81,15 @@ const allGenres = computed(() => {
   return [...set].sort()
 })
 
-const availableProviders = computed(() => {
-  const map = new Map()
-  for (const m of movieList.value) {
-    for (const p of m.streamingProviders ?? []) {
-      map.set(p.id, p.name)
-    }
-  }
-  return [...map.entries()].map(([id, name]) => ({ id, name }))
-})
+const providerDefinitions = [
+  { id: 8, name: 'Netflix', logo: '/streamingProviders/netflix.webp' },
+  { id: 337, name: 'Disney', logo: '/streamingProviders/disney.webp' },
+  { id: 9, name: 'Prime', logo: '/streamingProviders/prime.webp' },
+  { id: 30, name: 'Wow', logo: '/streamingProviders/wow.webp' },
+  { id: 2, name: 'Apple', logo: '/streamingProviders/apple.webp' },
+  { id: 531, name: 'Paramount', logo: '/streamingProviders/paramount.webp' },
+]
+
 
 function applySort(list) {
   const base =
@@ -352,10 +352,10 @@ function handleGlobalKeydown(e) {
                     </div>
                     <span v-if="movie.runtime" class="card-time">{{ movie.runtime }} min</span>
                   </div>
-                  <div class="card-row">
-                    <div class="card-row-left">
-                      <span v-if="movie.certification" class="dlc-count">{{ movie.certification }}</span>
-                    </div>
+                  <div v-if="movie.rating != null" class="card-row">
+                    <span v-if="movie.certification" class="dlc-count">{{ movie.certification }}</span>
+                    <span v-else class="platform-text">Rating</span>
+                    <span class="card-rating">★ {{ movie.rating.toFixed(1) }}</span>
                   </div>
                 </template>
               </MediaCard>
@@ -473,16 +473,16 @@ function handleGlobalKeydown(e) {
               </button>
             </div>
           </div>
-          <div v-if="availableProviders.length">
+          <div>
             <div class="filter-subsection-label">Streaming Providers</div>
-            <div class="filter-options">
+            <div class="provider-grid">
               <button
-                v-for="p in availableProviders"
-                :key="p.id"
-                :class="['filter-btn', { active: providerFilter.includes(p.id) }]"
-                @click="toggleProvider(p.id)"
+                v-for="provider in providerDefinitions"
+                :key="provider.id"
+                :class="['provider-logo-btn', { active: providerFilter.includes(provider.id) }]"
+                @click="toggleProvider(provider.id)"
               >
-                <span>{{ p.name }}</span>
+                <img :src="provider.logo" :alt="provider.name" />
               </button>
             </div>
           </div>
