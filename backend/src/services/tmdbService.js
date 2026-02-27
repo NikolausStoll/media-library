@@ -34,13 +34,14 @@ export async function searchMedia(query, type = 'movie') {
   return (de.results ?? []).slice(0, 20).map(r => {
     const enItem  = enMap.get(r.id)
     const isGerman = r.original_language === 'de'
+    const posterPath = enItem?.poster_path ?? r.poster_path
     return {
       id:      String(r.id),
       titleEn: isGerman
         ? (enItem?.title ?? enItem?.name ?? null)
         : (r.original_title ?? r.original_name ?? null),
       titleDe:  r.title ?? r.name ?? null,
-      imageUrl: r.poster_path ? `${IMGBASE}${r.poster_path}` : null,
+      imageUrl: posterPath ? `${IMGBASE}${posterPath}` : null,
       year:     (r.release_date ?? r.first_air_date ?? '').slice(0, 4) || null,
       rating:   r.vote_average ?? null,
     }
@@ -72,7 +73,7 @@ export async function getMovie(id) {
     mediaType:          'movie',
     titleEn:            isGerman ? (en.title ?? null) : (en.original_title ?? en.title ?? null),
     titleDe:            de.title ?? null,
-    imageUrl:           de.poster_path ? `${IMGBASE}${de.poster_path}` : null,
+    imageUrl:           en.poster_path ? `${IMGBASE}${en.poster_path}` : null,
     year:               de.release_date?.slice(0, 4) ?? null,
     certification:      certDE,
     rating:             de.vote_average ?? null,
@@ -110,7 +111,7 @@ export async function getSeries(id) {
     mediaType:          'series',
     titleEn:            isGerman ? (en.name ?? null) : (en.original_name ?? en.name ?? null),
     titleDe:            de.name ?? null,
-    imageUrl:           de.poster_path ? `${IMGBASE}${de.poster_path}` : null,
+    imageUrl:           en.poster_path ? `${IMGBASE}${en.poster_path}` : null,
     year:               de.first_air_date?.slice(0, 4) ?? null,
     certification:      certDE,
     rating:             de.vote_average ?? null,

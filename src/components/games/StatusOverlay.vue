@@ -4,12 +4,15 @@ defineProps({
   game: { type: Object, default: null },
   statusOptions: { type: Array, required: true },
   deleteConfirm: { type: Boolean, default: false },
+  inPlayNext: { type: Boolean, default: false },
+  playNextAtLimit: { type: Boolean, default: false },
 })
 
 const emit = defineEmits([
   'close',
   'change-status',
   'toggle-tag',
+  'toggle-play-next',
   'clear-cache',
   'delete-trigger',
   'delete-confirm',
@@ -47,6 +50,16 @@ const emit = defineEmits([
             {{ tag.charAt(0).toUpperCase() + tag.slice(1) }}
           </button>
         </div>
+      </div>
+
+      <div v-if="game?.status === 'backlog'" class="overlay-tags">
+        <button
+          class="clear-cache-btn"
+          :disabled="playNextAtLimit"
+          @click="emit('toggle-play-next', game)"
+        >
+          {{ inPlayNext ? '★ Play Next' : '☆ Play Next' }}
+        </button>
       </div>
 
       <!-- Danger Zone -->

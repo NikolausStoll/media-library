@@ -102,6 +102,13 @@ export async function loadEpisodeProgress(seriesId) {
   return res.json()
 }
 
+/** Liefert { [seriesId]: watchedCount } für alle Serien (für Karten-Fortschritt). */
+export async function loadProgressSummary() {
+  const res = await fetch(`${API_BASE}/series/progress-summary`)
+  if (!res.ok) throw new Error(`loadProgressSummary failed: ${res.status}`)
+  return res.json()
+}
+
 export async function toggleEpisode(seriesId, season, episode) {
   const res = await fetch(`${API_BASE}/series/${seriesId}/progress/toggle`, {
     method: 'POST',

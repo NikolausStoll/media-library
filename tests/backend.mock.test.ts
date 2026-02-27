@@ -101,7 +101,7 @@ describe('Search Overlay – addGame', () => {
     await flushPromises()
     await nextTick()
 
-    // "Other"-Dropdown auf backlog setzen
+    // Other-Dropdown auf backlog setzen
     const select = wrapper.find('.search-result-status-select')
     expect(select.exists()).toBe(true)
     await select.setValue('backlog')

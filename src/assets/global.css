@@ -52,9 +52,9 @@ body.light-mode {
 }
 
 .theme-series {
-  --accent: #f97316;        /* Orange */
-  --accent-light: #fb923c;
-  --accent-rgb: 249 115 22;
+  --accent: #f5c518;        /* IMDB yellow */
+  --accent-light: #f7d04a;
+  --accent-rgb: 245 197 24;
 }
 
 /* ── Layout ── */
@@ -137,12 +137,67 @@ body.light-mode {
 
 .sidebar.collapsed { transform: translateX(100%); }
 
+/* Wrapper (z. B. in GameList um GameFilters) muss volle Höhe haben, damit .sidebar-content darin margin-top: auto nutzen kann */
+.sidebar > div {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .sidebar-content {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
   height: 100%;
   padding: 16px;
   gap: 0;
+}
+
+/* Media switcher (Games / Movies / Series) – ersetzt sidebar-header oben */
+.media-switcher {
+  display: flex;
+  gap: 2px;
+  padding: 0 0 10px 0;
+  border-bottom: 1px solid var(--border2);
+  margin-bottom: 10px;
+}
+
+.media-switcher-btn {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid var(--border2);
+  border-radius: 2px;
+  background: var(--surface2);
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.media-switcher-btn:hover {
+  background: var(--surface3);
+  color: var(--text);
+}
+
+.media-switcher-btn.active[data-media="game"] {
+  background: rgb(14 165 233 / 0.15);
+  border-color: #0ea5e9;
+  color: #0ea5e9;
+}
+
+.media-switcher-btn.active[data-media="movie"] {
+  background: rgb(229 9 20 / 0.15);
+  border-color: #e50914;
+  color: #e50914;
+}
+
+.media-switcher-btn.active[data-media="series"] {
+  background: rgb(245 197 24 / 0.15);
+  border-color: #f5c518;
+  color: #f5c518;
 }
 
 .sidebar-header {
@@ -418,6 +473,11 @@ body.light-mode {
   border-top: 1px solid var(--border);
 }
 
+.theme-movie .card-info,
+.theme-series .card-info {
+  gap: 4px;
+}
+
 .card-title {
   font-size: 11px;
   font-weight: 500;
@@ -465,6 +525,15 @@ body.light-mode {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.platform-text.progress-full {
+  color: #2eac00;
+}
+
+/* Fortschritt begonnen, aber nicht 100% (Serien) */
+.platform-text.progress-started {
+  color: #f5c518;
 }
 
 .add-first-platform-btn {
@@ -546,10 +615,15 @@ body.light-mode {
 .card-rating {
   font-size: 10px;
   font-weight: 600;
-  color: #2eac00;
+  color: #2eac00; /* Grün nur bei Games */
   flex-shrink: 0;
   margin-left: auto;
   margin-top: 1px;
+}
+
+.theme-movie .card-rating,
+.theme-series .card-rating {
+  color: #f5c518; /* IMDB-Gelb, einheitlich für Filme und Serien */
 }
 
 /* ── DLC ── */
@@ -973,11 +1047,16 @@ body.light-mode {
   font-weight: 500;
   line-height: 1.3;
   color: var(--text);
-  min-height: calc(11px * 1.3 * 2); /* immer 2 Zeilen */
+  min-height: calc(11px * 1.3 * 2);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* TMDB-Suchergebnisse: Nur Titel (Jahr), danach Buttons – einheitliche Kartenhöhe */
+.search-result-title-year {
+  margin-bottom: 2px;
 }
 
 .search-result-actions {
@@ -1005,8 +1084,17 @@ body.light-mode {
   color: var(--text);
 }
 
+/* ── Sidebar Footer (View + Light Mode immer unten) ── */
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 /* ── Theme Toggle ── */
-.theme-toggle-section { margin-top: auto; padding-top: 16px; }
+.sidebar-content > .theme-toggle-section { margin-top: auto; padding-top: 16px; }
 
 .theme-toggle-btn {
   width: 100%;
@@ -1161,12 +1249,17 @@ body.light-mode {
 }
 
 /* ── View Toggle ── */
-.view-section {
-  margin-top: auto;
-  padding-top: 16px;
+.sidebar-content > .view-section,
+.sidebar-footer .view-section {
+  padding-top: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.sidebar-content > .view-section {
+  margin-top: auto;
+  padding-top: 16px;
 }
 
 .view-toggle {
@@ -1198,9 +1291,10 @@ body.light-mode {
 
 /* ── List View ── */
 .list-view .game-grid {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   flex-direction: column;
-  gap: 0;
+  gap: 0px;
   background: transparent;
 }
 

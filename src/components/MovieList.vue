@@ -1,6 +1,9 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import MediaCard from './shared/MediaCard.vue'
+
+defineProps({ mediaType: { type: String, default: 'movie' } })
+const emit = defineEmits(['switch-media'])
 import { loadMovies, addMovie, updateMovie, deleteMovie, searchTmdb } from '../services/mediaStorage.js'
 import { loadNext, saveNext, removeFromNext } from '../services/gameStorage.js'
 
@@ -41,7 +44,7 @@ const tmdbResults = ref([])
 const tmdbLoading = ref(false)
 const tmdbError = ref('')
 const tmdbSearched = ref(false)
-const addStatus = ref('watchlist')
+const searchInputRef = ref(null)
 
 watch(viewMode, val => localStorage.setItem('viewMode', val))
 watch(darkMode, val => localStorage.setItem('darkMode', val))
@@ -112,6 +115,11 @@ const nextMovies = computed(() =>
     .filter(Boolean)
     .filter(m => m.status === 'watchlist'),
 )
+
+const addStatusLabel = computed(() => {
+  const label = statusOptions.find(o => o.id === activeTab.value)?.label ?? activeTab.value
+  return label ? label.charAt(0).toUpperCase() + label.slice(1).toLowerCase() : ''
+})
 
 function openOverlay(movie, event) {
   event?.stopPropagation()
@@ -202,7 +210,7 @@ async function searchTmdbMovies() {
 
 async function handleAddMovie(tmdbItem, statusOverride) {
   try {
-    const status = statusOverride ?? addStatus.value
+    const status = statusOverride ?? activeTab.value
     const movie = await addMovie({ externalId: tmdbItem.id, status })
     movieList.value.push(movie)
     tmdbResults.value = tmdbResults.value.filter(r => String(r.id) !== String(tmdbItem.id))
@@ -213,6 +221,12 @@ async function handleAddMovie(tmdbItem, statusOverride) {
 
 function openSearchOverlay() {
   showSearchOverlay.value = true
+  tmdbSearchQuery.value = searchQuery.value.trim()
+  if (tmdbSearchQuery.value) {
+    nextTick(() => { searchTmdbMovies(); nextTick(() => searchInputRef.value?.focus()) })
+  } else {
+    nextTick(() => searchInputRef.value?.focus())
+  }
 }
 
 function closeSearchOverlay() {
@@ -299,14 +313,12 @@ function handleGlobalKeydown(e) {
                           :title="p.name"
                         />
                       </template>
-                      <span v-else-if="movie.year" class="platform-text">{{ movie.year }}</span>
                     </div>
                     <span v-if="movie.runtime" class="card-time">{{ movie.runtime }} min</span>
                   </div>
                   <div class="card-row">
                     <div class="card-row-left">
                       <span v-if="movie.certification" class="dlc-count">{{ movie.certification }}</span>
-                      <span v-if="movie.year" class="platform-text">{{ movie.year }}</span>
                     </div>
                   </div>
                 </template>
@@ -355,13 +367,13 @@ function handleGlobalKeydown(e) {
                         :title="p.name"
                       />
                     </template>
-                    <span v-else-if="movie.year" class="platform-text">{{ movie.year }}</span>
                   </div>
                   <span v-if="movie.runtime" class="card-time">{{ movie.runtime }} min</span>
                 </div>
                 <div v-if="movie.rating != null" class="card-row">
-                  <span class="platform-text">{{ movie.certification || 'Rating' }}</span>
-                  <span class="card-time">★ {{ movie.rating.toFixed(1) }}</span>
+                  <span v-if="movie.certification" class="dlc-count">{{ movie.certification }}</span>
+                  <span v-else class="platform-text">Rating</span>
+                  <span class="card-rating">★ {{ movie.rating.toFixed(1) }}</span>
                 </div>
               </template>
             </MediaCard>
@@ -379,14 +391,17 @@ function handleGlobalKeydown(e) {
 
     <aside :class="['sidebar', { collapsed: !sidebarOpen }]">
       <div v-show="sidebarOpen" class="sidebar-content">
-        <div class="sidebar-header">Movies</div>
-
+        <div class="media-switcher">
+          <button type="button" :class="['media-switcher-btn', { active: mediaType === 'game' }]" data-media="game" @click="emit('switch-media', 'game')">Games</button>
+          <button type="button" :class="['media-switcher-btn', { active: mediaType === 'movie' }]" data-media="movie" @click="emit('switch-media', 'movie')">Movies</button>
+          <button type="button" :class="['media-switcher-btn', { active: mediaType === 'series' }]" data-media="series" @click="emit('switch-media', 'series')">Series</button>
+        </div>
         <div class="sidebar-section">
           <div class="sidebar-section-label">Search</div>
           <div class="search-row">
-            <input v-model="searchQuery" class="search-input" placeholder="Search..." />
+            <input v-model="searchQuery" class="search-input" placeholder="Search..." @keydown.enter="openSearchOverlay" />
           </div>
-          <button class="search-open-btn" @click="openSearchOverlay">+ Search TMDB</button>
+          <button class="search-open-btn" @click="openSearchOverlay">Add Movies</button>
         </div>
 
         <div class="sidebar-section" v-if="allGenres.length">
@@ -412,15 +427,14 @@ function handleGlobalKeydown(e) {
           </div>
         </div>
 
-        <div class="view-section">
-          <div class="sidebar-section-label">View</div>
-          <div class="view-toggle">
-            <button :class="['view-btn', { active: viewMode === 'grid' }]" @click="viewMode = 'grid'">Grid</button>
-            <button :class="['view-btn', { active: viewMode === 'list' }]" @click="viewMode = 'list'">List</button>
+        <div class="sidebar-footer">
+          <div class="view-section">
+            <div class="sidebar-section-label">View</div>
+            <div class="view-toggle">
+              <button :class="['view-btn', { active: viewMode === 'grid' }]" @click="viewMode = 'grid'">Grid</button>
+              <button :class="['view-btn', { active: viewMode === 'list' }]" @click="viewMode = 'list'">List</button>
+            </div>
           </div>
-        </div>
-
-        <div class="theme-toggle-section">
           <button class="theme-toggle-btn" @click="toggleDarkMode">
             {{ darkMode ? 'Light Mode' : 'Dark Mode' }}
           </button>
@@ -473,6 +487,7 @@ function handleGlobalKeydown(e) {
 
         <div class="overlay-danger-zone">
           <button
+            v-if="overlayMovie.status === 'watchlist'"
             class="clear-cache-btn"
             :disabled="!nextList.includes(String(overlayMovie.id)) && nextList.length >= 6"
             @click="nextList.includes(String(overlayMovie.id)) ? removeNext(overlayMovie.id) : addToNext(overlayMovie)"
@@ -500,12 +515,12 @@ function handleGlobalKeydown(e) {
         <div class="search-overlay-header">
           <div class="search-input-wrap" style="flex: 1">
             <input
+              ref="searchInputRef"
               v-model="tmdbSearchQuery"
               type="text"
               placeholder="Search TMDB..."
               class="search-input"
               @keydown.enter="searchTmdbMovies"
-              autofocus
             />
             <button v-if="tmdbSearchQuery" class="search-clear-btn" @click="tmdbSearchQuery = ''">✕</button>
           </div>
@@ -520,10 +535,7 @@ function handleGlobalKeydown(e) {
         </div>
 
         <div class="search-active-list">
-          Add as <strong>{{ addStatus }}</strong>
-          <select v-model="addStatus" class="search-result-status-select" style="margin-left: 8px;">
-            <option v-for="opt in statusOptions" :key="opt.id" :value="opt.id">{{ opt.label }}</option>
-          </select>
+          Add as <strong>{{ addStatusLabel }}</strong>
         </div>
 
         <p v-if="tmdbError" class="add-game-error">{{ tmdbError }}</p>
@@ -536,12 +548,10 @@ function handleGlobalKeydown(e) {
             <img v-if="result.imageUrl" :src="result.imageUrl" :alt="result.titleEn" class="search-result-img" />
             <div v-else class="search-result-img" style="background: var(--surface3);"></div>
             <div class="search-result-info">
-              <div class="search-result-name">{{ result.titleEn }}</div>
-              <div class="platform-text" v-if="result.titleDe && result.titleDe !== result.titleEn">{{ result.titleDe }}</div>
-              <div class="platform-text">{{ result.year }} · ★ {{ result.rating?.toFixed(1) ?? '–' }}</div>
+              <div class="search-result-name search-result-title-year">{{ result.titleEn }}{{ result.year ? ` (${result.year})` : '' }}</div>
               <div class="search-result-actions">
                 <button class="search-result-add-btn primary" @click="handleAddMovie(result)">
-                  + Add
+                  + {{ addStatusLabel }}
                 </button>
                 <select
                   class="search-result-status-select"

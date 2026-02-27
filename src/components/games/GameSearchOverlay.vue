@@ -1,6 +1,8 @@
 <!-- src/components/games/GameSearchOverlay.vue -->
 <script setup>
-defineProps({
+import { ref, computed, onMounted } from 'vue'
+
+const props = defineProps({
   searchQuery: { type: String, default: '' },
   results: { type: Array, default: () => [] },
   loading: { type: Boolean, default: false },
@@ -10,6 +12,14 @@ defineProps({
 })
 
 const emit = defineEmits(['update:searchQuery', 'search', 'add', 'close'])
+
+const searchInputRef = ref(null)
+onMounted(() => searchInputRef.value?.focus())
+
+const addToLabel = computed(() => {
+  const label = props.tabs.find(t => t.id === props.activeTab)?.label ?? props.activeTab
+  return label ? label.charAt(0).toUpperCase() + label.slice(1).toLowerCase() : ''
+})
 </script>
 
 <template>
@@ -18,6 +28,7 @@ const emit = defineEmits(['update:searchQuery', 'search', 'add', 'close'])
       <div class="search-overlay-header">
         <div class="search-input-wrap" style="flex: 1">
           <input
+            ref="searchInputRef"
             :value="searchQuery"
             @input="emit('update:searchQuery', $event.target.value)"
             type="text"
@@ -33,6 +44,10 @@ const emit = defineEmits(['update:searchQuery', 'search', 'add', 'close'])
         <button class="hltb-search-btn" style="background: transparent; border: 1px solid var(--border2); color: var(--text-muted)" @click="emit('close')">✕</button>
       </div>
 
+      <div class="search-active-list">
+        Add to <strong>{{ addToLabel }}</strong>
+      </div>
+
       <div v-if="results.length === 0 && !loading" class="hltb-empty">
         Search for a game to add it to your library
       </div>
@@ -43,25 +58,22 @@ const emit = defineEmits(['update:searchQuery', 'search', 'add', 'close'])
           <div class="search-result-info">
             <div class="search-result-name">{{ result.name }}</div>
             <div class="search-result-actions">
-                <!-- Zur aktiven Liste hinzufügen -->
-                <button
-                    class="search-result-add-btn primary"
-                    @click="emit('add', { result, status: activeTab })"
-                    :title="`Add to ${tabs.find(t => t.id === activeTab)?.label}`"
-                >+ {{ tabs.find(t => t.id === activeTab)?.label }}</button>
-
-                <!-- Auswahl zu welcher Liste -->
-                <select
-                    class="search-result-status-select"
-                    @change="emit('add', { result, status: $event.target.value })"
-                >
-                    <option value="" disabled selected>+ Other</option>
-                    <option
-                    v-for="option in statusOptions"
-                    :key="option.id"
-                    :value="option.id"
-                    >{{ option.label }}</option>
-                </select>
+              <button
+                class="search-result-add-btn primary"
+                @click="emit('add', { result, status: activeTab })"
+                :title="`Add to ${tabs.find(t => t.id === activeTab)?.label}`"
+              >+ {{ tabs.find(t => t.id === activeTab)?.label }}</button>
+              <select
+                class="search-result-status-select"
+                @change="emit('add', { result, status: $event.target.value }); $event.target.value = ''"
+              >
+                <option value="" disabled selected>+ Other</option>
+                <option
+                  v-for="option in statusOptions"
+                  :key="option.id"
+                  :value="option.id"
+                >{{ option.label }}</option>
+              </select>
             </div>
           </div>
         </div>

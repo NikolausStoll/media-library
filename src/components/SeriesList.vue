@@ -1,6 +1,9 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import MediaCard from './shared/MediaCard.vue'
+
+defineProps({ mediaType: { type: String, default: 'series' } })
+const emit = defineEmits(['switch-media'])
 import {
   loadSeries,
   addSeries,
@@ -9,6 +12,7 @@ import {
   searchTmdb,
   loadEpisodes,
   loadEpisodeProgress,
+  loadProgressSummary,
   toggleEpisode,
   toggleSeason,
 } from '../services/mediaStorage.js'
@@ -21,7 +25,6 @@ const loading = ref(true)
 const tabs = [
   { id: 'watchlist', label: 'Watchlist' },
   { id: 'watching', label: 'Watching' },
-  { id: 'paused', label: 'Paused' },
   { id: 'finished', label: 'Finished' },
   { id: 'dropped', label: 'Dropped' },
   { id: 'all', label: 'All' },
@@ -63,7 +66,7 @@ const tmdbResults = ref([])
 const tmdbLoading = ref(false)
 const tmdbError = ref('')
 const tmdbSearched = ref(false)
-const addStatus = ref('watchlist')
+const searchInputRef = ref(null)
 
 // Card progress per series (lazy, aus Episoden-Overlay befüllt)
 const seriesProgress = ref({})
@@ -75,9 +78,22 @@ onMounted(async () => {
   document.body.classList.toggle('light-mode', !darkMode.value)
   document.addEventListener('keydown', handleGlobalKeydown)
   try {
-    const [series, next] = await Promise.all([loadSeries(), loadNext('series')])
+    const [series, next, progressSummary] = await Promise.all([
+      loadSeries(),
+      loadNext('series'),
+      loadProgressSummary(),
+    ])
     seriesList.value = series
     nextList.value = next
+    const nextProgress = {}
+    for (const s of series) {
+      const id = String(s.id)
+      nextProgress[id] = {
+        watched: progressSummary[id] ?? 0,
+        total: s.episodeCount ?? 0,
+      }
+    }
+    seriesProgress.value = nextProgress
   } finally {
     loading.value = false
   }
@@ -90,7 +106,10 @@ onUnmounted(() => {
 const statusCounts = computed(() => {
   const counts = {}
   for (const t of tabs) if (t.id !== 'all') counts[t.id] = 0
-  for (const s of seriesList.value) counts[s.status] = (counts[s.status] ?? 0) + 1
+  for (const s of seriesList.value) {
+    if (s.status === 'paused') counts['watching'] = (counts['watching'] ?? 0) + 1
+    else counts[s.status] = (counts[s.status] ?? 0) + 1
+  }
   counts.all = seriesList.value.length
   return counts
 })
@@ -107,11 +126,20 @@ function applySort(list) {
   return [...list].sort((a, b) => (a.title ?? '').localeCompare(b.title ?? ''))
 }
 
+const watchingSeries = computed(() =>
+  seriesList.value.filter(s => s.status === 'watching'),
+)
+const pausedSeries = computed(() =>
+  applySort(seriesList.value.filter(s => s.status === 'paused')),
+)
+
 const filteredSeries = computed(() => {
   let base =
     activeTab.value === 'all'
       ? seriesList.value
-      : seriesList.value.filter(s => s.status === activeTab.value)
+      : activeTab.value === 'watching'
+        ? watchingSeries.value
+        : seriesList.value.filter(s => s.status === activeTab.value)
 
   if (activeTab.value === 'watchlist' && nextList.value.length) {
     const inNext = new Set(nextList.value.map(String))
@@ -138,6 +166,11 @@ const nextSeries = computed(() =>
     .filter(s => s.status === 'watchlist'),
 )
 
+const addStatusLabel = computed(() => {
+  const label = statusOptions.find(o => o.id === activeTab.value)?.label ?? activeTab.value
+  return label ? label.charAt(0).toUpperCase() + label.slice(1).toLowerCase() : ''
+})
+
 // Episodes computed
 const episodesGrouped = computed(() => {
   const map = new Map()
@@ -161,7 +194,7 @@ function isSeasonComplete(season) {
   return total > 0 && watched === total
 }
 
-async function openOverlay(item, event) {
+async function openOverlay(item, event, initialTab = 'details') {
   event?.stopPropagation()
   overlayItem.value = item
   showOverlay.value = true
@@ -178,6 +211,7 @@ async function openOverlay(item, event) {
       ...seriesProgress.value,
       [item.id]: { watched: episodeProgress.value.size, total: episodeList.value.length || item.episodeCount || 0 },
     }
+    if (initialTab === 'episodes') overlayTab.value = 'episodes'
   } finally {
     episodesLoading.value = false
   }
@@ -187,6 +221,11 @@ function cardProgress(item) {
   const p = seriesProgress.value[item.id]
   if (p) return p
   return { watched: 0, total: item.episodeCount || 0 }
+}
+
+function isProgressStarted(item) {
+  const p = cardProgress(item)
+  return p.total > 0 && p.watched > 0 && p.watched < p.total
 }
 
 function closeOverlay() {
@@ -262,19 +301,29 @@ async function onToggleEpisode(ep) {
   if (result.watched) next.add(key)
   else next.delete(key)
   episodeProgress.value = next
+  const item = overlayItem.value
+  seriesProgress.value = {
+    ...seriesProgress.value,
+    [item.id]: { watched: next.size, total: episodeList.value.length || item.episodeCount || 0 },
+  }
 }
 
 async function onToggleSeason(season) {
   if (!overlayItem.value) return
+  const item = overlayItem.value
   const eps = episodeList.value.filter(e => e.season === season)
   const watched = !isSeasonComplete(season)
   const updated = await toggleSeason(
-    overlayItem.value.id,
+    item.id,
     season,
     eps.map(e => e.episode),
     watched,
   )
   episodeProgress.value = new Set(updated.map(p => `${p.season}-${p.episode}`))
+  seriesProgress.value = {
+    ...seriesProgress.value,
+    [item.id]: { watched: updated.length, total: episodeList.value.length || item.episodeCount || 0 },
+  }
 }
 
 async function searchTmdbSeries() {
@@ -296,7 +345,7 @@ async function searchTmdbSeries() {
 
 async function handleAddSeries(tmdbItem, statusOverride) {
   try {
-    const status = statusOverride ?? addStatus.value
+    const status = statusOverride ?? activeTab.value
     const series = await addSeries({ externalId: tmdbItem.id, status })
     seriesList.value.push(series)
     tmdbResults.value = tmdbResults.value.filter(r => String(r.id) !== String(tmdbItem.id))
@@ -307,6 +356,12 @@ async function handleAddSeries(tmdbItem, statusOverride) {
 
 function openSearchOverlay() {
   showSearchOverlay.value = true
+  tmdbSearchQuery.value = searchQuery.value.trim()
+  if (tmdbSearchQuery.value) {
+    nextTick(() => { searchTmdbSeries(); nextTick(() => searchInputRef.value?.focus()) })
+  } else {
+    nextTick(() => searchInputRef.value?.focus())
+  }
 }
 
 function closeSearchOverlay() {
@@ -378,30 +433,29 @@ function handleGlobalKeydown(e) {
                   <div class="card-row">
                     <div class="card-platform" @click.stop>
                       <template v-if="item.streamingProviders?.length">
-                        <span class="platform-primary">
-                          <img
-                            :src="item.streamingProviders[0].logo"
-                            class="platform-logo-sm"
-                            :title="item.streamingProviders[0].name"
-                          />
-                        </span>
                         <img
-                          v-for="p in item.streamingProviders.slice(1)"
+                          v-for="p in item.streamingProviders"
                           :key="p.id"
                           :src="p.logo"
                           class="platform-logo-sm"
                           :title="p.name"
                         />
                       </template>
-                      <span v-else-if="item.year" class="platform-text">{{ item.year }}</span>
                     </div>
                     <span v-if="item.runtime" class="card-time">{{ item.runtime }} min</span>
                   </div>
                   <div class="card-row">
                     <div class="card-row-left">
-                      <span v-if="item.seasonCount" class="dlc-count">{{ item.seasonCount }} S</span>
-                      <span v-if="item.episodeCount" class="platform-text">{{ item.episodeCount }} E</span>
+                      <span v-if="item.seasonCount != null" class="dlc-count">{{ item.seasonCount }} {{ item.seasonCount === 1 ? 'Season' : 'Seasons' }}</span>
+                      <div
+                        class="card-tags"
+                        style="cursor: pointer"
+                        @click.stop="openOverlay(item, $event, 'episodes')"
+                      >
+                        <span :class="['platform-text', { 'progress-full': cardProgress(item).total > 0 && cardProgress(item).watched === cardProgress(item).total, 'progress-started': isProgressStarted(item) }]">{{ cardProgress(item).watched }}/{{ cardProgress(item).total }}</span>
+                      </div>
                     </div>
+                    <span v-if="item.rating != null" class="card-rating">★ {{ item.rating.toFixed(1) }}</span>
                   </div>
                 </template>
               </MediaCard>
@@ -431,29 +485,87 @@ function handleGlobalKeydown(e) {
               </template>
 
               <template #details>
+                <!-- Zeile: Streaming (nur Logos) links, Laufzeit rechts -->
                 <div class="card-row">
-                  <div class="card-row-left">
-                    <span v-if="item.seasonCount" class="dlc-count">{{ item.seasonCount }} S</span>
-                    <span v-if="item.episodeCount" class="platform-text">{{ item.episodeCount }} E</span>
-                    <span v-if="item.year" class="platform-text">· {{ item.year }}</span>
+                  <div class="card-platform" @click.stop>
+                    <template v-if="item.streamingProviders?.length">
+                      <img
+                        v-for="p in item.streamingProviders"
+                        :key="p.id"
+                        :src="p.logo"
+                        class="platform-logo-sm"
+                        :title="p.name"
+                      />
+                    </template>
                   </div>
                   <span v-if="item.runtime" class="card-time">{{ item.runtime }} min</span>
                 </div>
-                <div class="card-row" @click.stop="openOverlay(item, $event); overlayTab = 'episodes'">
-                  <span class="platform-text">Progress</span>
-                  <span class="card-time">
-                    {{ cardProgress(item).watched }}/{{ cardProgress(item).total }}
-                  </span>
-                </div>
-                <div v-if="item.rating != null" class="card-row">
-                  <span class="platform-text">Rating</span>
-                  <span class="card-time">★ {{ item.rating.toFixed(1) }}</span>
+                <!-- Zeile: Season (DLC-Rahmen) links, Progress Mitte, Rating rechts -->
+                <div class="card-row">
+                  <div class="card-row-left">
+                    <span v-if="item.seasonCount != null" class="dlc-count">{{ item.seasonCount }} {{ item.seasonCount === 1 ? 'Season' : 'Seasons' }}</span>
+                    <div
+                      class="card-tags"
+                      style="cursor: pointer"
+                      @click.stop="openOverlay(item, $event, 'episodes')"
+                    >
+                      <span :class="['platform-text', { 'progress-full': cardProgress(item).total > 0 && cardProgress(item).watched === cardProgress(item).total, 'progress-started': isProgressStarted(item) }]">{{ cardProgress(item).watched }}/{{ cardProgress(item).total }}</span>
+                    </div>
+                  </div>
+                  <span v-if="item.rating != null" class="card-rating">★ {{ item.rating.toFixed(1) }}</span>
                 </div>
               </template>
             </MediaCard>
           </div>
 
-          <p v-if="filteredSeries.length === 0" class="empty-state">No series found</p>
+          <template v-if="activeTab === 'watching' && pausedSeries.length > 0">
+            <div class="list-separator"></div>
+            <div class="section-label">PAUSED</div>
+            <div class="game-grid">
+              <MediaCard
+                v-for="item in pausedSeries"
+                :key="item.id"
+                :title="item.title"
+                :title-de="item.titleDe"
+                :image-url="item.imageUrl"
+                :year="item.year"
+                :is-next="nextList.includes(String(item.id))"
+                @click="openOverlay(item, $event)"
+              >
+                <template #details>
+                  <div class="card-row">
+                    <div class="card-platform" @click.stop>
+                      <template v-if="item.streamingProviders?.length">
+                        <img
+                          v-for="p in item.streamingProviders"
+                          :key="p.id"
+                          :src="p.logo"
+                          class="platform-logo-sm"
+                          :title="p.name"
+                        />
+                      </template>
+                    </div>
+                    <span v-if="item.runtime" class="card-time">{{ item.runtime }} min</span>
+                  </div>
+                  <div class="card-row">
+                    <div class="card-row-left">
+                      <span v-if="item.seasonCount != null" class="dlc-count">{{ item.seasonCount }} {{ item.seasonCount === 1 ? 'Season' : 'Seasons' }}</span>
+                      <div
+                        class="card-tags"
+                        style="cursor: pointer"
+                        @click.stop="openOverlay(item, $event, 'episodes')"
+                      >
+                        <span :class="['platform-text', { 'progress-full': cardProgress(item).total > 0 && cardProgress(item).watched === cardProgress(item).total, 'progress-started': isProgressStarted(item) }]">{{ cardProgress(item).watched }}/{{ cardProgress(item).total }}</span>
+                      </div>
+                    </div>
+                    <span v-if="item.rating != null" class="card-rating">★ {{ item.rating.toFixed(1) }}</span>
+                  </div>
+                </template>
+              </MediaCard>
+            </div>
+          </template>
+
+          <p v-if="(activeTab === 'watching' ? filteredSeries.length === 0 && pausedSeries.length === 0 : filteredSeries.length === 0) && !(activeTab === 'watchlist' && nextSeries.length > 0)" class="empty-state">No series found</p>
         </template>
       </div>
     </div>
@@ -465,14 +577,17 @@ function handleGlobalKeydown(e) {
 
     <aside :class="['sidebar', { collapsed: !sidebarOpen }]">
       <div v-show="sidebarOpen" class="sidebar-content">
-        <div class="sidebar-header">Series</div>
-
+        <div class="media-switcher">
+          <button type="button" :class="['media-switcher-btn', { active: mediaType === 'game' }]" data-media="game" @click="emit('switch-media', 'game')">Games</button>
+          <button type="button" :class="['media-switcher-btn', { active: mediaType === 'movie' }]" data-media="movie" @click="emit('switch-media', 'movie')">Movies</button>
+          <button type="button" :class="['media-switcher-btn', { active: mediaType === 'series' }]" data-media="series" @click="emit('switch-media', 'series')">Series</button>
+        </div>
         <div class="sidebar-section">
           <div class="sidebar-section-label">Search</div>
           <div class="search-row">
-            <input v-model="searchQuery" class="search-input" placeholder="Search..." />
+            <input v-model="searchQuery" class="search-input" placeholder="Search..." @keydown.enter="openSearchOverlay" />
           </div>
-          <button class="search-open-btn" @click="openSearchOverlay">+ Search TMDB</button>
+          <button class="search-open-btn" @click="openSearchOverlay">Add Series</button>
         </div>
 
         <div class="sidebar-section" v-if="allGenres.length">
@@ -498,15 +613,14 @@ function handleGlobalKeydown(e) {
           </div>
         </div>
 
-        <div class="view-section">
-          <div class="sidebar-section-label">View</div>
-          <div class="view-toggle">
-            <button :class="['view-btn', { active: viewMode === 'grid' }]" @click="viewMode = 'grid'">Grid</button>
-            <button :class="['view-btn', { active: viewMode === 'list' }]" @click="viewMode = 'list'">List</button>
+        <div class="sidebar-footer">
+          <div class="view-section">
+            <div class="sidebar-section-label">View</div>
+            <div class="view-toggle">
+              <button :class="['view-btn', { active: viewMode === 'grid' }]" @click="viewMode = 'grid'">Grid</button>
+              <button :class="['view-btn', { active: viewMode === 'list' }]" @click="viewMode = 'list'">List</button>
+            </div>
           </div>
-        </div>
-
-        <div class="theme-toggle-section">
           <button class="theme-toggle-btn" @click="toggleDarkMode">
             {{ darkMode ? 'Light Mode' : 'Dark Mode' }}
           </button>
@@ -530,8 +644,8 @@ function handleGlobalKeydown(e) {
         </div>
         <div class="overlay-subtitle">
           <span v-if="overlayItem.year">{{ overlayItem.year }}</span>
-          <span v-if="overlayItem.seasonCount"> · {{ overlayItem.seasonCount }} S</span>
-          <span v-if="overlayItem.episodeCount"> · {{ overlayItem.episodeCount }} E</span>
+          <span v-if="overlayItem.seasonCount != null"> · {{ overlayItem.seasonCount }} {{ overlayItem.seasonCount === 1 ? 'Season' : 'Seasons' }}</span>
+          <span v-if="overlayItem.episodeCount != null"> · {{ overlayItem.episodeCount }} Episodes</span>
           <span v-if="overlayItem.runtime"> · {{ overlayItem.runtime }} min / Ep</span>
         </div>
 
@@ -557,15 +671,6 @@ function handleGlobalKeydown(e) {
             </button>
           </div>
 
-          <div class="overlay-tags" @click="overlayTab = 'episodes'" style="cursor: pointer;">
-            <div class="overlay-section-label">Progress</div>
-            <div class="tag-buttons">
-              <button class="tag-btn active">
-                {{ episodeProgress.size }}/{{ episodeList.length || overlayItem.episodeCount || 0 }}
-              </button>
-            </div>
-          </div>
-
           <div class="overlay-tags">
             <div class="overlay-section-label">My Rating</div>
             <div class="tag-buttons">
@@ -580,6 +685,7 @@ function handleGlobalKeydown(e) {
 
           <div class="overlay-danger-zone">
             <button
+              v-if="overlayItem.status === 'watchlist'"
               class="clear-cache-btn"
               :disabled="!nextList.includes(String(overlayItem.id)) && nextList.length >= 6"
               @click="nextList.includes(String(overlayItem.id)) ? removeNext(overlayItem.id) : addToNext(overlayItem)"
@@ -645,12 +751,12 @@ function handleGlobalKeydown(e) {
         <div class="search-overlay-header">
           <div class="search-input-wrap" style="flex: 1">
             <input
+              ref="searchInputRef"
               v-model="tmdbSearchQuery"
               type="text"
               placeholder="Search TMDB..."
               class="search-input"
               @keydown.enter="searchTmdbSeries"
-              autofocus
             />
             <button v-if="tmdbSearchQuery" class="search-clear-btn" @click="tmdbSearchQuery = ''">✕</button>
           </div>
@@ -665,10 +771,7 @@ function handleGlobalKeydown(e) {
         </div>
 
         <div class="search-active-list">
-          Add as <strong>{{ addStatus }}</strong>
-          <select v-model="addStatus" class="search-result-status-select" style="margin-left: 8px;">
-            <option v-for="opt in statusOptions" :key="opt.id" :value="opt.id">{{ opt.label }}</option>
-          </select>
+          Add as <strong>{{ addStatusLabel }}</strong>
         </div>
 
         <p v-if="tmdbError" class="add-game-error">{{ tmdbError }}</p>
@@ -681,12 +784,10 @@ function handleGlobalKeydown(e) {
             <img v-if="result.imageUrl" :src="result.imageUrl" :alt="result.titleEn" class="search-result-img" />
             <div v-else class="search-result-img" style="background: var(--surface3);"></div>
             <div class="search-result-info">
-              <div class="search-result-name">{{ result.titleEn }}</div>
-              <div class="platform-text" v-if="result.titleDe && result.titleDe !== result.titleEn">{{ result.titleDe }}</div>
-              <div class="platform-text">{{ result.year }} · ★ {{ result.rating?.toFixed(1) ?? '–' }}</div>
+              <div class="search-result-name search-result-title-year">{{ result.titleEn }}{{ result.year ? ` (${result.year})` : '' }}</div>
               <div class="search-result-actions">
                 <button class="search-result-add-btn primary" @click="handleAddSeries(result)">
-                  + Add
+                  + {{ addStatusLabel }}
                 </button>
                 <select
                   class="search-result-status-select"

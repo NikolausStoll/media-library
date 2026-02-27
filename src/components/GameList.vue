@@ -1,6 +1,9 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import draggable from 'vuedraggable'
+
+defineProps({ mediaType: { type: String, default: 'game' } })
+const emit = defineEmits(['switch-media'])
 import { storefronts, availablePlatforms } from '../data/games.js'
 import { getPlatformLogo } from '../data/platformLogos.js'
 import {
@@ -463,7 +466,11 @@ async function removeFromPlayNext(gameId) {
 // ─── Search Overlay ───────────────────────────────────────────────────────────
 
 function openSearchOverlay() {
+  overlaySearchQuery.value = searchQuery.value
   showSearchOverlay.value = true
+  nextTick(() => {
+    if (overlaySearchQuery.value.trim()) searchHltb()
+  })
 }
 
 function closeSearchOverlay() {
@@ -680,6 +687,7 @@ onUnmounted(() => {
     <aside :class="['sidebar', { collapsed: !sidebarOpen }]">
       <div v-show="sidebarOpen">
         <GameFilters
+          :mediaType="mediaType"
           :activeTab="activeTab"
           :sortBy="sortBy"
           :sortDirection="sortDirection"
@@ -692,6 +700,7 @@ onUnmounted(() => {
           :viewMode="viewMode"
           :darkMode="darkMode"
           :searchQuery="searchQuery"
+          @switch-media="(value) => emit('switch-media', value)"
           @open-search-overlay="openSearchOverlay"
           @update:searchQuery="searchQuery = $event"
           @toggle-filter="(type, val) => toggleFilter(type === 'platform' ? platformFilter : type === 'storefront' ? storefrontFilter : tagFilter, val)"
@@ -738,9 +747,12 @@ onUnmounted(() => {
       :game="overlayGame"
       :statusOptions="statusOptions"
       :deleteConfirm="deleteConfirm"
+      :inPlayNext="overlayGame ? playNextList.includes(String(overlayGame.id)) : false"
+      :playNextAtLimit="overlayGame ? (!playNextList.includes(String(overlayGame.id)) && playNextList.length >= 6) : false"
       @close="showOverlay = false"
       @change-status="changeStatus"
       @toggle-tag="toggleTag"
+      @toggle-play-next="overlayGame && (playNextList.includes(String(overlayGame.id)) ? removeFromPlayNext(overlayGame.id) : addToPlayNext(overlayGame))"
       @clear-cache="clearGameCache"
       @delete-trigger="deleteConfirm = true"
       @delete-confirm="handleDeleteGame"

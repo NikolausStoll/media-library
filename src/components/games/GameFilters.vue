@@ -1,6 +1,7 @@
 <!-- src/components/games/GameFilters.vue -->
 <script setup>
 defineProps({
+  mediaType: { type: String, default: 'game' },
   activeTab: { type: String, required: true },
   sortBy: { type: String, required: true },
   sortDirection: { type: String, required: true },
@@ -16,6 +17,7 @@ defineProps({
 })
 
 const emit = defineEmits([
+  'switch-media',
   'open-search-overlay',
   'update:searchQuery',
   'toggle-filter',
@@ -31,11 +33,10 @@ const emit = defineEmits([
 
 <template>
   <div class="sidebar-content">
-    <div class="sidebar-header">Filters &amp; View</div>
-
-    <!-- Add Games -->
-    <div class="sidebar-section">
-      <button class="search-open-btn" @click="emit('open-search-overlay')">Add Games</button>
+    <div class="media-switcher">
+      <button type="button" :class="['media-switcher-btn', { active: mediaType === 'game' }]" data-media="game" @click="emit('switch-media', 'game')">Games</button>
+      <button type="button" :class="['media-switcher-btn', { active: mediaType === 'movie' }]" data-media="movie" @click="emit('switch-media', 'movie')">Movies</button>
+      <button type="button" :class="['media-switcher-btn', { active: mediaType === 'series' }]" data-media="series" @click="emit('switch-media', 'series')">Series</button>
     </div>
 
     <!-- Search -->
@@ -49,11 +50,13 @@ const emit = defineEmits([
             type="text"
             placeholder="Filter by title..."
             class="search-input"
+            @keydown.enter="emit('open-search-overlay')"
             @keydown.esc="emit('update:searchQuery', '')"
           />
           <button v-if="searchQuery" class="search-clear-btn" @click="emit('update:searchQuery', '')">✕</button>
         </div>
       </div>
+      <button class="search-open-btn" @click="emit('open-search-overlay')">Add Games</button>
     </div>
 
     <!-- Sort -->
@@ -134,7 +137,7 @@ const emit = defineEmits([
     </div>
 
     <!-- View & Theme -->
-    <div class="sidebar-section view-section">
+    <div class="sidebar-footer">
       <div class="sidebar-section-label">VIEW</div>
       <div class="view-toggle">
         <button :class="['view-btn', { active: viewMode === 'grid' }]" @click="emit('set-view-mode', 'grid')">Grid</button>

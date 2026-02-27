@@ -1,10 +1,27 @@
 import { Router } from 'express'
 import { db, getMediaWithProviders } from '../db/library.js'
-import { getFromCache, saveToCache, getEpisodesFromCache, saveEpisodesToCache,deleteFromCache } from '../services/tmdbCache.js'
+import { getFromCache, saveToCache, getEpisodesFromCache, saveEpisodesToCache, deleteFromCache, updateSeriesRuntimeInCache } from '../services/tmdbCache.js'
 import { getSeries, fetchEpisodes } from '../services/tmdbService.js'
 
 const router = Router()
 const VALID_STATUS = ['watchlist', 'watching', 'finished', 'dropped', 'paused']
+
+function computeRuntimeFromEpisodes(episodes) {
+  const runtimes = (episodes || []).map(e => e.runtime).filter(r => r != null && r > 0)
+  if (runtimes.length === 0) return null
+  const freq = new Map()
+  for (const r of runtimes) freq.set(r, (freq.get(r) || 0) + 1)
+  let maxCount = 0
+  let mode = null
+  for (const [r, c] of freq) {
+    if (c > maxCount) { maxCount = c; mode = r }
+  }
+  if (mode != null) return mode
+  const sorted = [...runtimes].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  const median = sorted.length % 2 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2)
+  return median
+}
 
 async function aggregateSeries(series) {
   let tmdb = getFromCache(series.externalId, 'series')
@@ -15,6 +32,15 @@ async function aggregateSeries(series) {
     } catch (err) {
       console.error(`TMDB fetch fehlgeschlagen für ${series.externalId}:`, err.message)
       tmdb = null
+    }
+  }
+  let runtime = tmdb?.runtime ?? null
+  if (runtime == null) {
+    const cachedEpisodes = getEpisodesFromCache(series.externalId)
+    const computed = computeRuntimeFromEpisodes(cachedEpisodes)
+    if (computed != null) {
+      runtime = computed
+      updateSeriesRuntimeInCache(series.externalId, runtime)
     }
   }
   return {
@@ -29,9 +55,11 @@ async function aggregateSeries(series) {
     year:               tmdb?.year ?? null,
     certification:      tmdb?.certification ?? null,
     rating:             tmdb?.rating ?? null,
-    runtime:            tmdb?.runtime ?? null,
+    runtime,
     seasons:            tmdb?.seasons ?? null,
     episodes:           tmdb?.episodes ?? null,
+    seasonCount:        tmdb?.seasons ?? null,
+    episodeCount:       tmdb?.episodes ?? null,
     genres:             JSON.parse(tmdb?.genres ?? '[]'),
     streamingProviders: JSON.parse(tmdb?.streamingProviders ?? '[]'),
     linkUrl:            tmdb?.linkUrl ?? null,
@@ -53,6 +81,20 @@ router.get('/', async (req, res) => {
   }
 })
 
+// GET /api/series/progress-summary  (watched count pro Serie, für Karten-Anzeige)
+router.get('/progress-summary', (req, res) => {
+  try {
+    const rows = db.prepare(
+      'SELECT seriesId, COUNT(*) AS watched FROM episodeprogress GROUP BY seriesId'
+    ).all()
+    const summary = {}
+    for (const r of rows) summary[String(r.seriesId)] = r.watched
+    res.json(summary)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // POST /api/series
 router.post('/', async (req, res) => {
   const { externalId, status, providers = [] } = req.body
@@ -67,7 +109,26 @@ router.post('/', async (req, res) => {
         db.prepare(`INSERT INTO mediaproviders (mediaId, mediaType, provider) VALUES (?, 'series', ?)`).run(lastInsertRowid, p)
       return lastInsertRowid
     })()
-    res.status(201).json(await aggregateSeries(getMediaWithProviders(seriesId, 'series')))
+    const row = getMediaWithProviders(seriesId, 'series')
+    const result = await aggregateSeries(row)
+    const seasonCount = result.seasonCount ?? result.seasons ?? 1
+    let episodes = getEpisodesFromCache(externalId)
+    if (!episodes?.length) {
+      try {
+        episodes = await fetchEpisodes(externalId, seasonCount)
+        saveEpisodesToCache(externalId, episodes)
+        if (result.runtime == null) {
+          const computed = computeRuntimeFromEpisodes(episodes)
+          if (computed != null) {
+            updateSeriesRuntimeInCache(externalId, computed)
+            result.runtime = computed
+          }
+        }
+      } catch (err) {
+        console.error(`Episoden-Fetch für neue Serie ${externalId}:`, err.message)
+      }
+    }
+    res.status(201).json(result)
   } catch (err) {
     res.status(500).json({ error: err.message })
   }

@@ -88,3 +88,11 @@ export function saveEpisodesToCache(externalId, episodes) {
 export function deleteEpisodesFromCache(externalId) {
   db.prepare('DELETE FROM tmdbcacheepisodes WHERE seriesId = ?').run(String(externalId))
 }
+
+/** Setzt die Runtime einer Serie im Basis-Cache (z. B. aus Episoden-Runtimes berechnet). */
+export function updateSeriesRuntimeInCache(externalId, runtime) {
+  if (runtime == null) return
+  db.prepare(
+    'UPDATE tmdbcache SET runtime = ?, updatedAt = ? WHERE id = ? AND mediaType = ?'
+  ).run(runtime, Date.now(), String(externalId), 'series')
+}
