@@ -1,0 +1,15 @@
+{
+  "name": "NikolausStoll Add-ons",
+  "url": "https://github.com/NikolausStoll/media-library",
+  "slug": "nikolausstoll",
+  "addons": [
+    {
+      "name": "Media Library",
+      "slug": "media-library",
+      "description": "Media Library (games, movies, series) bundled frontend/backend addon.",
+      "repository": "https://github.com/NikolausStoll/media-library",
+      "url": "https://github.com/NikolausStoll/media-library/blob/main/addons/media-library/config.json",
+      "version": "1.0.0"
+    }
+  ]
+}

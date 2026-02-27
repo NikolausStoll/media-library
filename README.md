@@ -101,10 +101,9 @@ docker run -p 8787:8787 media-library
 
 ## Home Assistant Add-on
 
-- The `addon/` directory defines a local HA add-on with name **Media Library**, listening on port 8787 and running `run.sh`.
-- Copy the folder into HA’s add-on directory or add this repo as a custom add-on source under **Supervisor › Add-on Store › Repositories**.
-- After installation, the add-on builds the frontend, starts the backend, and exposes `http://<ha-ip>:8787/` (UI + API).
-- Configuration options: `PORT` and `VITE_API_URL` (defaults match `config.yaml`).
+- The `addons/` directory follows the Home Assistant add-on format; the `media-library` subfolder contains `config.json`, `README.md`, and hooks into the root `run.sh`.
+- Add the repository via **Supervisor › Add-on Store › Repositories** pointing to `https://github.com/NikolausStoll/media-library` (Home Assistant reads `repository.json` from the repo root).
+- Install the Media Library add-on, adjust `PORT`/`VITE_API_URL` if needed, and start it. The add-on builds the frontend, runs the backend, and serves both under `http://<ha-host>:<PORT>/`.
 
 ---
 
