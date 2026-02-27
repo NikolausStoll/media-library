@@ -10,7 +10,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS games (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     externalId TEXT NOT NULL UNIQUE,
-    status     TEXT NOT NULL CHECK(status IN ('backlog','wishlist','started','completed','dropped','shelved')),
+    status     TEXT NOT NULL CHECK(status IN ('backlog','wishlist','started','completed','retired','shelved')),
     userRating INTEGER CHECK(userRating BETWEEN 1 AND 10)
   );
 
@@ -80,23 +80,44 @@ db.exec(`
   );
 
   CREATE TABLE IF NOT EXISTS tmdbcache (
-    id            TEXT NOT NULL,
-    mediaType     TEXT NOT NULL CHECK(mediaType IN ('movie','series')),
-    titleEn       TEXT,
-    titleDe       TEXT,
-    imageUrl      TEXT,
-    year          TEXT,
-    certification TEXT,
-    rating        REAL,
-    runtime       INTEGER,
-    seasons       INTEGER,
-    episodes      INTEGER,
-    genres        TEXT,
-    linkUrl       TEXT,
-    originalLang  TEXT,
+    id                 TEXT NOT NULL,
+    mediaType          TEXT NOT NULL CHECK(mediaType IN ('movie','series')),
+    titleEn            TEXT,
+    titleDe            TEXT,
+    imageUrl           TEXT,
+    year               TEXT,
+    certification      TEXT,
+    rating             REAL,
+    runtime            INTEGER,
+    seasons            INTEGER,
+    episodes           INTEGER,
+    genres             TEXT,
     streamingProviders TEXT,
-    updatedAt     INTEGER,
+    linkUrl            TEXT,
+    originalLang       TEXT,
+    updatedAt          INTEGER,
     PRIMARY KEY(id, mediaType)
+  );
+
+  CREATE TABLE IF NOT EXISTS tmdbcacheepisodes (
+    seriesId  TEXT    NOT NULL,
+    season    INTEGER NOT NULL,
+    episode   INTEGER NOT NULL,
+    titleEn   TEXT,
+    airDate   TEXT,
+    runtime   INTEGER,
+    updatedAt INTEGER NOT NULL,
+    PRIMARY KEY (seriesId, season, episode)
+  );
+
+  CREATE TABLE IF NOT EXISTS episodeprogress (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    seriesId  INTEGER NOT NULL,
+    season    INTEGER NOT NULL,
+    episode   INTEGER NOT NULL,
+    watchedAt INTEGER,
+    UNIQUE(seriesId, season, episode),
+    FOREIGN KEY (seriesId) REFERENCES series(id) ON DELETE CASCADE
   );
 `)
 
@@ -104,13 +125,13 @@ export function getGameWithPlatforms(id) {
   const game = db.prepare('SELECT * FROM games WHERE id = ?').get(id)
   if (!game) return null
   const platforms = db.prepare('SELECT id, platform, storefront FROM gameplatforms WHERE gameId = ?').all(id)
-  const tags = db.prepare('SELECT tag FROM gametags WHERE gameId = ?').all(id).map(r => r.tag)
+  const tags      = db.prepare('SELECT tag FROM gametags WHERE gameId = ?').all(id).map(r => r.tag)
   return { ...game, platforms, tags }
 }
 
 export function getMediaWithProviders(id, mediaType) {
   const table = mediaType === 'movie' ? 'movies' : 'series'
-  const item = db.prepare(`SELECT * FROM ${table} WHERE id = ?`).get(id)
+  const item  = db.prepare(`SELECT * FROM ${table} WHERE id = ?`).get(id)
   if (!item) return null
   const providers = db
     .prepare(`SELECT id, provider FROM mediaproviders WHERE mediaId = ? AND mediaType = ?`)

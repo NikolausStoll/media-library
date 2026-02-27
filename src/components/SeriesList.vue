@@ -2,8 +2,8 @@
 import { ref, computed, onMounted } from 'vue'
 import MediaCard from './shared/MediaCard.vue'
 import {
-  loadSeries, addSeries, updateSeries,
-  deleteSeries, searchTmdb
+  loadSeries, addSeries, updateSeries, deleteSeries, searchTmdb,
+  loadEpisodes, loadEpisodeProgress, toggleEpisode, toggleSeason
 } from '../services/mediaStorage.js'
 import { loadNext, saveNext, removeFromNext } from '../services/gameStorage.js'
 
@@ -29,6 +29,12 @@ const addStatus         = ref('watchlist')
 const overlayItem    = ref(null)
 const showOverlay    = ref(false)
 const deleteConfirm  = ref(false)
+const overlayTab     = ref('details')
+
+// Episoden
+const episodeList     = ref([])
+const episodeProgress = ref(new Set())
+const episodesLoading = ref(false)
 
 const STATUS_OPTIONS = [
   { value: 'watchlist', label: 'Watchlist', color: '#6366f1' },
@@ -99,6 +105,29 @@ const nextSeries = computed(() =>
     .filter(Boolean)
 )
 
+// ─── Episoden Computed ────────────────────────────────────────────────────────
+const episodesGrouped = computed(() => {
+  const map = new Map()
+  for (const ep of episodeList.value) {
+    if (!map.has(ep.season)) map.set(ep.season, [])
+    map.get(ep.season).push(ep)
+  }
+  return [...map.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([season, episodes]) => ({ season, episodes }))
+})
+
+function seasonProgress(season) {
+  const eps = episodeList.value.filter(e => e.season === season)
+  const watched = eps.filter(e => episodeProgress.value.has(`${e.season}-${e.episode}`))
+  return { watched: watched.length, total: eps.length }
+}
+
+function isSeasonComplete(season) {
+  const { watched, total } = seasonProgress(season)
+  return total > 0 && watched === total
+}
+
 // ─── Actions ──────────────────────────────────────────────────────────────────
 async function searchTmdbSeries() {
   const q = tmdbSearchQuery.value.trim()
@@ -131,15 +160,31 @@ async function handleAddSeries(tmdbItem) {
   }
 }
 
-function openOverlay(item) {
+async function openOverlay(item) {
   overlayItem.value = item
   showOverlay.value = true
   deleteConfirm.value = false
+  overlayTab.value = 'details'
+  episodeList.value = []
+  episodeProgress.value = new Set()
+  episodesLoading.value = true
+  try {
+    const [eps, progress] = await Promise.all([
+      loadEpisodes(item.id),
+      loadEpisodeProgress(item.id),
+    ])
+    episodeList.value = eps
+    episodeProgress.value = new Set(progress.map(p => `${p.season}-${p.episode}`))
+  } finally {
+    episodesLoading.value = false
+  }
 }
 
 function closeOverlay() {
   showOverlay.value = false
   overlayItem.value = null
+  episodeList.value = []
+  episodeProgress.value = new Set()
 }
 
 async function handleStatusChange(newStatus) {
@@ -198,6 +243,30 @@ async function toggleNext(item) {
     await saveNext(newList, 'series')
     nextList.value = newList
   }
+}
+
+async function onToggleEpisode(ep) {
+  const key = `${ep.season}-${ep.episode}`
+  const result = await toggleEpisode(overlayItem.value.id, ep.season, ep.episode)
+  const next = new Set(episodeProgress.value)
+  if (result.watched) {
+    next.add(key)
+  } else {
+    next.delete(key)
+  }
+  episodeProgress.value = next
+}
+
+async function onToggleSeason(season) {
+  const eps = episodeList.value.filter(e => e.season === season)
+  const watched = !isSeasonComplete(season)
+  const updated = await toggleSeason(
+    overlayItem.value.id,
+    season,
+    eps.map(e => e.episode),
+    watched
+  )
+  episodeProgress.value = new Set(updated.map(p => `${p.season}-${p.episode}`))
 }
 
 function closeSearchOverlay() {
@@ -283,8 +352,8 @@ function onKeydown(e) {
             <span class="cert-badge" v-if="item.certification">{{ item.certification }}</span>
           </template>
           <template #details>
-            <span class="runtime" v-if="item.seasons">
-              {{ item.seasons }}S · {{ item.episodes }}E
+            <span class="runtime" v-if="item.seasonCount">
+              {{ item.seasonCount }}S · {{ item.episodeCount }}E
             </span>
           </template>
         </MediaCard>
@@ -310,8 +379,8 @@ function onKeydown(e) {
           <span class="cert-badge" v-if="item.certification">{{ item.certification }}</span>
         </template>
         <template #details>
-          <span class="runtime" v-if="item.seasons">
-            {{ item.seasons }}S · {{ item.episodes }}E
+          <span class="runtime" v-if="item.seasonCount">
+            {{ item.seasonCount }}S · {{ item.episodeCount }}E
           </span>
           <div class="status-pill" :data-status="item.status">
             {{ STATUS_OPTIONS.find(s => s.value === item.status)?.label }}
@@ -326,6 +395,7 @@ function onKeydown(e) {
         <div v-if="showOverlay && overlayItem" class="overlay-backdrop" @click.self="closeOverlay">
           <div class="overlay-panel">
 
+            <!-- Top: Poster + Info -->
             <div class="overlay-top">
               <img v-if="overlayItem.imageUrl" :src="overlayItem.imageUrl" class="overlay-poster" />
               <div class="overlay-info">
@@ -335,8 +405,8 @@ function onKeydown(e) {
                 </p>
                 <div class="overlay-meta">
                   <span v-if="overlayItem.year">{{ overlayItem.year }}</span>
-                  <span v-if="overlayItem.seasons">{{ overlayItem.seasons }} Staffeln</span>
-                  <span v-if="overlayItem.episodes">{{ overlayItem.episodes }} Episoden</span>
+                  <span v-if="overlayItem.seasonCount">{{ overlayItem.seasonCount }} Staffeln</span>
+                  <span v-if="overlayItem.episodeCount">{{ overlayItem.episodeCount }} Episoden</span>
                   <span v-if="overlayItem.runtime">{{ overlayItem.runtime }} min / Ep.</span>
                   <span v-if="overlayItem.certification" class="cert-badge-inline">
                     {{ overlayItem.certification }}
@@ -362,11 +432,40 @@ function onKeydown(e) {
                     >★</button>
                   </div>
                 </div>
+                <div v-if="overlayItem.streamingProviders?.length" class="streaming-providers">
+                  <img
+                    v-for="p in overlayItem.streamingProviders"
+                    :key="p.id"
+                    :src="p.logo"
+                    :alt="p.name"
+                    :title="p.name"
+                    class="provider-logo"
+                  />
+                </div>
               </div>
             </div>
 
-            <div class="overlay-actions">
-              <!-- Status -->
+            <!-- Overlay Tabs -->
+            <div class="overlay-tabs">
+              <button
+                class="overlay-tab"
+                :class="{ active: overlayTab === 'details' }"
+                @click="overlayTab = 'details'"
+              >Details</button>
+              <button
+                class="overlay-tab"
+                :class="{ active: overlayTab === 'episodes' }"
+                @click="overlayTab = 'episodes'"
+              >
+                Episoden
+                <span v-if="episodeList.length" class="tab-count">
+                  {{ episodeProgress.size }}/{{ episodeList.length }}
+                </span>
+              </button>
+            </div>
+
+            <!-- Details Tab -->
+            <div v-if="overlayTab === 'details'" class="overlay-actions">
               <div class="status-row">
                 <button
                   v-for="opt in STATUS_OPTIONS"
@@ -378,7 +477,6 @@ function onKeydown(e) {
                 >{{ opt.label }}</button>
               </div>
 
-              <!-- Watch Next Toggle -->
               <button
                 class="btn-secondary"
                 :class="{ active: nextList.includes(String(overlayItem.id)) }"
@@ -388,13 +486,61 @@ function onKeydown(e) {
                 {{ nextList.includes(String(overlayItem.id)) ? '★ Watch Next' : '☆ Watch Next' }}
               </button>
 
-              <!-- Delete -->
               <button class="btn-danger" @click="handleDelete">
                 {{ deleteConfirm ? 'Wirklich löschen?' : 'Löschen' }}
               </button>
 
               <button class="btn-close" @click="closeOverlay">✕ Schließen</button>
             </div>
+
+            <!-- Episoden Tab -->
+            <div v-else-if="overlayTab === 'episodes'" class="episodes-tab">
+              <div v-if="episodesLoading" class="loading">Episoden laden...</div>
+              <div v-else-if="!episodesGrouped.length" class="empty">Keine Episodendaten verfügbar.</div>
+              <template v-else>
+                <div
+                  v-for="{ season, episodes } in episodesGrouped"
+                  :key="season"
+                  class="season-block"
+                >
+                  <div class="season-header">
+                    <span class="season-title">Staffel {{ season }}</span>
+                    <span class="season-progress">
+                      {{ seasonProgress(season).watched }}/{{ seasonProgress(season).total }}
+                    </span>
+                    <button
+                      class="season-toggle-btn"
+                      :class="{ complete: isSeasonComplete(season) }"
+                      @click="onToggleSeason(season)"
+                    >
+                      {{ isSeasonComplete(season) ? '✓ Alle gesehen' : '○ Alle markieren' }}
+                    </button>
+                  </div>
+
+                  <div class="episode-list">
+                    <label
+                      v-for="ep in episodes"
+                      :key="ep.episode"
+                      class="episode-row"
+                      :class="{ watched: episodeProgress.has(`${ep.season}-${ep.episode}`) }"
+                    >
+                      <input
+                        type="checkbox"
+                        :checked="episodeProgress.has(`${ep.season}-${ep.episode}`)"
+                        @change="onToggleEpisode(ep)"
+                      />
+                      <span class="ep-number">E{{ String(ep.episode).padStart(2, '0') }}</span>
+                      <span class="ep-title">{{ ep.titleEn || `Episode ${ep.episode}` }}</span>
+                      <span class="ep-meta">
+                        <span v-if="ep.airDate">{{ ep.airDate?.slice(0, 4) }}</span>
+                        <span v-if="ep.runtime">{{ ep.runtime }}min</span>
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              </template>
+            </div>
+
           </div>
         </div>
       </Transition>
@@ -593,7 +739,7 @@ function onKeydown(e) {
   border: 1px solid #2a2d3a;
   border-radius: 14px;
   padding: 1.5rem;
-  width: min(560px, 95vw);
+  width: min(580px, 95vw);
   max-height: 90vh;
   overflow-y: auto;
   display: flex;
@@ -641,6 +787,41 @@ function onKeydown(e) {
 }
 .star.active, .star:hover { color: #f59e0b; }
 
+.streaming-providers {
+  display: flex; flex-wrap: wrap; gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+.provider-logo {
+  width: 32px; height: 32px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+/* Overlay Tabs */
+.overlay-tabs {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid #2a2d3a;
+  margin-bottom: 0.25rem;
+}
+
+.overlay-tab {
+  padding: 0.4rem 1rem;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #888;
+  cursor: pointer;
+  font-size: 0.88rem;
+  margin-bottom: -1px;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: color 0.15s;
+}
+.overlay-tab.active { color: #e0e0e0; border-bottom-color: #3b82f6; }
+
+/* Details Tab */
 .overlay-actions { display: flex; flex-direction: column; gap: 0.5rem; }
 
 .status-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
@@ -699,10 +880,88 @@ function onKeydown(e) {
   align-self: flex-end;
 }
 
+/* Episoden Tab */
+.episodes-tab { max-height: 55vh; overflow-y: auto; padding-right: 0.25rem; }
+
+.season-block { margin-bottom: 1.25rem; }
+
+.season-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid #2a2d3a;
+  margin-bottom: 0.25rem;
+  position: sticky;
+  top: 0;
+  background: #1a1d26;
+  z-index: 1;
+}
+
+.season-title { font-weight: 600; color: #e0e0e0; font-size: 0.9rem; }
+
+.season-progress { font-size: 0.8rem; color: #888; flex: 1; }
+
+.season-toggle-btn {
+  padding: 0.2rem 0.6rem;
+  border: 1px solid #2a2d3a;
+  border-radius: 6px;
+  background: transparent;
+  color: #888;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.season-toggle-btn.complete { border-color: #22c55e; color: #22c55e; }
+.season-toggle-btn:hover { border-color: #3b82f6; color: #3b82f6; }
+
+.episode-list { display: flex; flex-direction: column; }
+
+.episode-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0.4rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #aaa;
+  transition: background 0.1s;
+}
+.episode-row:hover { background: #1e2230; }
+.episode-row.watched { color: #555; }
+.episode-row.watched .ep-title { text-decoration: line-through; }
+
+.episode-row input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: #3b82f6;
+  flex-shrink: 0;
+}
+
+.ep-number {
+  color: #555;
+  font-size: 0.78rem;
+  flex-shrink: 0;
+  width: 2.8rem;
+  font-variant-numeric: tabular-nums;
+}
+.ep-title  { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ep-meta   {
+  display: flex;
+  gap: 0.5rem;
+  color: #555;
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+
 /* Search Panel */
 .search-panel { width: min(640px, 95vw); }
 .search-row { display: flex; gap: 0.5rem; }
-.search-status-row { display: flex; align-items: center; gap: 0.75rem; font-size: 0.85rem; color: #888; }
+.search-status-row {
+  display: flex; align-items: center; gap: 0.75rem;
+  font-size: 0.85rem; color: #888;
+}
 
 .search-results {
   display: flex; flex-direction: column; gap: 0.5rem;
@@ -719,7 +978,10 @@ function onKeydown(e) {
 .result-poster { width: 40px; height: 60px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
 
 .result-info { flex: 1; min-width: 0; }
-.result-title { font-size: 0.9rem; font-weight: 600; color: #e0e0e0; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.result-title {
+  font-size: 0.9rem; font-weight: 600; color: #e0e0e0;
+  margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .result-title-de { font-size: 0.78rem; color: #666; margin: 0; }
 .result-meta { font-size: 0.78rem; color: #888; margin: 0.1rem 0 0; }
 .already-label { font-size: 0.78rem; color: #555; white-space: nowrap; }

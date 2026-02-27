@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { db, getMediaWithProviders } from '../db/library.js'
-import { getFromCache, saveToCache, deleteFromCache } from '../services/tmdbCache.js'
-import { getSeries } from '../services/tmdbService.js'
+import { getFromCache, saveToCache, getEpisodesFromCache, saveEpisodesToCache,deleteFromCache } from '../services/tmdbCache.js'
+import { getSeries, fetchEpisodes } from '../services/tmdbService.js'
 
 const router = Router()
 const VALID_STATUS = ['watchlist', 'watching', 'finished', 'dropped', 'paused']
@@ -130,6 +130,93 @@ router.delete('/:id', (req, res) => {
   try {
     db.prepare('DELETE FROM series WHERE id = ?').run(id)
     res.status(204).send()
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// GET /api/series/:id/episodes
+router.get('/:id/episodes', async (req, res) => {
+  const id = Number(req.params.id)
+  const series = db.prepare('SELECT * FROM series WHERE id = ?').get(id)
+  if (!series) return res.status(404).json({ error: 'Serie nicht gefunden' })
+  try {
+    let episodes = getEpisodesFromCache(series.externalId)
+    if (!episodes) {
+      const tmdb = getFromCache(series.externalId, 'series')
+      const seasonCount = tmdb?.seasons ?? 1
+      episodes = await fetchEpisodes(series.externalId, seasonCount)
+      saveEpisodesToCache(series.externalId, episodes)
+    }
+    res.json(episodes)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// GET /api/series/:id/progress
+router.get('/:id/progress', (req, res) => {
+  const id = Number(req.params.id)
+  if (!db.prepare('SELECT id FROM series WHERE id = ?').get(id))
+    return res.status(404).json({ error: 'Serie nicht gefunden' })
+  try {
+    const rows = db.prepare(
+      'SELECT season, episode, watchedAt FROM episodeprogress WHERE seriesId = ? ORDER BY season, episode'
+    ).all(id)
+    res.json(rows)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// POST /api/series/:id/progress/toggle
+router.post('/:id/progress/toggle', (req, res) => {
+  const id = Number(req.params.id)
+  if (!db.prepare('SELECT id FROM series WHERE id = ?').get(id))
+    return res.status(404).json({ error: 'Serie nicht gefunden' })
+  const { season, episode } = req.body
+  if (!season || !episode) return res.status(400).json({ error: 'season und episode sind Pflichtfelder' })
+  try {
+    const existing = db.prepare(
+      'SELECT id FROM episodeprogress WHERE seriesId = ? AND season = ? AND episode = ?'
+    ).get(id, season, episode)
+    if (existing) {
+      db.prepare('DELETE FROM episodeprogress WHERE id = ?').run(existing.id)
+      return res.json({ watched: false, season, episode })
+    } else {
+      db.prepare(
+        'INSERT INTO episodeprogress (seriesId, season, episode, watchedAt) VALUES (?, ?, ?, ?)'
+      ).run(id, season, episode, Date.now())
+      return res.json({ watched: true, season, episode })
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// PUT /api/series/:id/progress/season/:season
+router.put('/:id/progress/season/:season', (req, res) => {
+  const id     = Number(req.params.id)
+  const season = Number(req.params.season)
+  if (!db.prepare('SELECT id FROM series WHERE id = ?').get(id))
+    return res.status(404).json({ error: 'Serie nicht gefunden' })
+  const { episodes, watched } = req.body
+  if (!Array.isArray(episodes)) return res.status(400).json({ error: 'episodes Array nötig' })
+  try {
+    db.transaction(() => {
+      if (watched) {
+        const insert = db.prepare(
+          'INSERT OR IGNORE INTO episodeprogress (seriesId, season, episode, watchedAt) VALUES (?, ?, ?, ?)'
+        )
+        for (const ep of episodes) insert.run(id, season, ep, Date.now())
+      } else {
+        db.prepare('DELETE FROM episodeprogress WHERE seriesId = ? AND season = ?').run(id, season)
+      }
+    })()
+    const rows = db.prepare(
+      'SELECT season, episode, watchedAt FROM episodeprogress WHERE seriesId = ? ORDER BY season, episode'
+    ).all(id)
+    res.json(rows)
   } catch (err) {
     res.status(500).json({ error: err.message })
   }

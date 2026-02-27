@@ -83,19 +83,43 @@ export async function updateSeries(id, patch) {
   return res.json()
 }
 
-export async function updateSeriesProviders(id, providers) {
-  const res = await fetch(`${API_BASE}/series/${id}/providers`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(providers),
-  })
-  if (!res.ok) throw new Error(`updateSeriesProviders failed: ${res.status}`)
-  return res.json()
-}
-
 export async function deleteSeries(id) {
   const res = await fetch(`${API_BASE}/series/${id}`, { method: 'DELETE' })
   if (!res.ok) throw new Error(`deleteSeries failed: ${res.status}`)
+}
+
+// ─── EPISODE FORTSCHRITT ──────────────────────────────────────────────────────
+
+export async function loadEpisodes(seriesId) {
+  const res = await fetch(`${API_BASE}/series/${seriesId}/episodes`)
+  if (!res.ok) throw new Error(`loadEpisodes failed: ${res.status}`)
+  return res.json()
+}
+
+export async function loadEpisodeProgress(seriesId) {
+  const res = await fetch(`${API_BASE}/series/${seriesId}/progress`)
+  if (!res.ok) throw new Error(`loadEpisodeProgress failed: ${res.status}`)
+  return res.json()
+}
+
+export async function toggleEpisode(seriesId, season, episode) {
+  const res = await fetch(`${API_BASE}/series/${seriesId}/progress/toggle`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ season, episode }),
+  })
+  if (!res.ok) throw new Error(`toggleEpisode failed: ${res.status}`)
+  return res.json()
+}
+
+export async function toggleSeason(seriesId, season, episodeNumbers, watched) {
+  const res = await fetch(`${API_BASE}/series/${seriesId}/progress/season/${season}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ episodes: episodeNumbers, watched }),
+  })
+  if (!res.ok) throw new Error(`toggleSeason failed: ${res.status}`)
+  return res.json()
 }
 
 // ─── TMDB SEARCH ─────────────────────────────────────────────────────────────
