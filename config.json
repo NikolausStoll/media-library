@@ -27,6 +27,5 @@
   },
   "schema": {
     "port": "port"
-  },
-  "image": "ghcr.io/nikolausstoll/media-library"
+  }
 }
