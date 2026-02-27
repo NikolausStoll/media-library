@@ -505,6 +505,7 @@ body.light-mode {
   row-gap: 0;
   background: var(--border);
   margin-bottom: 6px;
+  grid-auto-rows: 1fr;
 }
 
 /* ── Game Card ── */
@@ -515,6 +516,9 @@ body.light-mode {
   overflow: visible;
   cursor: pointer;
   transition: opacity 0.15s;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .game-card:hover {
@@ -534,9 +538,11 @@ body.light-mode {
 }
 
 .card-info {
+  flex: 1;
   padding: 6px 8px;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   gap: 2px;
   border-top: 1px solid var(--border);
 }
