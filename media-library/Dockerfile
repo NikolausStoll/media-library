@@ -1,4 +1,4 @@
-ARG BUILD_FROM
+ARG BUILD_FROM=ghcr.io/homeassistant/amd64-base:12.0
 FROM $BUILD_FROM
 
 # Install Node.js and build dependencies
@@ -12,14 +12,15 @@ RUN apk add --no-cache \
 
 WORKDIR /app
 
-# Copy package files from parent directory (frontend)
-COPY ../package*.json ./
+# Copy package files from project root (frontend)
+COPY ../../package*.json ./
 
 # Install frontend dependencies
 RUN npm ci --production
 
 # Copy backend package files
-COPY ../backend/package*.json ./backend/
+# Copy backend package files
+COPY ../../backend/package*.json ./backend/
 
 # Install backend dependencies
 WORKDIR /app/backend
@@ -29,7 +30,8 @@ RUN npm ci --production
 WORKDIR /app
 
 # Copy all application files from parent
-COPY ../ .
+# Copy all application files from project root
+COPY ../../ .
 
 # Build frontend
 RUN npm run build
