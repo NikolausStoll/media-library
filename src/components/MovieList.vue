@@ -30,7 +30,9 @@ const viewMode = ref(localStorage.getItem('viewMode') || 'grid')
 const activeTab = ref('watchlist')
 const searchQuery = ref('')
 const genreFilter = ref([])
+const providerFilter = ref([])
 const sortBy = ref('title') // title | year | rating
+const sortDirection = ref('asc')
 
 // Overlays
 const overlayMovie = ref(null)
@@ -79,10 +81,33 @@ const allGenres = computed(() => {
   return [...set].sort()
 })
 
+const availableProviders = computed(() => {
+  const map = new Map()
+  for (const m of movieList.value) {
+    for (const p of m.streamingProviders ?? []) {
+      map.set(p.id, p.name)
+    }
+  }
+  return [...map.entries()].map(([id, name]) => ({ id, name }))
+})
+
 function applySort(list) {
-  if (sortBy.value === 'year') return [...list].sort((a, b) => (b.year ?? '').localeCompare(a.year ?? ''))
-  if (sortBy.value === 'rating') return [...list].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
-  return [...list].sort((a, b) => (a.title ?? '').localeCompare(b.title ?? ''))
+  const base =
+    sortBy.value === 'year'
+      ? [...list].sort((a, b) => (a.year ?? '').localeCompare(b.year ?? ''))
+      : sortBy.value === 'rating'
+        ? [...list].sort((a, b) => (a.rating ?? 0) - (b.rating ?? 0))
+        : [...list].sort((a, b) => (a.title ?? '').localeCompare(b.title ?? ''))
+  return sortDirection.value === 'asc' ? base : base.reverse()
+}
+
+function setSort(key) {
+  if (sortBy.value === key) {
+    sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortBy.value = key
+    sortDirection.value = key === 'title' ? 'asc' : 'desc'
+  }
 }
 
 const filteredMovies = computed(() => {
@@ -105,6 +130,11 @@ const filteredMovies = computed(() => {
 
   if (genreFilter.value.length)
     base = base.filter(m => genreFilter.value.every(g => m.genres?.includes(g)))
+
+  if (providerFilter.value.length)
+    base = base.filter(m =>
+      (m.streamingProviders ?? []).some(p => providerFilter.value.includes(p.id)),
+    )
 
   return applySort(base)
 })
@@ -246,6 +276,12 @@ function toggleGenre(g) {
   const i = genreFilter.value.indexOf(g)
   if (i > -1) genreFilter.value.splice(i, 1)
   else genreFilter.value.push(g)
+}
+
+function toggleProvider(id) {
+  const i = providerFilter.value.indexOf(id)
+  if (i > -1) providerFilter.value.splice(i, 1)
+  else providerFilter.value.push(id)
 }
 
 function handleGlobalKeydown(e) {
@@ -404,26 +440,51 @@ function handleGlobalKeydown(e) {
           <button class="search-open-btn" @click="openSearchOverlay">Add Movies</button>
         </div>
 
-        <div class="sidebar-section" v-if="allGenres.length">
-          <div class="sidebar-section-label">Genres</div>
-          <div class="filter-options">
-            <button
-              v-for="g in allGenres"
-              :key="g"
-              :class="['filter-btn', { active: genreFilter.includes(g) }]"
-              @click="toggleGenre(g)"
-            >
-              <span>{{ g }}</span>
+        <div class="sidebar-section">
+          <div class="sidebar-section-label">Sort</div>
+          <div class="filter-options filter-options-single">
+            <button :class="['filter-btn', { active: sortBy === 'title' }]" @click="setSort('title')">
+              <span class="filter-label">Title</span>
+              <span class="sort-indicator" v-if="sortBy === 'title'">{{ sortDirection === 'asc' ? 'A→Z' : 'Z→A' }}</span>
+            </button>
+            <button :class="['filter-btn', { active: sortBy === 'year' }]" @click="setSort('year')">
+              <span class="filter-label">Year</span>
+              <span class="sort-indicator" v-if="sortBy === 'year'">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
+            </button>
+            <button :class="['filter-btn', { active: sortBy === 'rating' }]" @click="setSort('rating')">
+              <span class="filter-label">Rating</span>
+              <span class="sort-indicator" v-if="sortBy === 'rating'">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
             </button>
           </div>
         </div>
 
         <div class="sidebar-section">
-          <div class="sidebar-section-label">Sort</div>
-          <div class="filter-options">
-            <button :class="['filter-btn', { active: sortBy === 'title' }]" @click="sortBy = 'title'">Title</button>
-            <button :class="['filter-btn', { active: sortBy === 'year' }]" @click="sortBy = 'year'">Year</button>
-            <button :class="['filter-btn', { active: sortBy === 'rating' }]" @click="sortBy = 'rating'">Rating</button>
+          <div class="sidebar-section-label">Filters</div>
+          <div v-if="allGenres.length">
+            <div class="filter-subsection-label">Genres</div>
+            <div class="filter-options">
+              <button
+                v-for="g in allGenres"
+                :key="g"
+                :class="['filter-btn', { active: genreFilter.includes(g) }]"
+                @click="toggleGenre(g)"
+              >
+                <span>{{ g }}</span>
+              </button>
+            </div>
+          </div>
+          <div v-if="availableProviders.length">
+            <div class="filter-subsection-label">Streaming Providers</div>
+            <div class="filter-options">
+              <button
+                v-for="p in availableProviders"
+                :key="p.id"
+                :class="['filter-btn', { active: providerFilter.includes(p.id) }]"
+                @click="toggleProvider(p.id)"
+              >
+                <span>{{ p.name }}</span>
+              </button>
+            </div>
           </div>
         </div>
 
