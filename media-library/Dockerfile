@@ -12,14 +12,14 @@ RUN apk add --no-cache \
 
 WORKDIR /app
 
-# Copy package files for root (frontend)
-COPY package*.json ./
+# Copy package files from parent directory (frontend)
+COPY ../package*.json ./
 
 # Install frontend dependencies
 RUN npm ci --production
 
 # Copy backend package files
-COPY backend/package*.json ./backend/
+COPY ../backend/package*.json ./backend/
 
 # Install backend dependencies
 WORKDIR /app/backend
@@ -28,8 +28,8 @@ RUN npm ci --production
 # Back to root
 WORKDIR /app
 
-# Copy all application files
-COPY . .
+# Copy all application files from parent
+COPY ../ .
 
 # Build frontend
 RUN npm run build
