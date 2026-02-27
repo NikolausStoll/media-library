@@ -1,0 +1,31 @@
+name: Media Library
+version: "1.0.0"
+slug: media-library-addon
+description: Media Library (games, movies, series) bundled frontend/backend addon.
+arch:
+  - amd64
+  - armv7
+  - armhf
+  - aarch64
+startup: services
+boot: auto
+ports:
+  8787/tcp: 8787
+options:
+  PORT: 8787
+  VITE_API_URL: http://localhost:8787/api
+schema:
+  PORT:
+    type: int
+    minimum: 1024
+    maximum: 65535
+    default: 8787
+  VITE_API_URL:
+    type: str
+    default: http://localhost:8787/api
+map:
+  - path: /config
+    writable: true
+run:
+  - bash
+  - /run.sh
