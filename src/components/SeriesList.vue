@@ -722,7 +722,7 @@ function handleGlobalKeydown(e) {
           <span v-if="overlayItem.year">{{ overlayItem.year }}</span>
           <span v-if="overlayItem.seasonCount != null"> · {{ overlayItem.seasonCount }} {{ overlayItem.seasonCount === 1 ? 'Season' : 'Seasons' }}</span>
           <span v-if="overlayItem.episodeCount != null"> · {{ overlayItem.episodeCount }} Episodes</span>
-          <span v-if="overlayItem.runtime"> · {{ overlayItem.runtime }} min / Ep</span>
+          <span v-if="overlayItem.runtime"> · {{ overlayItem.runtime }} min</span>
         </div>
 
         <div class="tabs" style="margin-bottom: 12px;">
