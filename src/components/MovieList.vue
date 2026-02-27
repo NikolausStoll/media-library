@@ -110,16 +110,8 @@ function setSort(key) {
   }
 }
 
-const filteredMovies = computed(() => {
-  let base =
-    activeTab.value === 'all'
-      ? movieList.value
-      : movieList.value.filter(m => m.status === activeTab.value)
-
-  if (activeTab.value === 'watchlist' && nextList.value.length) {
-    const inNext = new Set(nextList.value.map(String))
-    base = base.filter(m => !inNext.has(String(m.id)))
-  }
+function applyFilters(list) {
+  let base = list
 
   if (searchQuery.value.trim()) {
     const q = searchQuery.value.toLowerCase()
@@ -137,14 +129,28 @@ const filteredMovies = computed(() => {
     )
 
   return applySort(base)
+}
+
+const filteredMovies = computed(() => {
+  const base =
+    activeTab.value === 'all'
+      ? movieList.value
+      : movieList.value.filter(m => m.status === activeTab.value)
+
+  if (activeTab.value === 'watchlist' && nextList.value.length) {
+    const inNext = new Set(nextList.value.map(String))
+    return applyFilters(base.filter(m => !inNext.has(String(m.id))))
+  }
+  return applyFilters(base)
 })
 
-const nextMovies = computed(() =>
-  nextList.value
+const nextMovies = computed(() => {
+  const candidates = nextList.value
     .map(id => movieList.value.find(m => String(m.id) === String(id)))
     .filter(Boolean)
-    .filter(m => m.status === 'watchlist'),
-)
+    .filter(m => m.status === 'watchlist')
+  return applyFilters(candidates)
+})
 
 const addStatusLabel = computed(() => {
   const label = statusOptions.find(o => o.id === activeTab.value)?.label ?? activeTab.value
@@ -205,6 +211,15 @@ async function handleDelete() {
   movieList.value = movieList.value.filter(m => String(m.id) !== String(movie.id))
   nextList.value = nextList.value.filter(id => String(id) !== String(movie.id))
   closeOverlay()
+}
+
+async function clearMovieCache() {
+  if (!overlayMovie.value) return
+  try {
+    await fetch(`${import.meta.env.VITE_API_URL ?? 'http://localhost:8787/api'}/movies/${overlayMovie.value.id}/cache`, { method: 'DELETE' })
+  } catch (err) {
+    console.error('failed to clear movie cache', err)
+  }
 }
 
 async function addToNext(movie) {
@@ -547,6 +562,7 @@ function handleGlobalKeydown(e) {
         </div>
 
         <div class="overlay-danger-zone">
+          <button class="clear-cache-btn" @click="clearMovieCache">Clear Cache</button>
           <button
             v-if="overlayMovie.status === 'watchlist'"
             class="clear-cache-btn"

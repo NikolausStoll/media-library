@@ -153,22 +153,13 @@ function setSort(key) {
 const watchingSeries = computed(() =>
   seriesList.value.filter(s => s.status === 'watching'),
 )
-const pausedSeries = computed(() =>
-  applySort(seriesList.value.filter(s => s.status === 'paused')),
-)
+const pausedSeries = computed(() => {
+  const paused = seriesList.value.filter(s => s.status === 'paused')
+  return applySeriesFilters(paused)
+})
 
-const filteredSeries = computed(() => {
-  let base =
-    activeTab.value === 'all'
-      ? seriesList.value
-      : activeTab.value === 'watching'
-        ? watchingSeries.value
-        : seriesList.value.filter(s => s.status === activeTab.value)
-
-  if (activeTab.value === 'watchlist' && nextList.value.length) {
-    const inNext = new Set(nextList.value.map(String))
-    base = base.filter(s => !inNext.has(String(s.id)))
-  }
+function applySeriesFilters(list) {
+  let base = list
 
   if (searchQuery.value.trim()) {
     const q = searchQuery.value.toLowerCase()
@@ -186,14 +177,30 @@ const filteredSeries = computed(() => {
     )
 
   return applySort(base)
+}
+
+const filteredSeries = computed(() => {
+  const base =
+    activeTab.value === 'all'
+      ? seriesList.value
+      : activeTab.value === 'watching'
+        ? watchingSeries.value
+        : seriesList.value.filter(s => s.status === activeTab.value)
+
+  if (activeTab.value === 'watchlist' && nextList.value.length) {
+    const inNext = new Set(nextList.value.map(String))
+    return applySeriesFilters(base.filter(s => !inNext.has(String(s.id))))
+  }
+  return applySeriesFilters(base)
 })
 
-const nextSeries = computed(() =>
-  nextList.value
+const nextSeries = computed(() => {
+  const candidates = nextList.value
     .map(id => seriesList.value.find(s => String(s.id) === String(id)))
     .filter(Boolean)
-    .filter(s => s.status === 'watchlist'),
-)
+    .filter(s => s.status === 'watchlist')
+  return applySeriesFilters(candidates)
+})
 
 const addStatusLabel = computed(() => {
   const label = statusOptions.find(o => o.id === activeTab.value)?.label ?? activeTab.value
@@ -306,6 +313,15 @@ async function handleDelete() {
   seriesList.value = seriesList.value.filter(s => String(s.id) !== String(item.id))
   nextList.value = nextList.value.filter(id => String(id) !== String(item.id))
   closeOverlay()
+}
+
+async function clearSeriesCache() {
+  if (!overlayItem.value) return
+  try {
+    await fetch(`${import.meta.env.VITE_API_URL ?? 'http://localhost:8787/api'}/series/${overlayItem.value.id}/cache`, { method: 'DELETE' })
+  } catch (err) {
+    console.error('clear series cache failed', err)
+  }
 }
 
 async function addToNext(item) {
@@ -744,6 +760,7 @@ function handleGlobalKeydown(e) {
           </div>
 
           <div class="overlay-danger-zone">
+            <button class="clear-cache-btn" @click="clearSeriesCache">Clear Cache</button>
             <button
               v-if="overlayItem.status === 'watchlist'"
               class="clear-cache-btn"
