@@ -4,6 +4,6 @@ export const ALLOWED_PROVIDER_IDS = new Set([
     337,  // Disney+
     2,    // Apple TV+
     531,  // Paramount+
-    29,   // Sky Go
+    30,   // Wow
     // Weitere IDs nach Bedarf ergänzen
   ])

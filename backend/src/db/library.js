@@ -96,6 +96,7 @@ db.exec(`
     linkUrl            TEXT,
     originalLang       TEXT,
     updatedAt          INTEGER,
+    ttlMs              INTEGER DEFAULT 604800000,
     PRIMARY KEY(id, mediaType)
   );
 
@@ -120,6 +121,10 @@ db.exec(`
     FOREIGN KEY (seriesId) REFERENCES series(id) ON DELETE CASCADE
   );
 `)
+
+try {
+  db.prepare('ALTER TABLE tmdbcache ADD COLUMN ttlMs INTEGER DEFAULT 604800000').run()
+} catch {}
 
 export function getGameWithPlatforms(id) {
   const game = db.prepare('SELECT * FROM games WHERE id = ?').get(id)
