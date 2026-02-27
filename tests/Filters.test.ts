@@ -11,9 +11,9 @@ vi.mock('../src/services/gameStorage.js', () => ({
   deleteGame: vi.fn(),
   loadSortOrder: vi.fn(),
   saveSortOrder: vi.fn(),
-  loadPlayNext: vi.fn(),
-  savePlayNext: vi.fn(),
-  removeFromPlayNextApi: vi.fn(),
+  loadNext: vi.fn(),
+  saveNext: vi.fn(),
+  removeFromNext: vi.fn(),
 }))
 
 vi.mock('../src/data/games.js', () => ({
@@ -188,4 +188,28 @@ describe('Filters & Sortierung', () => {
     expect(customBtn?.classes()).toContain('active')
     wrapper.unmount()
   })
+
+  it('Sidebar-Sections erscheinen in der richtigen Reihenfolge: Search → Sort → Filter', async () => {
+    const wrapper = await mountApp()
+
+    const sidebar = wrapper.find('.sidebar-content')
+    expect(sidebar.exists()).toBe(true)
+
+    const sections = sidebar.findAll('.sidebar-section-label')
+    const labels = sections.map(s => s.text().trim().toUpperCase())
+
+    const searchIdx  = labels.findIndex(l => l.includes('SEARCH'))
+    const sortIdx    = labels.findIndex(l => l.includes('SORT'))
+    const filterIdx  = labels.findIndex(l => l.includes('FILTER'))
+
+    expect(searchIdx).toBeGreaterThanOrEqual(0)
+    expect(sortIdx).toBeGreaterThanOrEqual(0)
+    expect(filterIdx).toBeGreaterThanOrEqual(0)
+
+    expect(searchIdx).toBeLessThan(sortIdx)
+    expect(sortIdx).toBeLessThan(filterIdx)
+
+    wrapper.unmount()
+  })
+
 })

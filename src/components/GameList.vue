@@ -1,6 +1,9 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import draggable from 'vuedraggable'
+
+defineProps({ mediaType: { type: String, default: 'game' } })
+const emit = defineEmits(['switch-media'])
 import { storefronts, availablePlatforms } from '../data/games.js'
 import { getPlatformLogo } from '../data/platformLogos.js'
 import {
@@ -11,11 +14,16 @@ import {
   deleteGame,
   loadSortOrder,
   saveSortOrder,
-  loadPlayNext,
-  savePlayNext,
-  removeFromPlayNextApi,
+  loadNext,
+  saveNext,
+  removeFromNext,
   updateGameTags,
 } from '../services/gameStorage.js'
+
+import GameCard from './games/GameCard.vue'
+import StatusOverlay from './games/StatusOverlay.vue'
+import GameSearchOverlay from './games/GameSearchOverlay.vue'
+import GameFilters from './games/GameFilters.vue'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8787/api'
 
@@ -68,7 +76,7 @@ const tabs = [
   { id: 'backlog',   label: 'Backlog'   },  
   { id: 'started',   label: 'Started'   },
   { id: 'completed', label: 'Completed' },
-  { id: 'retired',   label: 'Retired'   },
+  { id: 'dropped',   label: 'Dropped'   },
   { id: 'all',       label: 'All'       },
 ]
 
@@ -78,7 +86,7 @@ const statusOptions = [
   { id: 'started',   label: 'Started'   },
   { id: 'shelved',   label: 'Shelved'   },
   { id: 'completed', label: 'Completed' },
-  { id: 'retired',   label: 'Retired'   },
+  { id: 'dropped',   label: 'Dropped'   },
 ]
 
 const viewMode = ref(localStorage.getItem('viewMode') || 'grid')
@@ -340,7 +348,7 @@ async function onDragEnd() {
 // ─── Overlay / Status ─────────────────────────────────────────────────────────
 
 function openOverlay(game, event) {
-  event.stopPropagation()
+  event?.stopPropagation()
   overlayGame.value = game
   showOverlay.value = true
 }
@@ -358,7 +366,7 @@ async function changeStatus(newStatus) {
 
   if (wasInPlayNext && newStatus !== 'backlog') {
     playNextList.value = playNextList.value.filter(id => String(id) !== gameId)
-    await removeFromPlayNextApi(game.id)
+    await removeFromNext(game.id)
   }
 
   if (wasStarted && newStatus !== 'started') {
@@ -381,7 +389,7 @@ async function handleDeleteGame() {
 
   if (wasInPlayNext) {
     playNextList.value = playNextList.value.filter(id => String(id) !== gameId)
-    await removeFromPlayNextApi(game.id)
+    await removeFromNext(game.id)
   }
 
   await deleteGame(game.id)
@@ -399,7 +407,7 @@ async function clearGameCache(game) {
 // ─── Platform Editor ──────────────────────────────────────────────────────────
 
 function openPlatformEditor(game, event) {
-  event.stopPropagation()
+  event?.stopPropagation()
   platformEditor.value = { ...game, platforms: game.platforms.map(p => ({ ...p })) }
   showPlatformEditor.value = true
 }
@@ -442,7 +450,7 @@ async function addToPlayNext(game) {
   playNextList.value = [...playNextList.value, gameId]
 
   try {
-    await savePlayNext(playNextList.value)
+    await saveNext(playNextList.value)
   } catch (err) {
     playNextList.value = playNextList.value.filter(id => id !== gameId)
     console.error('addToPlayNext failed:', err)
@@ -452,13 +460,17 @@ async function addToPlayNext(game) {
 async function removeFromPlayNext(gameId) {
   const id = String(gameId)
   playNextList.value = playNextList.value.filter(i => String(i) !== id)
-  await removeFromPlayNextApi(gameId)
+  await removeFromNext(gameId)
 }
 
 // ─── Search Overlay ───────────────────────────────────────────────────────────
 
 function openSearchOverlay() {
+  overlaySearchQuery.value = searchQuery.value
   showSearchOverlay.value = true
+  nextTick(() => {
+    if (overlaySearchQuery.value.trim()) searchHltb()
+  })
 }
 
 function closeSearchOverlay() {
@@ -488,20 +500,9 @@ async function searchHltb() {
   }
 }
 
-async function addFromHltb(result) {
+async function handleAddFromSearch(result, status) {
   try {
-    const newGame = await addGame(result.id, activeTab.value, [])
-    gameList.value.push(newGame)
-    hltbResults.value = hltbResults.value.filter(r => String(r.id) !== String(result.id))
-  } catch (err) {
-    hltbError.value = err.message
-  }
-}
-
-async function addFromHltbToStatus(result, status) {
-  if (!status) return
-  try {
-    const newGame = await addGame(result.id, status, [])
+    const newGame = await addGame(result.id, status || activeTab.value, [])
     gameList.value.push(newGame)
     hltbResults.value = hltbResults.value.filter(r => String(r.id) !== String(result.id))
   } catch (err) {
@@ -544,7 +545,7 @@ onMounted(async () => {
   document.body.classList.toggle('light-mode', !darkMode.value)
   loading.value = true
   const [games, sortOrder, playNext] = await Promise.all([
-    loadGames(), loadSortOrder(), loadPlayNext(),
+    loadGames(), loadSortOrder(), loadNext(),
   ])
   gameList.value     = games
   startedOrder.value = sortOrder
@@ -558,23 +559,14 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="app-layout">
-
-    <!-- Sidebar Toggle -->
-    <button
-      class="sidebar-toggle-external"
-      :class="{ 'sidebar-closed': !sidebarOpen }"
-      @click="sidebarOpen = !sidebarOpen"
-    >{{ sidebarOpen ? '›' : '‹' }}</button>
-
-    <!-- Main Content -->
-    <div class="main-content" :class="{ 'sidebar-closed': !sidebarOpen }">
+  <div :class="['app-layout', { 'light-mode': !darkMode }]">
+    <div :class="['main-content', { 'sidebar-closed': !sidebarOpen }]">
       <div class="game-list-container" :class="{ 'list-view': viewMode === 'list' }">
 
-        <div v-if="loading" class="loading-state">Loading games...</div>
+        <!-- Loading -->
+        <div v-if="loading" class="empty-state">Loading...</div>
 
         <template v-else>
-
           <!-- Tabs -->
           <div class="tabs">
             <button
@@ -589,10 +581,7 @@ onUnmounted(() => {
           </div>
 
           <!-- Play Next (Backlog only) -->
-          <div
-            v-if="activeTab === 'backlog' && playNextGames.length > 0"
-            class="play-next-section"
-          >
+          <div v-if="activeTab === 'backlog' && playNextGames.length > 0" class="play-next-section">
             <div class="section-label">PLAY NEXT</div>
             <div class="game-grid play-next-grid">
               <div
@@ -603,22 +592,13 @@ onUnmounted(() => {
               >
                 <div class="card-cover-wrap">
                   <img :src="game.imageUrl" :alt="game.name" class="card-cover" />
-                  <button
-                    class="card-pn-btn pn-remove-btn"
-                    @click.stop="removeFromPlayNext(game.id)"
-                    title="Remove from Play Next"
-                  >✕</button>
-                    <!-- 100% overlay -->
-                  <img
-                    v-if="game.tags?.includes('100%')"
-                    src="/tags/100percent.png"
-                    class="card-tag-overlay"
-                  />
+                  <button class="card-pn-btn pn-remove-btn" @click.stop="removeFromPlayNext(game.id)" title="Remove from Play Next">✕</button>
+                  <img v-if="game.tags?.includes('100%')" src="/tags/100percent.png" class="card-tag-overlay" />
                 </div>
-
+                <!-- Play-Next-Karten nutzen noch direkt den Inline-Content,
+                     da sie den pn-remove-btn statt den add-btn brauchen -->
                 <div class="card-info">
                   <p class="card-title">{{ game.name }}</p>
-
                   <div class="card-row">
                     <div class="card-platform" @click.stop="openPlatformEditor(game, $event)">
                       <button v-if="game.platforms.length === 0" class="add-first-platform-btn">+</button>
@@ -630,48 +610,11 @@ onUnmounted(() => {
                         <img v-for="(plat, idx) in game.platforms.slice(1)" :key="idx" :src="resolveLogo(plat)" class="platform-logo-sm" :title="getPlatformLabel(plat)" />
                       </template>
                     </div>
-
                     <div v-if="game.gameplayAll != null" class="card-time-wrap" @click.stop>
                       <span class="card-time">{{ game.gameplayAll }} h</span>
-                      <div class="gameplay-tooltip">
-                        <div v-if="game.gameplayMain != null" class="tooltip-row">
-                          <span class="tooltip-label">Main</span>
-                          <span class="tooltip-value">{{ game.gameplayMain }} h</span>
-                        </div>
-                        <div v-if="game.gameplayExtra != null" class="tooltip-row">
-                          <span class="tooltip-label">Extra</span>
-                          <span class="tooltip-value">{{ game.gameplayExtra }} h</span>
-                        </div>
-                        <div v-if="game.gameplayComplete != null" class="tooltip-row">
-                          <span class="tooltip-label">Complete</span>
-                          <span class="tooltip-value">{{ game.gameplayComplete }} h</span>
-                        </div>
-                      </div>
                     </div>
                   </div>
-
                   <div class="card-row" v-if="game.rating != null || game.dlcs?.length || game.tags?.length">
-                    <div class="card-row-left">
-                      <div v-if="game.dlcs?.length" class="dlc-wrap" @click.stop>
-                        <span class="dlc-count">{{ game.dlcs.length }} DLC</span>
-                        <div class="dlc-tooltip">
-                          <div v-for="dlc in game.dlcs" :key="dlc.id" class="dlc-name">{{ dlc.name }}</div>
-                        </div>
-                      </div>
-                      <div v-if="game.tags?.length" class="card-tags" @click.stop>
-                        <img
-                          v-if="game.tags.includes('physical')"
-                          src="/tags/physical.png"
-                          title="Physical"
-                          class="card-tag-icon"
-                        />
-                        <span
-                          v-if="game.tags.includes('100%')"
-                          class="card-tag-100"
-                          title="100%"
-                        >100%</span>
-                      </div>
-                    </div>
                     <span v-if="game.rating != null" class="card-rating">{{ formatRating(game.rating) }}</span>
                   </div>
                 </div>
@@ -692,410 +635,132 @@ onUnmounted(() => {
             @end="onDragEnd"
           >
             <template #item="{ element }">
-              <div
-                v-show="filteredIds.has(String(element.id))"
-                class="game-card"
-                @click="openOverlay(element, $event)"
-              >
-                <div class="card-cover-wrap">
-                  <img :src="element.imageUrl" :alt="element.name" class="card-cover" />
-                  <button
-                    v-if="
-                      activeTab === 'backlog' &&
-                      !playNextList.includes(String(element.id)) &&
-                      playNextList.length < 6
-                    "
-                    class="card-pn-btn"
-                    @click.stop="addToPlayNext(element)"
-                    title="Add to Play Next"
-                  >›</button>
-                    <!-- 100% overlay -->
-                  <img
-                    v-if="element.tags?.includes('100%')"
-                    src="/tags/100percent.png"
-                    class="card-tag-overlay"
-                  />
-                </div>
-
-                <div class="card-info">
-                  <p class="card-title">{{ element.name }}</p>
-
-                  <div class="card-row">
-                    <div class="card-platform" @click.stop="openPlatformEditor(element, $event)">
-                      <button v-if="element.platforms.length === 0" class="add-first-platform-btn">+</button>
-                      <template v-else>
-                        <span class="platform-primary">
-                          <img :src="resolveLogo(element.platforms[0])" class="platform-logo-sm" :title="getPlatformLabel(element.platforms[0])" />
-                          <span class="platform-text">{{ getPlatformLabel(element.platforms[0]) }}</span>
-                        </span>
-                        <img v-for="(plat, idx) in element.platforms.slice(1)" :key="idx" :src="resolveLogo(plat)" class="platform-logo-sm" :title="getPlatformLabel(plat)" />
-                      </template>
-                    </div>
-
-                    <div v-if="element.gameplayAll != null" class="card-time-wrap" @click.stop>
-                      <span class="card-time">{{ element.gameplayAll }} h</span>
-                      <div class="gameplay-tooltip">
-                        <div v-if="element.gameplayMain != null" class="tooltip-row">
-                          <span class="tooltip-label">Main</span>
-                          <span class="tooltip-value">{{ element.gameplayMain }} h</span>
-                        </div>
-                        <div v-if="element.gameplayExtra != null" class="tooltip-row">
-                          <span class="tooltip-label">Extra</span>
-                          <span class="tooltip-value">{{ element.gameplayExtra }} h</span>
-                        </div>
-                        <div v-if="element.gameplayComplete != null" class="tooltip-row">
-                          <span class="tooltip-label">Complete</span>
-                          <span class="tooltip-value">{{ element.gameplayComplete }} h</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="card-row" v-if="element.rating != null || element.dlcs?.length || element.tags?.length">
-                    <div class="card-row-left">
-                      <div v-if="element.dlcs?.length" class="dlc-wrap" @click.stop>
-                        <span class="dlc-count">{{ element.dlcs.length }} DLC</span>
-                        <div class="dlc-tooltip">
-                          <div v-for="dlc in element.dlcs" :key="dlc.id" class="dlc-name">{{ dlc.name }}</div>
-                        </div>
-                      </div>
-                      <div v-if="element.tags?.length" class="card-tags" @click.stop>
-                        <img
-                          v-if="element.tags.includes('physical')"
-                          src="/tags/physical.png"
-                          title="Physical"
-                          class="card-tag-icon"
-                        />
-                        <span
-                          v-if="element.tags.includes('100%')"
-                          class="card-tag-100"
-                          title="100%"
-                        >100%</span>
-                      </div>
-                    </div>
-                    <span v-if="element.rating != null" class="card-rating">{{ formatRating(element.rating) }}</span>
-                  </div>
-                </div>
+              <div v-show="filteredIds.has(String(element.id))">
+                <GameCard
+                  :game="element"
+                  :activeTab="activeTab"
+                  :playNextList="playNextList"
+                  :formatRating="formatRating"
+                  :resolveLogo="resolveLogo"
+                  :getPlatformLabel="getPlatformLabel"
+                  :viewMode="viewMode"
+                  @open-overlay="(game, e) => openOverlay(game, e)"
+                  @open-platform-editor="(game, e) => openPlatformEditor(game, e)"
+                  @add-to-play-next="addToPlayNext(element)"
+                />
               </div>
             </template>
           </draggable>
 
-          <!-- Shelved Section (Started tab only) -->
+          <!-- Shelved Section -->
           <template v-if="activeTab === 'started' && shelvedGames.length > 0">
             <div class="list-separator"></div>
             <div class="section-label">SHELVED</div>
             <div class="game-grid">
-              <div
+              <GameCard
                 v-for="game in shelvedGames"
                 :key="game.id"
-                class="game-card"
-                @click="openOverlay(game, $event)"
-              >
-                <div class="card-cover-wrap">
-                  <img :src="game.imageUrl" :alt="game.name" class="card-cover" />
-
-                    <!-- 100% overlay -->
-                    <img
-                      v-if="game.tags?.includes('100%')"
-                      src="/tags/100percent.png"
-                      class="card-tag-overlay"
-                    />
-                </div>
-                <div class="card-info">
-                  <p class="card-title">{{ game.name }}</p>
-
-                  <div class="card-row">
-                    <div class="card-platform" @click.stop="openPlatformEditor(game, $event)">
-                      <button v-if="game.platforms.length === 0" class="add-first-platform-btn">+</button>
-                      <template v-else>
-                        <span class="platform-primary">
-                          <img :src="resolveLogo(game.platforms[0])" class="platform-logo-sm" :title="getPlatformLabel(game.platforms[0])" />
-                          <span class="platform-text">{{ getPlatformLabel(game.platforms[0]) }}</span>
-                        </span>
-                        <img v-for="(plat, idx) in game.platforms.slice(1)" :key="idx" :src="resolveLogo(plat)" class="platform-logo-sm" :title="getPlatformLabel(plat)" />
-                      </template>
-                    </div>
-
-                    <div v-if="game.gameplayAll != null" class="card-time-wrap" @click.stop>
-                      <span class="card-time">{{ game.gameplayAll }} h</span>
-                      <div class="gameplay-tooltip">
-                        <div v-if="game.gameplayMain != null" class="tooltip-row">
-                          <span class="tooltip-label">Main</span>
-                          <span class="tooltip-value">{{ game.gameplayMain }} h</span>
-                        </div>
-                        <div v-if="game.gameplayExtra != null" class="tooltip-row">
-                          <span class="tooltip-label">Extra</span>
-                          <span class="tooltip-value">{{ game.gameplayExtra }} h</span>
-                        </div>
-                        <div v-if="game.gameplayComplete != null" class="tooltip-row">
-                          <span class="tooltip-label">Complete</span>
-                          <span class="tooltip-value">{{ game.gameplayComplete }} h</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="card-row" v-if="game.rating != null || game.dlcs?.length || game.tags?.length">
-                    <div class="card-row-left">
-                      <div v-if="game.dlcs?.length" class="dlc-wrap" @click.stop>
-                        <span class="dlc-count">{{ game.dlcs.length }} DLC</span>
-                        <div class="dlc-tooltip">
-                          <div v-for="dlc in game.dlcs" :key="dlc.id" class="dlc-name">{{ dlc.name }}</div>
-                        </div>
-                      </div>
-                      <div v-if="game.tags?.length" class="card-tags" @click.stop>
-                        <img
-                          v-if="game.tags.includes('physical')"
-                          src="/tags/physical.png"
-                          title="Physical"
-                          class="card-tag-icon"
-                        />
-                        <span
-                          v-if="game.tags.includes('100%')"
-                          class="card-tag-100"
-                          title="100%"
-                        >100%</span>
-                      </div>
-                    </div>
-                    <span v-if="game.rating != null" class="card-rating">{{ formatRating(game.rating) }}</span>
-                  </div>
-                </div>
-              </div>
+                :game="game"
+                :activeTab="activeTab"
+                :playNextList="playNextList"
+                :formatRating="formatRating"
+                :resolveLogo="resolveLogo"
+                :getPlatformLabel="getPlatformLabel"
+                @open-overlay="(game, e) => openOverlay(game, e)"
+                @open-platform-editor="(game, e) => openPlatformEditor(game, e)"
+              />
             </div>
           </template>
 
-          <p
-            v-if="filteredGames.length === 0 && (activeTab !== 'backlog' || playNextGames.length === 0)"
-            class="empty-state"
-          >No games found</p>
-
+          <p v-if="filteredGames.length === 0 && (activeTab !== 'backlog' || playNextGames.length === 0)" class="empty-state">No games found</p>
         </template>
       </div>
     </div>
 
+    <!-- Sidebar Toggle -->
+    <button
+      :class="['sidebar-toggle-external', { 'sidebar-closed': !sidebarOpen }]"
+      @click="sidebarOpen = !sidebarOpen"
+    >{{ sidebarOpen ? '›' : '‹' }}</button>
+
     <!-- Sidebar -->
     <aside :class="['sidebar', { collapsed: !sidebarOpen }]">
-      <div v-show="sidebarOpen" class="sidebar-content">
-
-        <div class="sidebar-header">Filters & View</div>
-
-        <div class="sidebar-section">
-          <button class="search-open-btn" @click="openSearchOverlay">
-            Add Games
+      <div v-show="sidebarOpen">
+        <GameFilters
+          :mediaType="mediaType"
+          :activeTab="activeTab"
+          :sortBy="sortBy"
+          :sortDirection="sortDirection"
+          :platformFilter="platformFilter"
+          :storefrontFilter="storefrontFilter"
+          :tagFilter="tagFilter"
+          :availablePlatforms="availablePlatforms"
+          :storefronts="storefronts"
+          :filterSectionsOpen="filterSectionsOpen"
+          :viewMode="viewMode"
+          :darkMode="darkMode"
+          :searchQuery="searchQuery"
+          @switch-media="(value) => emit('switch-media', value)"
+          @open-search-overlay="openSearchOverlay"
+          @update:searchQuery="searchQuery = $event"
+          @toggle-filter="(type, val) => toggleFilter(type === 'platform' ? platformFilter : type === 'storefront' ? storefrontFilter : tagFilter, val)"
+          @toggle-filter-section="(sec) => filterSectionsOpen[sec] = !filterSectionsOpen[sec]"
+          @sort-name="toggleNameSort"
+          @sort-rating="toggleRatingSort"
+          @sort-playtime="togglePlaytimeSort"
+          @set-sort-custom="sortBy = 'custom'"
+          @set-view-mode="(m) => viewMode = m"
+          @toggle-dark-mode="toggleDarkMode"
+        />
+      </div>
+      <!-- Add Game (versteckt – für API-Tests und Legacy-Fallback) -->
+      <div class="add-game-section" v-show="false">
+        <div class="sidebar-section-label">ADD GAME</div>
+        <p class="add-game-hint">
+          Status: <strong>{{ tabs.find(t => t.id === activeTab)?.label }}</strong>
+        </p>
+        <div class="add-game-row">
+          <input
+            v-model="newExternalId"
+            type="text"
+            placeholder="HLTB ID"
+            class="add-game-input"
+            :disabled="addLoading"
+            @keydown="onAddKeydown"
+          />
+          <button
+            class="add-game-btn"
+            :disabled="addLoading || !newExternalId.trim()"
+            @click="handleAddGame"
+          >
+            {{ addLoading ? '...' : 'ADD' }}
           </button>
         </div>
-
-        <!-- Add Game (hidden) -->
-        <div class="add-game-section" v-show="false">
-          <div class="sidebar-section-label">ADD GAME</div>
-          <p class="add-game-hint">
-            Status: <strong>{{ tabs.find(t => t.id === activeTab)?.label }}</strong>
-          </p>
-          <div class="add-game-row">
-            <input
-              v-model="newExternalId"
-              type="text"
-              placeholder="HLTB ID"
-              class="add-game-input"
-              :disabled="addLoading"
-              @keydown="onAddKeydown"
-            />
-            <button
-              class="add-game-btn"
-              :disabled="addLoading || !newExternalId.trim()"
-              @click="handleAddGame"
-            >{{ addLoading ? '...' : 'ADD' }}</button>
-          </div>
-          <p v-if="addError" class="add-game-error">{{ addError }}</p>
-          <p v-if="addSuccess" class="add-game-success">Game added</p>
-        </div>
-
-        <!-- Search -->
-        <div class="sidebar-section">
-          <div class="sidebar-section-label">SEARCH</div>
-          <div class="search-row">
-            <div class="search-input-wrap" style="flex: 1">
-              <input
-                v-model="searchQuery"
-                type="text"
-                placeholder="Filter by title..."
-                class="search-input"
-                @keydown.esc="searchQuery = ''"
-              />
-              <button
-                v-if="searchQuery"
-                class="search-clear-btn"
-                @click="searchQuery = ''"
-              >✕</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Sort -->
-        <div class="sidebar-section">
-          <div
-            class="sidebar-section-label collapsible"
-            @click="toggleFilterSection('sort')"
-          >
-            SORT
-            <span class="collapse-arrow">{{ filterSectionsOpen.sort ? '▼' : '▶' }}</span>
-          </div>
-          <div v-show="filterSectionsOpen.sort" class="filter-options filter-options-single">
-            <button
-              v-if="activeTab === 'started'"
-              :class="['filter-btn', { active: sortBy === 'custom' }]"
-              @click="sortBy = 'custom'"
-            >Custom Order</button>
-            <button
-              :class="['filter-btn', { active: sortBy === 'name' }]"
-              @click="toggleNameSort"
-            >
-              Name
-              <span v-if="sortBy === 'name'" class="sort-dir">
-                {{ sortDirection === 'asc' ? '(A–Z)' : '(Z–A)' }}
-              </span>
-            </button>
-            <button
-              :class="['filter-btn', { active: sortBy === 'rating' }]"
-              @click="toggleRatingSort"
-            >
-              Rating
-              <span v-if="sortBy === 'rating'" class="sort-dir">
-                {{ sortDirection === 'desc' ? '(↓)' : '(↑)' }}
-              </span>
-            </button>
-            <button
-              :class="['filter-btn', { active: sortBy === 'playtime' }]"
-              @click="togglePlaytimeSort"
-            >
-              Playtime
-              <span v-if="sortBy === 'playtime'" class="sort-dir">
-                {{ sortDirection === 'asc' ? '(↑)' : '(↓)' }}
-              </span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Platform & Storefront -->
-        <div class="sidebar-section">
-          <div
-            class="sidebar-section-label collapsible"
-            @click="toggleFilterSection('platformStorefront')"
-          >
-            Filter
-            <span class="collapse-arrow">{{ filterSectionsOpen.platformStorefront ? '▼' : '▶' }}</span>
-          </div>
-          <div v-show="filterSectionsOpen.platformStorefront">
-            <div class="filter-subsection-label">Tags</div>
-            <div class="filter-options">
-              <button
-                v-for="tag in ['physical', '100%']"
-                :key="tag"
-                :class="['filter-btn', { active: tagFilter.includes(tag) }]"
-                @click="toggleFilter(tagFilter, tag)"
-              >{{ tag.charAt(0).toUpperCase() + tag.slice(1) }}</button>
-            </div>
-
-            <div class="filter-subsection-label">Platform</div>
-            <div class="filter-options">
-              <button
-                v-for="plat in availablePlatforms"
-                :key="plat.id"
-                :class="['filter-btn', { active: platformFilter.includes(plat.id) }]"
-                @click="toggleFilter(platformFilter, plat.id)"
-              >{{ plat.label }}</button>
-              <button
-                :class="['filter-btn', { active: platformFilter.includes('none') }]"
-                @click="toggleFilter(platformFilter, 'none')"
-              >No Platform</button>
-            </div>
-            <div class="filter-subsection-label" style="margin-top: 8px">Storefront</div>
-            <div class="filter-options">
-              <button
-                v-for="store in storefronts"
-                :key="store.id"
-                :class="['filter-btn', { active: storefrontFilter.includes(store.id) }]"
-                @click="toggleFilter(storefrontFilter, store.id)"
-              >{{ store.label }}</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- View & Theme -->
-        <div class="sidebar-section view-section">
-          <div class="sidebar-section-label">VIEW</div>
-
-          <!-- Grid / List Toggle -->
-          <div class="view-toggle">
-            <button
-              :class="['view-btn', { active: viewMode === 'grid' }]"
-              @click="viewMode = 'grid'"
-            >Grid</button>
-            <button
-              :class="['view-btn', { active: viewMode === 'list' }]"
-              @click="viewMode = 'list'"
-            >List</button>
-          </div>
-
-          <!-- Dark / Light Toggle -->
-          <button class="theme-toggle-btn" @click="toggleDarkMode">
-            {{ darkMode ? 'Light Mode' : 'Dark Mode' }}
-          </button>
-        </div>
-
+        <p v-if="addError" class="add-game-error">{{ addError }}</p>
+        <p v-if="addSuccess" class="add-game-success">Game added</p>
       </div>
     </aside>
 
     <!-- Status Overlay -->
-    <div v-if="showOverlay" class="overlay" @click="showOverlay = false">
-      <div class="overlay-content" @click.stop>
-        <div class="overlay-title">{{ overlayGame?.name }}</div>
-        <div class="overlay-subtitle">Move to</div>
+    <StatusOverlay
+      v-if="showOverlay"
+      :game="overlayGame"
+      :statusOptions="statusOptions"
+      :deleteConfirm="deleteConfirm"
+      :inPlayNext="overlayGame ? playNextList.includes(String(overlayGame.id)) : false"
+      :playNextAtLimit="overlayGame ? (!playNextList.includes(String(overlayGame.id)) && playNextList.length >= 6) : false"
+      @close="showOverlay = false"
+      @change-status="changeStatus"
+      @toggle-tag="toggleTag"
+      @toggle-play-next="overlayGame && (playNextList.includes(String(overlayGame.id)) ? removeFromPlayNext(overlayGame.id) : addToPlayNext(overlayGame))"
+      @clear-cache="clearGameCache"
+      @delete-trigger="deleteConfirm = true"
+      @delete-confirm="handleDeleteGame"
+      @delete-cancel="deleteConfirm = false"
+    />
 
-        <div class="status-buttons">
-          <button
-            v-for="option in statusOptions"
-            :key="option.id"
-            :class="['status-btn', { active: overlayGame?.status === option.id }]"
-            @click="changeStatus(option.id)"
-          >{{ option.label }}</button>
-        </div>
-
-        <!-- Tags -->
-        <div class="overlay-tags">
-          <div class="overlay-section-label">TAGS</div>
-          <div class="tag-buttons">
-            <button
-              v-for="tag in ['physical', '100%']"
-              :key="tag"
-              :class="['tag-btn', { active: overlayGame?.tags?.includes(tag) }]"
-              @click="toggleTag(tag)"
-            >{{ tag.charAt(0).toUpperCase() + tag.slice(1) }}</button>
-          </div>
-        </div>
-
-        <div class="overlay-danger-zone">
-          <button class="clear-cache-btn" @click="clearGameCache(overlayGame)">
-            Clear Cache
-          </button>
-
-          <template v-if="!deleteConfirm">
-            <button class="delete-trigger-btn" @click="deleteConfirm = true">
-              Delete game
-            </button>
-          </template>
-          <template v-else>
-            <span class="delete-confirm-text">Really delete?</span>
-            <div class="delete-confirm-actions">
-              <button class="delete-confirm-btn" @click="handleDeleteGame">Yes, delete</button>
-              <button class="delete-cancel-btn" @click="deleteConfirm = false">Cancel</button>
-            </div>
-          </template>
-        </div>
-      </div>
-    </div>
-
-    <!-- Platform Editor -->
+    <!-- Platform Editor Overlay -->
+    <!-- (bleibt vorerst inline in GameList.vue – eigene Komponente in Phase 2) -->
     <div v-if="showPlatformEditor" class="overlay" @click="showPlatformEditor = false">
       <div class="editor-content" @click.stop>
         <div class="overlay-title">{{ platformEditor?.name }}</div>
@@ -1144,78 +809,18 @@ onUnmounted(() => {
     </div>
 
     <!-- Search Overlay -->
-    <div v-if="showSearchOverlay" class="overlay search-overlay" @click.self="closeSearchOverlay">
-      <div class="search-overlay-content" @click.stop>
-
-        <div class="search-overlay-header">
-          <div class="search-input-wrap">
-            <input
-              v-model="overlaySearchQuery"
-              type="text"
-              placeholder="Search title... (min. 3 characters)"
-              class="search-input"
-              autofocus
-              @keydown.enter="searchHltb"
-            />
-            <button
-              v-if="overlaySearchQuery"
-              class="search-clear-btn"
-              @click="overlaySearchQuery = ''"
-            >✕</button>
-          </div>
-          <button
-            class="hltb-search-btn"
-            :disabled="overlaySearchQuery.trim().length < 3 || hltbLoading"
-            @click="searchHltb"
-          >{{ hltbLoading ? '...' : 'Search HLTB' }}</button>
-        </div>
-
-        <!-- Aktive Liste -->
-        <p class="search-active-list">
-          Adding to: <strong>{{ tabs.find(t => t.id === activeTab)?.label }}</strong>
-        </p>
-
-        <p v-if="hltbError" class="add-game-error">{{ hltbError }}</p>
-
-        <div v-if="hltbSearched && !hltbLoading && hltbResults.length === 0" class="hltb-empty">
-          No new games found
-        </div>
-
-        <div v-if="hltbResults.length > 0" class="search-results-grid">
-          <div
-            v-for="result in hltbResults"
-            :key="result.id"
-            class="search-result-card"
-          >
-            <img :src="result.imageUrl" :alt="result.name" class="search-result-img" />
-            <div class="search-result-info">
-              <div class="search-result-name">{{ result.name }}</div>
-              <div class="search-result-actions">
-                <!-- Zur aktiven Liste hinzufügen -->
-                <button
-                  class="search-result-add-btn primary"
-                  @click="addFromHltb(result)"
-                  :title="`Add to ${tabs.find(t => t.id === activeTab)?.label}`"
-                >+ {{ tabs.find(t => t.id === activeTab)?.label }}</button>
-
-                <!-- Auswahl zu welcher Liste -->
-                <select
-                  class="search-result-status-select"
-                  @change="addFromHltbToStatus(result, $event.target.value); $event.target.value = ''"
-                >
-                  <option value="" disabled selected>+ Other</option>
-                  <option
-                    v-for="option in statusOptions"
-                    :key="option.id"
-                    :value="option.id"
-                  >{{ option.label }}</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div>
+    <GameSearchOverlay
+      v-if="showSearchOverlay"
+      :searchQuery="overlaySearchQuery"
+      :results="hltbResults"
+      :loading="addLoading"
+      :tabs="tabs"
+      :statusOptions="statusOptions"
+      :activeTab="activeTab"
+      @update:searchQuery="overlaySearchQuery = $event"
+      @search="searchHltb"
+      @add="({ result, status }) => handleAddFromSearch(result, status)"
+      @close="closeSearchOverlay"
+    />
   </div>
 </template>

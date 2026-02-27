@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { searchGames, getGame } from '../services/hltbService.js'
-import { getFromCache, saveToCache, deleteFromCache } from '../services/db.js'
+import { getFromCache, saveToCache, deleteFromCache } from '../services/hltbCache.js'
 
 const router = Router()
 

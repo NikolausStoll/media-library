@@ -1,3 +1,32 @@
+.provider-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.provider-btn {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  border: 2px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface2);
+  cursor: pointer;
+  transition: border 0.15s;
+}
+
+.provider-btn.active {
+  border-color: var(--accent);
+}
+
+.provider-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
 /* ── Variables ── */
 :root {
   --bg:         #080c14;
@@ -11,6 +40,7 @@
   --text-dim:   #6e7681;
   --accent:     #0ea5e9;
   --accent-light: #38bdf8;
+  --accent-rgb: 14 165 233;
   --danger:     #f85149;
 }
 
@@ -41,6 +71,19 @@ body.light-mode {
   --text-dim:   #6e7681;
   background: var(--bg);
   color: var(--text);
+}
+
+/* ── Accent Themes (Movies / Series) ── */
+.theme-movie {
+  --accent: #e50914;        /* Netflix red */
+  --accent-light: #ff4d4f;
+  --accent-rgb: 229 9 20;
+}
+
+.theme-series {
+  --accent: #f5c518;        /* IMDB yellow */
+  --accent-light: #f7d04a;
+  --accent-rgb: 245 197 24;
 }
 
 /* ── Layout ── */
@@ -123,12 +166,67 @@ body.light-mode {
 
 .sidebar.collapsed { transform: translateX(100%); }
 
+/* Wrapper (z. B. in GameList um GameFilters) muss volle Höhe haben, damit .sidebar-content darin margin-top: auto nutzen kann */
+.sidebar > div {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .sidebar-content {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
   height: 100%;
   padding: 16px;
   gap: 0;
+}
+
+/* Media switcher (Games / Movies / Series) – ersetzt sidebar-header oben */
+.media-switcher {
+  display: flex;
+  gap: 2px;
+  padding: 0 0 10px 0;
+  border-bottom: 1px solid var(--border2);
+  margin-bottom: 10px;
+}
+
+.media-switcher-btn {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid var(--border2);
+  border-radius: 2px;
+  background: var(--surface2);
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.media-switcher-btn:hover {
+  background: var(--surface3);
+  color: var(--text);
+}
+
+.media-switcher-btn.active[data-media="game"] {
+  background: rgb(14 165 233 / 0.15);
+  border-color: #0ea5e9;
+  color: #0ea5e9;
+}
+
+.media-switcher-btn.active[data-media="movie"] {
+  background: rgb(229 9 20 / 0.15);
+  border-color: #e50914;
+  color: #e50914;
+}
+
+.media-switcher-btn.active[data-media="series"] {
+  background: rgb(245 197 24 / 0.15);
+  border-color: #f5c518;
+  color: #f5c518;
 }
 
 .sidebar-header {
@@ -189,6 +287,45 @@ body.light-mode {
   grid-template-columns: 1fr;
 }
 
+.filter-options.filter-options-single .filter-btn.active {
+  background: rgb(var(--accent-rgb) / 0.15);
+  color: var(--accent);
+  border-color: rgb(var(--accent-rgb) / 0.35);
+}
+
+.provider-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.provider-logo-btn {
+  width: 54px;
+  height: 54px;
+  border-radius: 14px;
+  border: 2px solid transparent;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border 0.15s;
+  padding: 0;
+}
+
+.provider-logo-btn.active {
+  border-color: var(--accent);
+}
+
+.provider-logo-btn img {
+  width: 50px;
+  height: 50px;
+  object-fit: contain;
+  border-radius: 12px;
+}
+
+
 .filter-btn {
   padding: 6px 10px;
   background: transparent;
@@ -211,8 +348,8 @@ body.light-mode {
 }
 
 .filter-btn.active {
-  background: rgba(14, 165, 233, 0.1);
-  border-color: rgba(14, 165, 233, 0.25);
+  background: rgb(var(--accent-rgb) / 0.1);
+  border-color: rgb(var(--accent-rgb) / 0.25);
   color: var(--accent-light);
 }
 
@@ -340,7 +477,7 @@ body.light-mode {
 }
 
 .tab.active .tab-count {
-  background: rgba(14, 165, 233, 0.15);
+  background: rgb(var(--accent-rgb) / 0.15);
   color: var(--accent-light);
 }
 
@@ -404,6 +541,11 @@ body.light-mode {
   border-top: 1px solid var(--border);
 }
 
+.theme-movie .card-info,
+.theme-series .card-info {
+  gap: 4px;
+}
+
 .card-title {
   font-size: 11px;
   font-weight: 500;
@@ -411,6 +553,7 @@ body.light-mode {
   color: var(--text);
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   min-height: calc(11px * 1.3 * 2);
@@ -451,6 +594,15 @@ body.light-mode {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.platform-text.progress-full {
+  color: #2eac00;
+}
+
+/* Fortschritt begonnen, aber nicht 100% (Serien) */
+.platform-text.progress-started {
+  color: #f5c518;
 }
 
 .add-first-platform-btn {
@@ -532,10 +684,15 @@ body.light-mode {
 .card-rating {
   font-size: 10px;
   font-weight: 600;
-  color: #2eac00;
+  color: #2eac00; /* Grün nur bei Games */
   flex-shrink: 0;
   margin-left: auto;
   margin-top: 1px;
+}
+
+.theme-movie .card-rating,
+.theme-series .card-rating {
+  color: #f5c518; /* IMDB-Gelb, einheitlich für Filme und Serien */
 }
 
 /* ── DLC ── */
@@ -618,7 +775,7 @@ body.light-mode {
 }
 
 .game-card:hover .card-pn-btn { opacity: 1; }
-.card-pn-btn:hover { background: #0ea5e9 !important; color: white; }
+.card-pn-btn:hover { background: var(--accent) !important; color: white; }
 
 .pn-remove-btn {
   background: rgba(248, 81, 73, 0.15);
@@ -662,6 +819,11 @@ body.light-mode {
   margin-bottom: 4px;
 }
 
+.overlay-title a {
+  color: inherit;
+  text-decoration: none;
+}
+
 .overlay-subtitle {
   font-size: 11px;
   color: var(--text-dim);
@@ -693,8 +855,8 @@ body.light-mode {
 }
 
 .status-btn.active {
-  background: rgba(14, 165, 233, 0.1);
-  border-color: rgba(14, 165, 233, 0.35);
+  background: rgb(var(--accent-rgb) / 0.1);
+  border-color: rgb(var(--accent-rgb) / 0.35);
   color: var(--accent-light);
 }
 
@@ -954,11 +1116,17 @@ body.light-mode {
   font-weight: 500;
   line-height: 1.3;
   color: var(--text);
-  min-height: calc(11px * 1.3 * 2); /* immer 2 Zeilen */
+  min-height: calc(11px * 1.3 * 2);
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* TMDB-Suchergebnisse: Nur Titel (Jahr), danach Buttons – einheitliche Kartenhöhe */
+.search-result-title-year {
+  margin-bottom: 2px;
 }
 
 .search-result-actions {
@@ -986,8 +1154,17 @@ body.light-mode {
   color: var(--text);
 }
 
+/* ── Sidebar Footer (View + Light Mode immer unten) ── */
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 /* ── Theme Toggle ── */
-.theme-toggle-section { margin-top: auto; padding-top: 16px; }
+.sidebar-content > .theme-toggle-section { margin-top: auto; padding-top: 16px; }
 
 .theme-toggle-btn {
   width: 100%;
@@ -1002,8 +1179,8 @@ body.light-mode {
 }
 
 .search-result-add-btn.primary {
-  background: rgba(14, 165, 233, 0.1);
-  border-color: rgba(14, 165, 233, 0.3);
+  background: rgb(var(--accent-rgb) / 0.1);
+  border-color: rgb(var(--accent-rgb) / 0.3);
   color: var(--accent-light);
   flex: 1;
   min-width: 0;
@@ -1013,7 +1190,7 @@ body.light-mode {
 }
 
 .search-result-add-btn.primary:hover {
-  background: rgba(14, 165, 233, 0.2);
+  background: rgb(var(--accent-rgb) / 0.2);
 }
 
 .search-result-status-select {
@@ -1085,8 +1262,8 @@ body.light-mode {
 }
 
 .tag-btn.active {
-  background: rgba(14, 165, 233, 0.1);
-  border-color: rgba(14, 165, 233, 0.35);
+  background: rgb(var(--accent-rgb) / 0.1);
+  border-color: rgb(var(--accent-rgb) / 0.35);
   color: var(--accent-light);
 }
 
@@ -1142,12 +1319,17 @@ body.light-mode {
 }
 
 /* ── View Toggle ── */
-.view-section {
-  margin-top: auto;
-  padding-top: 16px;
+.sidebar-content > .view-section,
+.sidebar-footer .view-section {
+  padding-top: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.sidebar-content > .view-section {
+  margin-top: auto;
+  padding-top: 16px;
 }
 
 .view-toggle {
@@ -1172,16 +1354,17 @@ body.light-mode {
 .view-btn:hover { background: var(--surface2); color: var(--text); }
 
 .view-btn.active {
-  background: rgba(14, 165, 233, 0.1);
-  border-color: rgba(14, 165, 233, 0.3);
+  background: rgb(var(--accent-rgb) / 0.1);
+  border-color: rgb(var(--accent-rgb) / 0.3);
   color: var(--accent-light);
 }
 
 /* ── List View ── */
 .list-view .game-grid {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   flex-direction: column;
-  gap: 0;
+  gap: 0px;
   background: transparent;
 }
 
@@ -1220,6 +1403,7 @@ body.light-mode {
 .list-view .card-title {
   min-height: calc(11px * 1.3 * 2);
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   white-space: normal;
   overflow: hidden;
   font-size: 11px;

@@ -11,9 +11,9 @@ vi.mock('../src/services/gameStorage.js', () => ({
   deleteGame: vi.fn(),
   loadSortOrder: vi.fn(),
   saveSortOrder: vi.fn(),
-  loadPlayNext: vi.fn(),
-  savePlayNext: vi.fn(),
-  removeFromPlayNextApi: vi.fn(),
+  loadNext: vi.fn(),
+  saveNext: vi.fn(),
+  removeFromNext: vi.fn(),
 }))
 
 vi.mock('../src/data/games.js', () => ({

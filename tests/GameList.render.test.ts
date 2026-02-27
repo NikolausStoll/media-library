@@ -11,9 +11,9 @@ vi.mock('../src/services/gameStorage.js', () => ({
   deleteGame: vi.fn(),
   loadSortOrder: vi.fn(),
   saveSortOrder: vi.fn(),
-  loadPlayNext: vi.fn(),
-  savePlayNext: vi.fn(),
-  removeFromPlayNextApi: vi.fn(),
+  loadNext: vi.fn(),
+  saveNext: vi.fn(),
+  removeFromNext: vi.fn(),
 }))
 
 vi.mock('../src/data/games.js', () => ({
@@ -35,7 +35,7 @@ afterEach(() => {
 describe('GameList – Rendering', () => {
   it('zeigt alle Tab-Labels', async () => {
     const wrapper = await mountApp()
-    const tabLabels = ['Backlog', 'Wishlist', 'Started', 'Completed', 'Retired']
+    const tabLabels = ['Backlog', 'Wishlist', 'Started', 'Completed', 'Dropped']
     tabLabels.forEach(label => {
       expect(wrapper.text()).toContain(label)
     })
@@ -96,6 +96,37 @@ describe('GameList – Rendering', () => {
     const wrapper = await mountApp()
     expect(wrapper.text()).toContain('Name')
     expect(wrapper.text()).toContain('SORT')
+    wrapper.unmount()
+  })
+
+  it('Klick auf List-Button fügt list-view Klasse hinzu', async () => {
+    const wrapper = await mountApp()
+
+    const listBtn = wrapper.findAll('button').find(b => b.text().includes('List'))
+    expect(listBtn).toBeDefined()
+
+    await listBtn!.trigger('click')
+    await nextTick()
+
+    expect(wrapper.find('.game-list-container').classes()).toContain('list-view')
+
+    wrapper.unmount()
+  })
+
+  it('Klick auf Grid-Button entfernt list-view Klasse wieder', async () => {
+    const wrapper = await mountApp()
+
+    const listBtn = wrapper.findAll('button').find(b => b.text().includes('List'))
+    const gridBtn = wrapper.findAll('button').find(b => b.text().includes('Grid'))
+
+    await listBtn!.trigger('click')
+    await nextTick()
+    expect(wrapper.find('.game-list-container').classes()).toContain('list-view')
+
+    await gridBtn!.trigger('click')
+    await nextTick()
+    expect(wrapper.find('.game-list-container').classes()).not.toContain('list-view')
+
     wrapper.unmount()
   })
 })
