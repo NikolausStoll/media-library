@@ -2,42 +2,31 @@
   "name": "Media Library",
   "version": "1.0.0",
   "slug": "media-library",
-  "description": "Media Library (games, movies, series) bundled frontend/backend addon.",
+  "description": "Media Library for managing games, movies, and series with a modern web interface",
+  "url": "https://github.com/NikolausStoll/media-library",
   "arch": [
     "amd64",
-    "armv7",
+    "aarch64",
     "armhf",
-    "aarch64"
+    "armv7"
   ],
-  "startup": "services",
+  "startup": "application",
   "boot": "auto",
+  "init": false,
   "ports": {
     "8787/tcp": 8787
   },
+  "ports_description": {
+    "8787/tcp": "Web interface"
+  },
+  "webui": "http://[HOST]:[PORT:8787]",
+  "ingress": false,
+  "panel_icon": "mdi:filmstrip",
   "options": {
-    "PORT": 8787,
-    "VITE_API_URL": "http://localhost:8787/api"
+    "port": 8787
   },
   "schema": {
-    "PORT": {
-      "type": "int",
-      "minimum": 1024,
-      "maximum": 65535,
-      "default": 8787
-    },
-    "VITE_API_URL": {
-      "type": "str",
-      "default": "http://localhost:8787/api"
-    }
+    "port": "port"
   },
-  "map": [
-    {
-      "path": "/config",
-      "writable": true
-    }
-  ],
-  "run": [
-    "bash",
-    "/run.sh"
-  ]
+  "image": "ghcr.io/nikolausstoll/media-library"
 }
