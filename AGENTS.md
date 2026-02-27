@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**media-list** - A fullstack web application to manage a personal media library (Games, Movies, Series).
+**media-library** - A fullstack web application to manage a personal media library (Games, Movies, Series).
 Built with Vue 3 (Composition API) + Vite on the frontend, and an Express.js backend on Node.js with SQLite.
 Phase 5 adds full Episode Tracking for Series (per-episode + season bulk toggle).
 

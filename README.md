@@ -1,4 +1,4 @@
-# media-list
+# media-library
 
 A personal game backlog manager - track what you're playing, what's next, and what you've completed.
 
@@ -45,8 +45,8 @@ Built with **Vue 3** + **Express.js** on Node.js.
 ### Installation
 
 ```bash
-git clone https://github.com/your-username/media-list.git
-cd media-list
+git clone https://github.com/your-username/media-library.git
+cd media-library
 npm install
 cd backend
 npm install
