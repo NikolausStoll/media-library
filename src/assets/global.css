@@ -11,6 +11,7 @@
   --text-dim:   #6e7681;
   --accent:     #0ea5e9;
   --accent-light: #38bdf8;
+  --accent-rgb: 14 165 233;
   --danger:     #f85149;
 }
 
@@ -41,6 +42,19 @@ body.light-mode {
   --text-dim:   #6e7681;
   background: var(--bg);
   color: var(--text);
+}
+
+/* ── Accent Themes (Movies / Series) ── */
+.theme-movie {
+  --accent: #e50914;        /* Netflix red */
+  --accent-light: #ff4d4f;
+  --accent-rgb: 229 9 20;
+}
+
+.theme-series {
+  --accent: #f97316;        /* Orange */
+  --accent-light: #fb923c;
+  --accent-rgb: 249 115 22;
 }
 
 /* ── Layout ── */
@@ -211,8 +225,8 @@ body.light-mode {
 }
 
 .filter-btn.active {
-  background: rgba(14, 165, 233, 0.1);
-  border-color: rgba(14, 165, 233, 0.25);
+  background: rgb(var(--accent-rgb) / 0.1);
+  border-color: rgb(var(--accent-rgb) / 0.25);
   color: var(--accent-light);
 }
 
@@ -340,7 +354,7 @@ body.light-mode {
 }
 
 .tab.active .tab-count {
-  background: rgba(14, 165, 233, 0.15);
+  background: rgb(var(--accent-rgb) / 0.15);
   color: var(--accent-light);
 }
 
@@ -618,7 +632,7 @@ body.light-mode {
 }
 
 .game-card:hover .card-pn-btn { opacity: 1; }
-.card-pn-btn:hover { background: #0ea5e9 !important; color: white; }
+.card-pn-btn:hover { background: var(--accent) !important; color: white; }
 
 .pn-remove-btn {
   background: rgba(248, 81, 73, 0.15);
@@ -662,6 +676,11 @@ body.light-mode {
   margin-bottom: 4px;
 }
 
+.overlay-title a {
+  color: inherit;
+  text-decoration: none;
+}
+
 .overlay-subtitle {
   font-size: 11px;
   color: var(--text-dim);
@@ -693,8 +712,8 @@ body.light-mode {
 }
 
 .status-btn.active {
-  background: rgba(14, 165, 233, 0.1);
-  border-color: rgba(14, 165, 233, 0.35);
+  background: rgb(var(--accent-rgb) / 0.1);
+  border-color: rgb(var(--accent-rgb) / 0.35);
   color: var(--accent-light);
 }
 
@@ -1002,8 +1021,8 @@ body.light-mode {
 }
 
 .search-result-add-btn.primary {
-  background: rgba(14, 165, 233, 0.1);
-  border-color: rgba(14, 165, 233, 0.3);
+  background: rgb(var(--accent-rgb) / 0.1);
+  border-color: rgb(var(--accent-rgb) / 0.3);
   color: var(--accent-light);
   flex: 1;
   min-width: 0;
@@ -1013,7 +1032,7 @@ body.light-mode {
 }
 
 .search-result-add-btn.primary:hover {
-  background: rgba(14, 165, 233, 0.2);
+  background: rgb(var(--accent-rgb) / 0.2);
 }
 
 .search-result-status-select {
@@ -1085,8 +1104,8 @@ body.light-mode {
 }
 
 .tag-btn.active {
-  background: rgba(14, 165, 233, 0.1);
-  border-color: rgba(14, 165, 233, 0.35);
+  background: rgb(var(--accent-rgb) / 0.1);
+  border-color: rgb(var(--accent-rgb) / 0.35);
   color: var(--accent-light);
 }
 
@@ -1172,8 +1191,8 @@ body.light-mode {
 .view-btn:hover { background: var(--surface2); color: var(--text); }
 
 .view-btn.active {
-  background: rgba(14, 165, 233, 0.1);
-  border-color: rgba(14, 165, 233, 0.3);
+  background: rgb(var(--accent-rgb) / 0.1);
+  border-color: rgb(var(--accent-rgb) / 0.3);
   color: var(--accent-light);
 }
 
