@@ -1,9 +1,14 @@
 import Database from 'better-sqlite3'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
+import { mkdirSync } from 'fs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-export const db = new Database(join(__dirname, '../../../backend.db'))
+const defaultDb = join(__dirname, '../../backend.db')
+const dbPath = process.env.DB_PATH ?? defaultDb
+const dbDir = dirname(dbPath)
+mkdirSync(dbDir, { recursive: true })
+export const db = new Database(dbPath)
 db.pragma('foreign_keys = ON')
 
 db.exec(`
