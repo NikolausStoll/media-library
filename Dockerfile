@@ -25,6 +25,7 @@ WORKDIR /app
 
 COPY --from=builder /app/dist ./public
 COPY backend ./backend
+COPY docker/entrypoint.js /app/entrypoint.js
 
 EXPOSE 8099
-CMD ["node", "backend/src/index.js"]
+CMD ["node", "/app/entrypoint.js"]
