@@ -105,9 +105,12 @@ docker run -p 8099:8099 -v "$(pwd)/data:/data" media-library
 
 ## Home Assistant Add-on
 
-- The `ha-addon/media-library/` directory exposes a prebuilt add-on that points at `ghcr.io/<OWNER>/media-library:latest`.
-- Add the repository via **Supervisor › Add-on Store › Repositories** pointing to `https://github.com/NikolausStoll/media-library`, then install **Media Library** (the entry using the `media-library` slug).
-- Open the add-on via Ingress (Ingress port 8099) and configure `port`, `db_path`, or `static_dir` if the defaults do not match your setup.
+Supervisor discovers the Media Library add-on through the `repository.yaml` manifest at the repo root, which points at `media-library/config.yaml`. The configuration relies on the prebuilt image `ghcr.io/nikolausstoll/media-library:latest`, enforces ingress on port 8099, and exposes options for `port`, `db_path`, `static_dir`, plus a password-protected `TMDB_API_KEY`.
+
+- In Supervisor, go to **Add-on Store › Repositories** and add `https://github.com/NikolausStoll/media-library`. The manifest will surface **Media Library** (slug: `media-library`).
+- Configure Supervisor with GitHub Container Registry credentials (your GitHub username and a PAT with `read:packages`) so it can pull the private `ghcr.io/nikolausstoll/media-library:latest` image.
+- The `media-library/` folder now lives at the repo root and contains `config.yaml`, `run.sh`, `README.md`, and supplemental docs. `run.sh` reads the configured options via `bashio::config`, exports `PORT`, `DB_PATH`, `STATIC_DIR`, and `TMDB_API_KEY`, and starts `node backend/src/index.js`.
+- Data persists inside the container at `/data/backend.db`, static assets live at `/app/public`, and the UI surface is forwarded through Ingress on port 8099. Override `port`, `db_path`, or `static_dir` in the add-on options if your setup requires different values.
 
 ---
 
@@ -130,8 +133,11 @@ npm run test:ui    # Vitest GUI
 ```
 /
 ├── backend/                 # Express API + SQLite schema
-├── ha-addon/
-│   └── media-library/          # HA add-on wrapper (config + run.sh)
+├── media-library/           # HA add-on metadata + run script
+│   ├── config.yaml
+│   ├── run.sh
+│   └── README.md
+├── repository.yaml          # Home Assistant add-on manifest
 ├── Dockerfile               # Production image build
 ├── .github/workflows/       # CI for multi-arch Docker releases
 └── README.md

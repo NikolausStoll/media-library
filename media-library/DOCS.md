@@ -32,14 +32,33 @@ Media Library is a fullstack application for managing your media backlog across 
 ## Configuration
 
 ```yaml
-port: 8787
+port: 8099
+db_path: /data/backend.db
+static_dir: /app/public
+TMDB_API_KEY: ""
 ```
 
 ### Option: `port`
 
-The port on which the Media Library web interface will be available.
+The port on which the Media Library web interface will listen inside the container. Supervisor always forwards the Ingress port (8099) no matter which port you choose.
 
-**Default**: `8787`
+**Default**: `8099`
+
+### Option: `db_path`
+
+Where to store the SQLite database inside the container. This path is mounted from `/data/backend.db` on Home Assistant so your library persists across restarts.
+
+**Default**: `/data/backend.db`
+
+### Option: `static_dir`
+
+Directory that the backend uses to serve the built frontend. Do not change unless you build the frontend yourself in a different location.
+
+**Default**: `/app/public`
+
+### Option: `TMDB_API_KEY`
+
+Password field used to fetch metadata, including runtime, streaming providers, and episode data for movies and series. Leave it empty if you want to skip TMDB lookups; the add-on still works for games.
 
 ## Usage
 
@@ -52,16 +71,9 @@ After starting the add-on, click on "Open Web UI" to access the Media Library in
 3. **Organize**: Use the Play Next queue to plan what to play/watch next
 4. **Search & Filter**: Use the search bar and filters to find your media
 
-### API Keys (Optional)
-
-For enhanced features, you may want to add API keys:
-
-- **TMDB API**: For movie and series metadata (required for movies/series)
-- Place your API keys in the add-on configuration or environment
-
 ## Database
 
-The database is stored in `/config/media-library/backend.db` and will persist across add-on restarts.
+The database is stored in `/data/backend.db`; this folder is mounted to `/config/media-library/data` on Home Assistant to keep your library safe.
 
 ## Support
 

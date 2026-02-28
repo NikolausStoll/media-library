@@ -1,0 +1,14 @@
+name: NikolausStoll media-library
+url: https://github.com/NikolausStoll/media-library
+maintainer: Nikolaus Stoll
+addons:
+  - name: Media Library
+    slug: media-library
+    description: Media Library (games, movies, series) bundled frontend/backend add-on.
+    repository: https://github.com/NikolausStoll/media-library
+    url: https://github.com/NikolausStoll/media-library/blob/main/media-library/config.yaml
+    version: "1.1.5"
+    arch:
+      - amd64
+      - aarch64
+      - armv7
