@@ -18,10 +18,9 @@ Phase 5 adds full Episode Tracking for Series (per-episode + season bulk toggle)
 - **Styling:** Plain CSS (dark mode default)
 - **State:** Local `ref()` / `computed()` - no Pinia/Vuex
 
-### Backend
 - **Runtime:** Node.js with Express.js
 - **Database:** SQLite via `better-sqlite3`
-- **API Base:** `import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api'`
+- **API Base:** Relative `/api` paths (no client-side URL overrides)
 - **Port:** Default 8787 (configurable via `PORT` env variable)
 - **External APIs:** TMDB (movies/series metadata, DE/EN, providers), HLTB (game playtimes)
 - **Cache TTL:** TMDB metadata: 7 days | Episode details: 30 days | HLTB: 7 days
@@ -363,11 +362,8 @@ npm run build
 ---
 
 ## Environment Variables
-
-### Frontend (.env in root)
-```
-VITE_API_URL=http://localhost:8787/api
-```
+### Frontend
+- The SPA assumes `/api` as the base path; no extra env entries are required.
 
 ### Backend (backend/.env)
 ```

@@ -1,5 +1,5 @@
 import 'dotenv/config'
-import express from 'express'
+import express, { Router } from 'express'
 import cors from 'cors'
 import path from 'path'
 import { existsSync } from 'fs'
@@ -15,6 +15,12 @@ import adminRouter   from './routes/admin.js'
 
 const app = express()
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
+const PORT = parseInt(process.env.PORT ?? '3000', 10)
+const STATIC_DIR =
+  process.env.STATIC_DIR ??
+  (existsSync(path.join(__dirname, '../../dist')) ? path.join(__dirname, '../../dist') : path.join(__dirname, '../../public'))
+const hasStatic = STATIC_DIR && existsSync(path.join(STATIC_DIR, 'index.html'))
+
 app.use(cors({ origin: process.env.FRONTEND_URL ?? 'http://localhost:5173' }))
 app.use(express.json())
 
@@ -22,20 +28,26 @@ if (!process.env.TMDB_API_KEY) {
   console.warn('TMDB_API_KEY nicht gesetzt; TMDB-Anfragen schlagen möglicherweise fehl.')
 }
 
-app.use('/api/games',      gamesRouter)
-app.use('/api/movies',     moviesRouter)
-app.use('/api/series',     seriesRouter)
-app.use('/api/hltb',       hltbRouter)
-app.use('/api/tmdb',       tmdbRouter)
-app.use('/api/next',       nextRouter)
-app.use('/api/sort-order', sortRouter)
-app.use('/api/admin',      adminRouter)
+const apiRouter = Router()
+apiRouter.use('/games', gamesRouter)
+apiRouter.use('/movies', moviesRouter)
+apiRouter.use('/series', seriesRouter)
+apiRouter.use('/hltb', hltbRouter)
+apiRouter.use('/tmdb', tmdbRouter)
+apiRouter.use('/next', nextRouter)
+apiRouter.use('/sort-order', sortRouter)
+apiRouter.use('/admin', adminRouter)
 
-const PORT = parseInt(process.env.PORT ?? '3000', 10)
-const STATIC_DIR =
-  process.env.STATIC_DIR ??
-  (existsSync(path.join(__dirname, '../../dist')) ? path.join(__dirname, '../../dist') : path.join(__dirname, '../../public'))
-const hasStatic = STATIC_DIR && existsSync(path.join(STATIC_DIR, 'index.html'))
+apiRouter.get('/config', (req, res) => {
+  res.json({
+    nodeEnv: process.env.NODE_ENV ?? 'development',
+    port: PORT,
+    frontendUrl: process.env.FRONTEND_URL ?? 'http://localhost:5173',
+    staticDir: hasStatic ? STATIC_DIR : null,
+  })
+})
+
+app.use('/api', apiRouter)
 
 if (hasStatic) {
   app.use(express.static(STATIC_DIR))

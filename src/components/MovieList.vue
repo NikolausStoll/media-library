@@ -216,7 +216,7 @@ async function handleDelete() {
 async function clearMovieCache() {
   if (!overlayMovie.value) return
   try {
-    await fetch(`${import.meta.env.VITE_API_URL ?? 'http://localhost:3001/api'}/movies/${overlayMovie.value.id}/cache`, { method: 'DELETE' })
+    await fetch(`/api/movies/${overlayMovie.value.id}/cache`, { method: 'DELETE' })
   } catch (err) {
     console.error('failed to clear movie cache', err)
   }

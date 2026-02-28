@@ -54,10 +54,7 @@ npm run dev
 
 ### Environment Variables
 
-- Frontend (`.env`):
-  ```
-  VITE_API_URL=http://localhost:3000/api
-  ```
+- Frontend: no build-time API URL is required (the SPA calls `/api/...` by default).
 - Backend (`backend/.env`):
   ```
   PORT=3000
@@ -93,9 +90,9 @@ docker run -p 8099:8099 -v "$(pwd)/data:/data" media-library
   docker run -p 8099:8099 --env-file .env -v "$(pwd)/data:/data" media-library
   ```
 - Alternatively, run `./run-local.sh` (make it executable) which wraps the build/run steps using `--env-file .env`.
-- When building for another environment (e.g. HA ingress), pass a `VITE_API_URL` build argument so the SPA points at the correct API:
+-- When building for another environment (e.g. HA ingress), ensure the backend is reachable at `/api` from the frontend container; no extra build args are required:
   ```bash
-  docker build --build-arg VITE_API_URL=https://your-ha-host:8099/api -t media-library .
+  docker build -t media-library .
   ```
 
 - The container exposes `${PORT:-8099}` and persists SQLite at `/data/backend.db`.

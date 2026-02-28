@@ -44,4 +44,3 @@ jobs:
             ${{ env.IMAGE_NAME }}:${{ github.ref_name }}
           build-args: |
             NODE_ENV=production
-            VITE_API_URL=https://ha-host:8099/api
