@@ -25,7 +25,7 @@ import StatusOverlay from './games/StatusOverlay.vue'
 import GameSearchOverlay from './games/GameSearchOverlay.vue'
 import GameFilters from './games/GameFilters.vue'
 
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8787/api'
+const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001/api'
 
 // ─── State ────────────────────────────────────────────────────────────────────
 

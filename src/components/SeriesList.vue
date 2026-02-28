@@ -318,7 +318,7 @@ async function handleDelete() {
 async function clearSeriesCache() {
   if (!overlayItem.value) return
   try {
-    await fetch(`${import.meta.env.VITE_API_URL ?? 'http://localhost:8787/api'}/series/${overlayItem.value.id}/cache`, { method: 'DELETE' })
+    await fetch(`${import.meta.env.VITE_API_URL ?? 'http://localhost:3001/api'}/series/${overlayItem.value.id}/cache`, { method: 'DELETE' })
   } catch (err) {
     console.error('clear series cache failed', err)
   }
