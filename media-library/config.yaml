@@ -1,37 +1,29 @@
-name: Media Library
-version: "1.1.6"
-slug: media-library
-description: Media Library (games, movies, series) served from a prebuilt Docker image.
-url: https://github.com/NikolausStoll/media-library
+name: "Media Library"
+slug: "media-library"
+description: "Media Library (games, movies, series)"
+version: "1.1.7"
+url: "https://github.com/NikolausStoll/media-library"
+
 arch:
   - amd64
   - aarch64
   - armv7
+
 startup: application
-boot: auto
 init: false
+
 ingress: true
 ingress_port: 8099
-image: ghcr.io/nikolausstoll/media-library:latest
+
+image: "ghcr.io/nikolausstoll/media-library"
+
 options:
   port: 8099
-  db_path: /data/backend.db
-  static_dir: /app/public
+  db_path: "/data/backend.db"
+  static_dir: "/app/public"
   TMDB_API_KEY: ""
 schema:
-  port:
-    type: int
-    minimum: 1024
-    maximum: 65535
-    default: 8099
-  db_path:
-    type: str
-    default: /data/backend.db
-  static_dir:
-    type: str
-    default: /app/public
-  TMDB_API_KEY:
-    type: password
-run:
-  - bash
-  - /run.sh
+  port: int(1024,65535)
+  db_path: str
+  static_dir: str
+  TMDB_API_KEY: password
