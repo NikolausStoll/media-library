@@ -42,6 +42,7 @@ const statusOptions = [
 const sidebarOpen = ref(true)
 const darkMode = ref(localStorage.getItem('darkMode') !== 'false')
 const viewMode = ref(localStorage.getItem('viewMode') || 'grid')
+const gridDensity = ref(localStorage.getItem('gridDensity') || 'normal')
 
 const activeTab = ref('watching')
 const searchQuery = ref('')
@@ -74,6 +75,7 @@ const searchInputRef = ref(null)
 const seriesProgress = ref({})
 
 watch(viewMode, val => localStorage.setItem('viewMode', val))
+watch(gridDensity, val => localStorage.setItem('gridDensity', val))
 watch(darkMode, val => localStorage.setItem('darkMode', val))
 
 onMounted(async () => {
@@ -379,7 +381,9 @@ async function searchTmdbSeries() {
   tmdbResults.value = []
   tmdbSearched.value = false
   try {
-    tmdbResults.value = await searchTmdb(q, 'series')
+    const results = await searchTmdb(q, 'series')
+    const existingIds = new Set(seriesList.value.map(s => String(s.externalId)))
+    tmdbResults.value = results.filter(r => !existingIds.has(String(r.id)))
     tmdbSearched.value = true
   } catch (err) {
     tmdbError.value = err.message
@@ -444,7 +448,7 @@ function handleGlobalKeydown(e) {
 <template>
   <div :class="['app-layout', 'theme-series', { 'light-mode': !darkMode }]">
     <div :class="['main-content', { 'sidebar-closed': !sidebarOpen }]">
-      <div class="game-list-container" :class="{ 'list-view': viewMode === 'list' }">
+      <div class="game-list-container" :class="{ 'list-view': viewMode === 'list', 'grid-compact': viewMode === 'grid' && gridDensity === 'compact' }">
         <div v-if="loading" class="empty-state">Loading...</div>
 
         <template v-else>
@@ -696,8 +700,12 @@ function handleGlobalKeydown(e) {
               <button :class="['view-btn', { active: viewMode === 'grid' }]" @click="viewMode = 'grid'">Grid</button>
               <button :class="['view-btn', { active: viewMode === 'list' }]" @click="viewMode = 'list'">List</button>
             </div>
+            <div v-if="viewMode === 'grid'" class="view-toggle">
+              <button :class="['view-btn', { active: gridDensity === 'normal' }]" @click="gridDensity = 'normal'">3 cols</button>
+              <button :class="['view-btn', { active: gridDensity === 'compact' }]" @click="gridDensity = 'compact'">6 cols</button>
+            </div>
           </div>
-          <button class="theme-toggle-btn" @click="toggleDarkMode">
+          <button class="theme-toggle-btn" @click="toggleDarkMode" style="margin-top: 8px">
             {{ darkMode ? 'Light Mode' : 'Dark Mode' }}
           </button>
         </div>

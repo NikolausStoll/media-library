@@ -111,6 +111,16 @@ body.light-mode {
   max-width: 510px;
 }
 
+/* Grid Compact Mode: Container verdoppelt */
+.game-list-container.grid-compact {
+  max-width: 1020px;
+}
+
+/* List View: Container 15% breiter für Desktop */
+.game-list-container.list-view {
+  max-width: 1020px;
+}
+
 .game-list-container h1 {
   font-size: 16px;
   font-weight: 600;
@@ -123,9 +133,9 @@ body.light-mode {
 /* ── Sidebar Toggle ── */
 .sidebar-toggle-external {
   position: fixed;
-  top: 50%;
+  top: 5%;
   right: 300px;
-  transform: translateY(-50%);
+  transform: none;
   width: 20px;
   height: 48px;
   background: var(--surface);
@@ -187,7 +197,7 @@ body.light-mode {
 /* Media switcher (Games / Movies / Series) – ersetzt sidebar-header oben */
 .media-switcher {
   display: flex;
-  gap: 2px;
+  gap: 4px;
   padding: 0 0 10px 0;
   border-bottom: 1px solid var(--border2);
   margin-bottom: 10px;
@@ -438,8 +448,28 @@ body.light-mode {
   display: flex;
   gap: 0;
   margin-bottom: 20px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border2) transparent;
   border-bottom: 1px solid var(--border);
+}
+
+.tabs::-webkit-scrollbar {
+  height: 4px;
+}
+
+.tabs::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tabs::-webkit-scrollbar-thumb {
+  background: var(--border2);
+  border-radius: 2px;
+}
+
+.tabs::-webkit-scrollbar-thumb:hover {
+  background: var(--border);
 }
 
 .tab {
@@ -456,6 +486,8 @@ body.light-mode {
   display: flex;
   align-items: center;
   gap: 5px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .tab:hover {
@@ -506,6 +538,40 @@ body.light-mode {
   background: var(--border);
   margin-bottom: 6px;
   grid-auto-rows: 1fr;
+}
+
+/* Grid Compact Mode (6 Spalten im Desktop) */
+.grid-compact .game-grid {
+  grid-template-columns: repeat(6, 1fr);
+}
+
+/* Mobile: 2 Spalten im Grid Mode */
+@media (max-width: 768px) {
+  .game-list-container {
+    max-width: 359px;
+    padding: 0 10px;
+  }
+
+  .game-list-container.grid-compact {
+    max-width: 100%;
+  }
+
+  .game-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .grid-compact .game-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .main-content {
+    padding: 12px 0;
+  }
+
+  /* Grid Density Toggle auf Mobile verstecken */
+  .view-toggle + .view-toggle {
+    display: none !important;
+  }
 }
 
 /* ── Game Card ── */
@@ -1166,7 +1232,7 @@ body.light-mode {
   padding-top: 16px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
 }
 
 /* ── Theme Toggle ── */
@@ -1330,7 +1396,7 @@ body.light-mode {
   padding-top: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
 }
 
 .sidebar-content > .view-section {
@@ -1368,10 +1434,57 @@ body.light-mode {
 /* ── List View ── */
 .list-view .game-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   flex-direction: column;
   gap: 0px;
   background: transparent;
+}
+
+/* Mobile: 1 Element pro Zeile in List View */
+@media (max-width: 768px) {
+  .list-view .game-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .list-view.game-list-container {
+    max-width: 358px;
+  }
+
+  /* Mobile: Kleinere Covers */
+  .list-view .card-cover-wrap {
+    flex: 0 0 55px;
+    width: 55px;
+  }
+
+  .list-view .card-cover {
+    width: 55px;
+    height: 82.5px;
+  }
+
+  /* Sidebar auf Mobile */
+  .main-content {
+    margin-right: 0;
+  }
+
+  .sidebar {
+    width: 100%;
+    max-width: 300px;
+  }
+
+  /* Sidebar Toggle bewegt sich mit der Sidebar auf Mobile */
+  .sidebar-toggle-external {
+    transition: right 0.3s ease, transform 0.3s ease;
+  }
+
+  /* Wenn Sidebar offen: Toggle ist bei 300px (links der Sidebar) */
+  .sidebar-toggle-external:not(.sidebar-closed) {
+    right: 300px;
+  }
+
+  /* Wenn Sidebar geschlossen: Toggle ist bei 0 (am Bildschirmrand) */
+  .sidebar-toggle-external.sidebar-closed {
+    right: 0;
+  }
 }
 
 .list-view .game-card {
@@ -1382,14 +1495,14 @@ body.light-mode {
 }
 
 .list-view .card-cover-wrap {
-  flex: 0 0 55px;
-  width: 55px;
+  flex: 0 0 63.25px;
+  width: 63.25px;
   align-self: stretch;
 }
 
 .list-view .card-cover {
-  width: 55px;
-  height: 82.5px;
+  width: 63.25px;
+  height: 94.875px;
   aspect-ratio: unset;
   object-fit: cover;
 }
@@ -1422,6 +1535,7 @@ body.light-mode {
   align-items: center;
   gap: 6px;
   justify-content: space-between;
+  margin-top: 5px;
 }
 
 .list-view .card-pn-btn {

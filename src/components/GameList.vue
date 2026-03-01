@@ -90,11 +90,13 @@ const statusOptions = [
 ]
 
 const viewMode = ref(localStorage.getItem('viewMode') || 'grid')
+const gridDensity = ref(localStorage.getItem('gridDensity') || 'normal')
 
 const tagFilter = ref([])
 
 // Watches zum Speichern
 watch(viewMode, val => localStorage.setItem('viewMode', val))
+watch(gridDensity, val => localStorage.setItem('gridDensity', val))
 watch(darkMode, val => localStorage.setItem('darkMode', val))
 
 watch(activeTab, newTab => {
@@ -561,7 +563,7 @@ onUnmounted(() => {
 <template>
   <div :class="['app-layout', { 'light-mode': !darkMode }]">
     <div :class="['main-content', { 'sidebar-closed': !sidebarOpen }]">
-      <div class="game-list-container" :class="{ 'list-view': viewMode === 'list' }">
+      <div class="game-list-container" :class="{ 'list-view': viewMode === 'list', 'grid-compact': viewMode === 'grid' && gridDensity === 'compact' }">
 
         <!-- Loading -->
         <div v-if="loading" class="empty-state">Loading...</div>
@@ -698,6 +700,7 @@ onUnmounted(() => {
           :storefronts="storefronts"
           :filterSectionsOpen="filterSectionsOpen"
           :viewMode="viewMode"
+          :gridDensity="gridDensity"
           :darkMode="darkMode"
           :searchQuery="searchQuery"
           @switch-media="(value) => emit('switch-media', value)"
@@ -710,6 +713,7 @@ onUnmounted(() => {
           @sort-playtime="togglePlaytimeSort"
           @set-sort-custom="sortBy = 'custom'"
           @set-view-mode="(m) => viewMode = m"
+          @set-grid-density="(d) => gridDensity = d"
           @toggle-dark-mode="toggleDarkMode"
         />
       </div>
