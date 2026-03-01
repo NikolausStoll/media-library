@@ -26,6 +26,7 @@ const statusOptions = [
 const sidebarOpen = ref(true)
 const darkMode = ref(localStorage.getItem('darkMode') !== 'false')
 const viewMode = ref(localStorage.getItem('viewMode') || 'grid')
+const gridDensity = ref(localStorage.getItem('gridDensity') || 'normal')
 
 const activeTab = ref('watchlist')
 const searchQuery = ref('')
@@ -49,6 +50,7 @@ const tmdbSearched = ref(false)
 const searchInputRef = ref(null)
 
 watch(viewMode, val => localStorage.setItem('viewMode', val))
+watch(gridDensity, val => localStorage.setItem('gridDensity', val))
 watch(darkMode, val => localStorage.setItem('darkMode', val))
 
 onMounted(async () => {
@@ -309,7 +311,7 @@ function handleGlobalKeydown(e) {
 <template>
   <div :class="['app-layout', 'theme-movie', { 'light-mode': !darkMode }]">
     <div :class="['main-content', { 'sidebar-closed': !sidebarOpen }]">
-      <div class="game-list-container" :class="{ 'list-view': viewMode === 'list' }">
+      <div class="game-list-container" :class="{ 'list-view': viewMode === 'list', 'grid-compact': viewMode === 'grid' && gridDensity === 'compact' }">
         <div v-if="loading" class="empty-state">Loading...</div>
 
         <template v-else>
@@ -509,6 +511,10 @@ function handleGlobalKeydown(e) {
             <div class="view-toggle">
               <button :class="['view-btn', { active: viewMode === 'grid' }]" @click="viewMode = 'grid'">Grid</button>
               <button :class="['view-btn', { active: viewMode === 'list' }]" @click="viewMode = 'list'">List</button>
+            </div>
+            <div v-if="viewMode === 'grid'" class="view-toggle" style="margin-top: 8px">
+              <button :class="['view-btn', { active: gridDensity === 'normal' }]" @click="gridDensity = 'normal'">3 cols</button>
+              <button :class="['view-btn', { active: gridDensity === 'compact' }]" @click="gridDensity = 'compact'">6 cols</button>
             </div>
           </div>
           <button class="theme-toggle-btn" @click="toggleDarkMode">

@@ -12,6 +12,7 @@ defineProps({
   storefronts: { type: Array, required: true },
   filterSectionsOpen: { type: Object, required: true },
   viewMode: { type: String, required: true },
+  gridDensity: { type: String, default: 'normal' },
   darkMode: { type: Boolean, required: true },
   searchQuery: { type: String, default: '' },
 })
@@ -27,6 +28,7 @@ const emit = defineEmits([
   'sort-playtime',
   'set-sort-custom',
   'set-view-mode',
+  'set-grid-density',
   'toggle-dark-mode',
 ])
 </script>
@@ -142,6 +144,10 @@ const emit = defineEmits([
       <div class="view-toggle">
         <button :class="['view-btn', { active: viewMode === 'grid' }]" @click="emit('set-view-mode', 'grid')">Grid</button>
         <button :class="['view-btn', { active: viewMode === 'list' }]" @click="emit('set-view-mode', 'list')">List</button>
+      </div>
+      <div v-if="viewMode === 'grid'" class="view-toggle" style="margin-top: 8px">
+        <button :class="['view-btn', { active: gridDensity === 'normal' }]" @click="emit('set-grid-density', 'normal')">3 cols</button>
+        <button :class="['view-btn', { active: gridDensity === 'compact' }]" @click="emit('set-grid-density', 'compact')">6 cols</button>
       </div>
       <button class="theme-toggle-btn" @click="emit('toggle-dark-mode')">
         {{ darkMode ? 'Light Mode' : 'Dark Mode' }}
