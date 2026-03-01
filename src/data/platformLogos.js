@@ -8,7 +8,7 @@ export const platformLogos = {
   pc:     PLACEHOLDER,               // kein PC-Logo vorhanden
   xbox:   '/platforms/xbox.svg',
   switch: '/platforms/switch.svg',
-  '3ds':  PLACEHOLDER,               // kein 3DS-Logo vorhanden
+  '3ds':  '/platforms/3ds.svg',               // kein 3DS-Logo vorhanden
 };
 
 export const storefrontLogos = {
@@ -17,8 +17,8 @@ export const storefrontLogos = {
   gog:       '/storefronts/gog.svg',
   battlenet: '/storefronts/bnet.png',
   xbox:      '/storefronts/xbox-app.svg',
-  uplay:     PLACEHOLDER,            // kein Ubisoft-Logo vorhanden
-  ea:        PLACEHOLDER,            // kein EA-Logo vorhanden
+  uplay:     '/storefronts/ubisoft.png',            // kein Ubisoft-Logo vorhanden
+  ea:        '/storefronts/ea.png',            // kein EA-Logo vorhanden
 };
 
 /**
