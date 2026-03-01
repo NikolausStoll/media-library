@@ -197,7 +197,7 @@ body.light-mode {
 /* Media switcher (Games / Movies / Series) – ersetzt sidebar-header oben */
 .media-switcher {
   display: flex;
-  gap: 2px;
+  gap: 4px;
   padding: 0 0 10px 0;
   border-bottom: 1px solid var(--border2);
   margin-bottom: 10px;
@@ -1232,7 +1232,7 @@ body.light-mode {
   padding-top: 16px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
 }
 
 /* ── Theme Toggle ── */
@@ -1396,7 +1396,7 @@ body.light-mode {
   padding-top: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
 }
 
 .sidebar-content > .view-section {

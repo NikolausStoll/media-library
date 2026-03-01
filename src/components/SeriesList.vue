@@ -381,7 +381,9 @@ async function searchTmdbSeries() {
   tmdbResults.value = []
   tmdbSearched.value = false
   try {
-    tmdbResults.value = await searchTmdb(q, 'series')
+    const results = await searchTmdb(q, 'series')
+    const existingIds = new Set(seriesList.value.map(s => String(s.externalId)))
+    tmdbResults.value = results.filter(r => !existingIds.has(String(r.id)))
     tmdbSearched.value = true
   } catch (err) {
     tmdbError.value = err.message
@@ -698,12 +700,12 @@ function handleGlobalKeydown(e) {
               <button :class="['view-btn', { active: viewMode === 'grid' }]" @click="viewMode = 'grid'">Grid</button>
               <button :class="['view-btn', { active: viewMode === 'list' }]" @click="viewMode = 'list'">List</button>
             </div>
-            <div v-if="viewMode === 'grid'" class="view-toggle" style="margin-top: 8px">
+            <div v-if="viewMode === 'grid'" class="view-toggle">
               <button :class="['view-btn', { active: gridDensity === 'normal' }]" @click="gridDensity = 'normal'">3 cols</button>
               <button :class="['view-btn', { active: gridDensity === 'compact' }]" @click="gridDensity = 'compact'">6 cols</button>
             </div>
           </div>
-          <button class="theme-toggle-btn" @click="toggleDarkMode">
+          <button class="theme-toggle-btn" @click="toggleDarkMode" style="margin-top: 8px">
             {{ darkMode ? 'Light Mode' : 'Dark Mode' }}
           </button>
         </div>
