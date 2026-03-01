@@ -121,7 +121,7 @@ watch(overlaySearchQuery, () => {
 const isTouchDevice =
   typeof window !== 'undefined' &&
   ('ontouchstart' in window || (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0))
-const TOUCH_HOLD_DURATION = 800
+const TOUCH_HOLD_DURATION = 350
 const TOUCH_MOVE_THRESHOLD = 10
 const allowMobileDrag = ref(!isTouchDevice)
 const touchStartPos = ref({ x: 0, y: 0 })
