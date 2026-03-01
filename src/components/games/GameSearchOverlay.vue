@@ -20,6 +20,7 @@ const addToLabel = computed(() => {
   const label = props.tabs.find(t => t.id === props.activeTab)?.label ?? props.activeTab
   return label ? label.charAt(0).toUpperCase() + label.slice(1).toLowerCase() : ''
 })
+
 </script>
 
 <template>
@@ -67,7 +68,7 @@ const addToLabel = computed(() => {
                 class="search-result-status-select"
                 @change="emit('add', { result, status: $event.target.value }); $event.target.value = ''"
               >
-                <option value="" disabled selected>+ Other</option>
+                <option value="" disabled selected></option>
                 <option
                   v-for="option in statusOptions"
                   :key="option.id"

@@ -642,7 +642,7 @@ function handleGlobalKeydown(e) {
                   class="search-result-status-select"
                   @change="handleAddMovie(result, $event.target.value); $event.target.value = ''"
                 >
-                  <option value="" disabled selected>+ Other</option>
+                  <option value="" disabled selected></option>
                   <option v-for="opt in statusOptions" :key="opt.id" :value="opt.id">{{ opt.label }}</option>
                 </select>
               </div>

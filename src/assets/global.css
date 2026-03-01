@@ -133,7 +133,7 @@ body.light-mode {
 /* ── Sidebar Toggle ── */
 .sidebar-toggle-external {
   position: fixed;
-  top: 5%;
+  top: 18%;
   right: 300px;
   transform: none;
   width: 20px;
@@ -586,10 +586,15 @@ body.light-mode {
   display: flex;
   flex-direction: column;
   height: 100%;
+  position: relative;
 }
 
 .game-card:hover {
   opacity: 0.85;
+}
+
+.game-card:has(.dlc-wrap:hover) {
+  z-index: 150;
 }
 
 .card-cover-wrap {
@@ -771,6 +776,11 @@ body.light-mode {
 /* ── DLC ── */
 .dlc-wrap {
   position: relative;
+  z-index: 1;
+}
+
+.dlc-wrap:hover {
+  z-index: 100;
 }
 
 .dlc-count {
@@ -796,7 +806,17 @@ body.light-mode {
   padding: 5px 8px;
   min-width: 150px;
   max-width: 220px;
-  z-index: 10;
+  z-index: 101;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.dlc-tooltip::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  background: var(--surface3);
+  border-radius: 2px;
+  z-index: -1;
 }
 
 .dlc-tooltip::after {
@@ -1161,6 +1181,14 @@ body.light-mode {
   gap: 12px;
 }
 
+/* Mobile: 2 Spalten in Such-Overlays */
+@media (max-width: 768px) {
+  .search-results-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+}
+
 .search-result-card {
   display: flex;
   flex-direction: column;
@@ -1267,7 +1295,8 @@ body.light-mode {
 }
 
 .search-result-status-select {
-  flex: 0 0 60px;
+  flex: 0 0 16px;
+  width: 16px;
   padding: 5px 4px;
   border-radius: 3px;
   border: 1px solid var(--border2);
@@ -1275,6 +1304,13 @@ body.light-mode {
   color: var(--text-muted);
   font-size: 11px;
   cursor: pointer;
+  text-align: center;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='6' viewBox='0 0 8 8'%3E%3Cpath fill='%23888' d='M0 2l4 4 4-4z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 4px center;
 }
 
 .search-active-list {
