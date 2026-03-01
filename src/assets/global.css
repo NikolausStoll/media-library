@@ -450,6 +450,7 @@ body.light-mode {
   margin-bottom: 20px;
   flex-wrap: nowrap;
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: thin;
   scrollbar-color: var(--border2) transparent;
   border-bottom: 1px solid var(--border);

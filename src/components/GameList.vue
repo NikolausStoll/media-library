@@ -118,6 +118,66 @@ watch(overlaySearchQuery, () => {
   hltbError.value    = ''
 })
 
+const isTouchDevice =
+  typeof window !== 'undefined' &&
+  ('ontouchstart' in window || (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0))
+const TOUCH_HOLD_DURATION = 800
+const TOUCH_MOVE_THRESHOLD = 10
+const allowMobileDrag = ref(!isTouchDevice)
+const touchStartPos = ref({ x: 0, y: 0 })
+let touchHoldTimer = null
+
+function clearTouchHold() {
+  if (touchHoldTimer) {
+    clearTimeout(touchHoldTimer)
+    touchHoldTimer = null
+  }
+}
+
+function handleTouchStart(event) {
+  if (!isTouchDevice || sortBy.value !== 'custom') return
+  const touch = event.touches[0]
+  touchStartPos.value = { x: touch.clientX, y: touch.clientY }
+  allowMobileDrag.value = false
+  clearTouchHold()
+  touchHoldTimer = window.setTimeout(() => {
+    allowMobileDrag.value = true
+    touchHoldTimer = null
+  }, TOUCH_HOLD_DURATION)
+}
+
+function handleTouchMove(event) {
+  if (!touchHoldTimer) return
+  const touch = event.touches[0]
+  const dx = Math.abs(touch.clientX - touchStartPos.value.x)
+  const dy = Math.abs(touch.clientY - touchStartPos.value.y)
+  if (dx > TOUCH_MOVE_THRESHOLD || dy > TOUCH_MOVE_THRESHOLD) {
+    clearTouchHold()
+  }
+}
+
+function handleTouchEnd() {
+  clearTouchHold()
+  allowMobileDrag.value = false
+}
+
+function handleDragStart(event) {
+  if (isTouchDevice && !allowMobileDrag.value) {
+    event?.cancel?.()
+    return
+  }
+  drag.value = true
+}
+
+async function handleDragEnd() {
+  drag.value = false
+  if (isTouchDevice) {
+    allowMobileDrag.value = false
+    clearTouchHold()
+  }
+  await onDragEnd()
+}
+
 // ─── Add Game ─────────────────────────────────────────────────────────────────
 
 async function handleAddGame() {
@@ -557,6 +617,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleGlobalKeydown)
+  clearTouchHold()
 })
 </script>
 
@@ -632,9 +693,13 @@ onUnmounted(() => {
             :list="sortBy === 'custom' ? gameList : filteredGames"
             class="game-grid"
             item-key="id"
-            :disabled="sortBy !== 'custom'"
-            @start="drag = true"
-            @end="onDragEnd"
+            :disabled="sortBy !== 'custom' || (isTouchDevice && !allowMobileDrag)"
+            @start="handleDragStart"
+            @end="handleDragEnd"
+            @touchstart="handleTouchStart"
+            @touchmove.passive="handleTouchMove"
+            @touchend="handleTouchEnd"
+            @touchcancel="handleTouchEnd"
           >
             <template #item="{ element }">
               <div v-show="filteredIds.has(String(element.id))">
