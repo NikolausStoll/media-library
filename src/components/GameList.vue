@@ -620,7 +620,6 @@ onUnmounted(() => {
                 <div class="card-cover-wrap">
                   <img :src="game.imageUrl" :alt="game.name" class="card-cover" />
                   <button class="card-pn-btn pn-remove-btn" @click.stop="removeFromPlayNext(game.id)" title="Remove from Play Next">✕</button>
-                  <img v-if="game.tags?.includes('100%')" src="/tags/100percent.png" class="card-tag-overlay" />
                 </div>
                 <!-- Play-Next-Karten nutzen noch direkt den Inline-Content,
                      da sie den pn-remove-btn statt den add-btn brauchen -->

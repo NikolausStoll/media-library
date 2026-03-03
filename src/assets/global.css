@@ -1420,22 +1420,6 @@ body.light-mode {
 
 .card-tag-icon:hover { opacity: 1; }
 
-/* 100% Cover Overlay */
-.card-tag-overlay {
-  position: absolute;
-  top: 5px;
-  left: 4px;
-  width: 64px;
-  height: 64px;
-  object-fit: contain;
-  opacity: 0.7;
-  transition: opacity 1s;
-}
-
-.game-card:hover .card-tag-overlay {
-  opacity: 0.1;
-}
-
 /* 100% Text Badge */
 .card-tag-100 {
   font-size: 9px;
@@ -1603,10 +1587,4 @@ body.light-mode {
   transform: none;
 }
 
-.list-view .card-tag-overlay {
-  top: 2px;
-  left: 1px;
-  width: 24px;
-  height: 24px;
-}
 /* ── End List View ── */

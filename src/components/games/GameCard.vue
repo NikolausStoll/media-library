@@ -23,11 +23,6 @@ const emit = defineEmits(['open-overlay', 'open-platform-editor', 'add-to-play-n
         @click.stop="emit('add-to-play-next', game)"
         title="Add to Play Next"
       >›</button>
-      <img
-        v-if="game.tags?.includes('100%')"
-        src="/tags/100percent.png"
-        class="card-tag-overlay"
-      />
     </div>
 
     <div class="card-info">
