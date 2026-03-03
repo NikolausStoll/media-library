@@ -61,7 +61,7 @@ function handleResize() {
 const overlayItem = ref(null)
 const showOverlay = ref(false)
 const deleteConfirm = ref(false)
-const overlayTab = ref('details') // details | episodes
+const overlayTab = ref('options') // options | details | episodes
 
 // Episodes
 const episodeList = ref([])
@@ -245,7 +245,7 @@ async function openOverlay(item, event, initialTab = 'details') {
   overlayItem.value = item
   showOverlay.value = true
   deleteConfirm.value = false
-  overlayTab.value = 'details'
+  overlayTab.value = 'options'
   episodeList.value = []
   episodeProgress.value = new Set()
   episodesLoading.value = true
@@ -748,6 +748,9 @@ function handleGlobalKeydown(e) {
         </div>
 
         <div class="tabs" style="margin-bottom: 12px;">
+          <button :class="['tab', { active: overlayTab === 'options' }]" @click="overlayTab = 'options'">
+            Options
+          </button>
           <button :class="['tab', { active: overlayTab === 'details' }]" @click="overlayTab = 'details'">
             Details
           </button>
@@ -757,7 +760,7 @@ function handleGlobalKeydown(e) {
           </button>
         </div>
 
-        <template v-if="overlayTab === 'details'">
+        <template v-if="overlayTab === 'options'">
           <div class="status-buttons">
             <button
               v-for="opt in statusOptions"
@@ -802,6 +805,20 @@ function handleGlobalKeydown(e) {
                 <button class="delete-cancel-btn" @click="deleteConfirm = false">Cancel</button>
               </div>
             </template>
+          </div>
+        </template>
+
+        <template v-else-if="overlayTab === 'details'">
+          <div class="series-detail-page">
+            <div v-if="overlayItem.imageUrl" class="series-detail-cover-large">
+              <img :src="overlayItem.imageUrl" :alt="overlayItem.title" />
+            </div>
+            <div class="series-detail-genres">
+              <span class="detail-label" v-if="overlayItem.genres?.length">Genres</span>
+              <div class="detail-genres">
+                <span v-for="genre in overlayItem.genres" :key="genre">{{ genre }}</span>
+              </div>
+            </div>
           </div>
         </template>
 
@@ -908,6 +925,56 @@ function handleGlobalKeydown(e) {
 /* Only the episode list needs component-specific layout */
 .series-overlay {
   max-width: 560px;
+}
+
+.series-detail-page {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 0;
+}
+
+.series-detail-cover-large {
+  width: 100%;
+  max-width: 240px;
+}
+
+.series-detail-cover-large img {
+  width: 100%;
+  max-width: 240px;
+  border-radius: 6px;
+  object-fit: cover;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.series-detail-genres {
+  width: 100%;
+  text-align: left;
+}
+
+.detail-label {
+  display: block;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.detail-genres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.detail-genres span {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border2);
+  font-size: 11px;
+  color: var(--text);
 }
 
 .episodes-tab {

@@ -45,6 +45,7 @@ function handleResize() {
 const overlayMovie = ref(null)
 const showOverlay = ref(false)
 const deleteConfirm = ref(false)
+const overlayTab = ref('options')
 
 // TMDB Search Overlay
 const showSearchOverlay = ref(false)
@@ -170,6 +171,7 @@ const addStatusLabel = computed(() => {
 function openOverlay(movie, event) {
   event?.stopPropagation()
   overlayMovie.value = movie
+  overlayTab.value = 'options'
   showOverlay.value = true
   deleteConfirm.value = false
 }
@@ -178,6 +180,7 @@ function closeOverlay() {
   showOverlay.value = false
   overlayMovie.value = null
   deleteConfirm.value = false
+  overlayTab.value = 'options'
 }
 
 async function changeStatus(newStatus) {
@@ -560,51 +563,76 @@ function handleGlobalKeydown(e) {
           <span v-if="overlayMovie.certification"> · {{ overlayMovie.certification }}</span>
         </div>
 
-        <div class="status-buttons">
-          <button
-            v-for="opt in statusOptions"
-            :key="opt.id"
-            :class="['status-btn', { active: overlayMovie.status === opt.id }]"
-            @click="changeStatus(opt.id)"
-          >
-            {{ opt.label }}
+        <div class="tabs" style="margin-bottom: 12px;">
+          <button :class="['tab', { active: overlayTab === 'options' }]" @click="overlayTab = 'options'">
+            Options
+          </button>
+          <button :class="['tab', { active: overlayTab === 'details' }]" @click="overlayTab = 'details'">
+            Details
           </button>
         </div>
 
-        <div class="overlay-tags">
-          <div class="overlay-section-label">My Rating</div>
-          <div class="tag-buttons">
+        <template v-if="overlayTab === 'options'">
+          <div class="status-buttons">
             <button
-              v-for="n in 10"
-              :key="n"
-              :class="['tag-btn', { active: n === (overlayMovie.userRating ?? 0) }]"
-              @click="setUserRating((overlayMovie.userRating ?? 0) === n ? null : n)"
-            >{{ n }}</button>
+              v-for="opt in statusOptions"
+              :key="opt.id"
+              :class="['status-btn', { active: overlayMovie.status === opt.id }]"
+              @click="changeStatus(opt.id)"
+            >
+              {{ opt.label }}
+            </button>
           </div>
-        </div>
 
-        <div class="overlay-danger-zone">
-          <button class="clear-cache-btn" @click="clearMovieCache">Clear Cache</button>
-          <button
-            v-if="overlayMovie.status === 'watchlist'"
-            class="clear-cache-btn"
-            :disabled="!nextList.includes(String(overlayMovie.id)) && nextList.length >= 6"
-            @click="nextList.includes(String(overlayMovie.id)) ? removeNext(overlayMovie.id) : addToNext(overlayMovie)"
-          >
-            {{ nextList.includes(String(overlayMovie.id)) ? '★ Watch Next' : '☆ Watch Next' }}
-          </button>
-
-          <template v-if="!deleteConfirm">
-            <button class="delete-trigger-btn" @click="deleteConfirm = true">Delete</button>
-          </template>
-          <template v-else>
-            <p class="delete-confirm-text">Are you sure?</p>
-            <div class="delete-confirm-actions">
-              <button class="delete-confirm-btn" @click="handleDelete">Delete</button>
-              <button class="delete-cancel-btn" @click="deleteConfirm = false">Cancel</button>
+          <div class="overlay-tags">
+            <div class="overlay-section-label">My Rating</div>
+            <div class="tag-buttons">
+              <button
+                v-for="n in 10"
+                :key="n"
+                :class="['tag-btn', { active: n === (overlayMovie.userRating ?? 0) }]"
+                @click="setUserRating((overlayMovie.userRating ?? 0) === n ? null : n)"
+              >{{ n }}</button>
             </div>
-          </template>
-        </div>
+          </div>
+
+          <div class="overlay-danger-zone">
+            <button class="clear-cache-btn" @click="clearMovieCache">Clear Cache</button>
+            <button
+              v-if="overlayMovie.status === 'watchlist'"
+              class="clear-cache-btn"
+              :disabled="!nextList.includes(String(overlayMovie.id)) && nextList.length >= 6"
+              @click="nextList.includes(String(overlayMovie.id)) ? removeNext(overlayMovie.id) : addToNext(overlayMovie)"
+            >
+              {{ nextList.includes(String(overlayMovie.id)) ? '★ Watch Next' : '☆ Watch Next' }}
+            </button>
+
+            <template v-if="!deleteConfirm">
+              <button class="delete-trigger-btn" @click="deleteConfirm = true">Delete</button>
+            </template>
+            <template v-else>
+              <p class="delete-confirm-text">Are you sure?</p>
+              <div class="delete-confirm-actions">
+                <button class="delete-confirm-btn" @click="handleDelete">Delete</button>
+                <button class="delete-cancel-btn" @click="deleteConfirm = false">Cancel</button>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <template v-else-if="overlayTab === 'details'">
+          <div class="movie-detail-page">
+            <div v-if="overlayMovie.imageUrl" class="movie-detail-cover-large">
+              <img :src="overlayMovie.imageUrl" :alt="overlayMovie.title" />
+            </div>
+            <div class="movie-detail-genres">
+              <span class="detail-label" v-if="overlayMovie.genres?.length">Genres</span>
+              <div class="detail-genres">
+                <span v-for="genre in overlayMovie.genres" :key="genre">{{ genre }}</span>
+              </div>
+            </div>
+          </div>
+        </template>
       </div>
     </div>
 
@@ -667,3 +695,54 @@ function handleGlobalKeydown(e) {
     </div>
   </div>
 </template>
+
+<style scoped>
+.movie-detail-page {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 0;
+}
+
+.movie-detail-cover-large {
+  width: 100%;
+  max-width: 240px;
+}
+
+.movie-detail-cover-large img {
+  width: 100%;
+  max-width: 240px;
+  border-radius: 6px;
+  object-fit: cover;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.movie-detail-genres {
+  width: 100%;
+  text-align: left;
+}
+
+.detail-label {
+  display: block;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.detail-genres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.detail-genres span {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border2);
+  font-size: 11px;
+  color: var(--text);
+}
+</style>
