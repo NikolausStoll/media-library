@@ -1,0 +1,66 @@
+name: Tag on Config Version
+
+on:
+  push:
+    paths:
+      - media-library/config.yaml
+
+jobs:
+  bump-tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine version change
+        id: version
+        run: |
+          python - <<'PY'
+          import subprocess
+          import sys
+          import yaml
+
+          def load_version(ref):
+            try:
+              output = subprocess.run(
+                ["git", "show", f"{ref}:media-library/config.yaml"],
+                capture_output=True,
+                text=True,
+                check=True,
+              )
+            except subprocess.CalledProcessError:
+              return ""
+            data = yaml.safe_load(output.stdout)
+            return data.get("version", "")
+
+          new_version = load_version("HEAD")
+          old_version = load_version("HEAD^")
+
+          print(f"New version: {new_version}")
+          print(f"Old version: {old_version}")
+          if not new_version:
+            print("::set-output name=changed::false")
+            sys.exit(0)
+
+          changed = "true" if new_version != old_version else "false"
+          print(f"::set-output name=changed::{changed}")
+          if changed == "true":
+            print(f"::set-output name=version::{new_version}")
+          PY
+
+      - name: Create tag from config version
+        if: steps.version.outputs.changed == 'true'
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          TAG="$VERSION"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists"
+            exit 0
+          fi
+          git tag "$TAG"
+          git push origin "$TAG"
