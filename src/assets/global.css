@@ -995,7 +995,7 @@ body.light-mode {
   padding-top: 12px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 3px;
 }
 
 .clear-cache-btn {

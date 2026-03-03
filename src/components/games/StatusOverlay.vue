@@ -74,7 +74,7 @@ watch(
           </div>
         </div>
 
-        <div v-if="game?.status === 'backlog'" class="overlay-tags">
+        <div v-if="game?.status === 'backlog'">
           <button
             class="clear-cache-btn"
             :disabled="playNextAtLimit"
@@ -160,14 +160,13 @@ watch(
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 2px;
   height: 100%;
 }
 
 .metric-box {
   flex: 1;
   min-width: 0;
-  min-height: 84px;
   border-radius: 2px;
   border: 1px solid rgb(var(--accent-rgb) / 0.35);
   background: rgb(var(--accent-rgb) / 0.15);
@@ -178,6 +177,7 @@ watch(
   text-align: center;
   gap: 4px;
   padding: 6px 8px;
+  min-height: 90px;
 }
 
 .metric-box-all {
@@ -185,8 +185,18 @@ watch(
   border-color: rgb(var(--accent-rgb) / 0.45);
 }
 
+.metric-box-all .metric-label {
+  font-weight: 700;
+}
+
 .metric-box-all .metric-value {
   font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .metric-box {
+    min-height: auto;
+  }
 }
 
 </style>

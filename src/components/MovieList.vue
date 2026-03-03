@@ -596,9 +596,6 @@ function handleGlobalKeydown(e) {
               >{{ n }}</button>
             </div>
           </div>
-
-          <div class="overlay-danger-zone">
-            <button class="clear-cache-btn" @click="clearMovieCache">Clear Cache</button>
             <button
               v-if="overlayMovie.status === 'watchlist'"
               class="clear-cache-btn"
@@ -607,6 +604,9 @@ function handleGlobalKeydown(e) {
             >
               {{ nextList.includes(String(overlayMovie.id)) ? '★ Watch Next' : '☆ Watch Next' }}
             </button>
+          <div class="overlay-danger-zone">
+            <button class="clear-cache-btn" @click="clearMovieCache">Clear Cache</button>
+            
 
             <template v-if="!deleteConfirm">
               <button class="delete-trigger-btn" @click="deleteConfirm = true">Delete</button>
