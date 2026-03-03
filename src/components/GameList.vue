@@ -558,8 +558,16 @@ function handleGlobalKeydown(e) {
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
+const MOBILE_BREAKPOINT = 768
+const isMobileLayout = ref(typeof window !== 'undefined' ? window.innerWidth <= MOBILE_BREAKPOINT : false)
+
+function handleResize() {
+  isMobileLayout.value = window.innerWidth <= MOBILE_BREAKPOINT
+}
+
 onMounted(async () => {
   document.addEventListener('keydown', handleGlobalKeydown)
+  window.addEventListener('resize', handleResize)
   document.body.classList.toggle('light-mode', !darkMode.value)
   loading.value = true
   const [games, sortOrder, playNext] = await Promise.all([
@@ -573,6 +581,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleGlobalKeydown)
+  window.removeEventListener('resize', handleResize)
 })
 </script>
 
@@ -696,6 +705,12 @@ onUnmounted(() => {
         </template>
       </div>
     </div>
+
+    <div
+      v-if="sidebarOpen && isMobileLayout"
+      class="sidebar-backdrop"
+      @click="sidebarOpen = false"
+    ></div>
 
     <!-- Sidebar Toggle -->
     <button

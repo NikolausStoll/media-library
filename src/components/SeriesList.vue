@@ -50,6 +50,12 @@ const genreFilter = ref([])
 const providerFilter = ref([])
 const sortBy = ref('title') // title | year | rating
 const sortDirection = ref('asc')
+const MOBILE_BREAKPOINT = 768
+const isMobileLayout = ref(typeof window !== 'undefined' ? window.innerWidth <= MOBILE_BREAKPOINT : false)
+
+function handleResize() {
+  isMobileLayout.value = window.innerWidth <= MOBILE_BREAKPOINT
+}
 
 // Overlay
 const overlayItem = ref(null)
@@ -81,6 +87,7 @@ watch(darkMode, val => localStorage.setItem('darkMode', val))
 onMounted(async () => {
   document.body.classList.toggle('light-mode', !darkMode.value)
   document.addEventListener('keydown', handleGlobalKeydown)
+  window.addEventListener('resize', handleResize)
   try {
     const [series, next, progressSummary] = await Promise.all([
       loadSeries(),
@@ -105,6 +112,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleGlobalKeydown)
+  window.removeEventListener('resize', handleResize)
 })
 
 const statusCounts = computed(() => {
@@ -624,6 +632,12 @@ function handleGlobalKeydown(e) {
         </template>
       </div>
     </div>
+
+    <div
+      v-if="sidebarOpen && isMobileLayout"
+      class="sidebar-backdrop"
+      @click="sidebarOpen = false"
+    ></div>
 
     <button
       :class="['sidebar-toggle-external', { 'sidebar-closed': !sidebarOpen }]"
