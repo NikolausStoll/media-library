@@ -139,6 +139,10 @@ body.light-mode {
   max-width: 1020px;
 }
 
+.game-list-container.grid-dense {
+  max-width: 1530px;
+}
+
 .game-list-container h1 {
   font-size: 16px;
   font-weight: 600;
@@ -565,6 +569,9 @@ body.light-mode {
 .grid-compact .game-grid {
   grid-template-columns: repeat(6, 1fr);
 }
+.grid-dense .game-grid {
+  grid-template-columns: repeat(9, 1fr);
+}
 
 /* Mobile: 2 Spalten im Grid Mode */
 @media (max-width: 768px) {
@@ -577,11 +584,19 @@ body.light-mode {
     max-width: 100%;
   }
 
+  .game-list-container.grid-dense {
+    max-width: 100%;
+  }
+
   .game-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 
   .grid-compact .game-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .grid-dense .game-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 

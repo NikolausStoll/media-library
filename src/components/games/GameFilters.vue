@@ -148,6 +148,7 @@ const emit = defineEmits([
       <div v-if="viewMode === 'grid'" class="view-toggle">
         <button :class="['view-btn', { active: gridDensity === 'normal' }]" @click="emit('set-grid-density', 'normal')">3 cols</button>
         <button :class="['view-btn', { active: gridDensity === 'compact' }]" @click="emit('set-grid-density', 'compact')">6 cols</button>
+        <button :class="['view-btn', { active: gridDensity === 'dense' }]" @click="emit('set-grid-density', 'dense')">9 cols</button>
       </div>
       <button class="theme-toggle-btn" @click="emit('toggle-dark-mode')" style="margin-top: 8px">
         {{ darkMode ? 'Light Mode' : 'Dark Mode' }}

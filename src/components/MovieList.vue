@@ -324,7 +324,7 @@ function handleGlobalKeydown(e) {
 <template>
   <div :class="['app-layout', 'theme-movie', { 'light-mode': !darkMode }]">
     <div :class="['main-content', { 'sidebar-closed': !sidebarOpen }]">
-      <div class="game-list-container" :class="{ 'list-view': viewMode === 'list', 'grid-compact': viewMode === 'grid' && gridDensity === 'compact' }">
+      <div class="game-list-container" :class="{ 'list-view': viewMode === 'list', 'grid-compact': viewMode === 'grid' && gridDensity === 'compact', 'grid-dense': viewMode === 'grid' && gridDensity === 'dense' }">
         <div v-if="loading" class="empty-state">Loading...</div>
 
         <template v-else>
@@ -534,6 +534,7 @@ function handleGlobalKeydown(e) {
             <div v-if="viewMode === 'grid'" class="view-toggle">
               <button :class="['view-btn', { active: gridDensity === 'normal' }]" @click="gridDensity = 'normal'">3 cols</button>
               <button :class="['view-btn', { active: gridDensity === 'compact' }]" @click="gridDensity = 'compact'">6 cols</button>
+              <button :class="['view-btn', { active: gridDensity === 'dense' }]" @click="gridDensity = 'dense'">9 cols</button>
             </div>
           </div>
           <button class="theme-toggle-btn" @click="toggleDarkMode" style="margin-top: 8px">

@@ -588,7 +588,7 @@ onUnmounted(() => {
 <template>
   <div :class="['app-layout', { 'light-mode': !darkMode }]">
     <div :class="['main-content', { 'sidebar-closed': !sidebarOpen }]">
-      <div class="game-list-container" :class="{ 'list-view': viewMode === 'list', 'grid-compact': viewMode === 'grid' && gridDensity === 'compact' }">
+      <div class="game-list-container" :class="{ 'list-view': viewMode === 'list', 'grid-compact': viewMode === 'grid' && gridDensity === 'compact', 'grid-dense': viewMode === 'grid' && gridDensity === 'dense' }">
 
         <!-- Loading -->
         <div v-if="loading" class="empty-state">Loading...</div>
