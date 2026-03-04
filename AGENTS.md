@@ -119,7 +119,8 @@ Phase 5 adds full Episode Tracking for Series (per-episode + season bulk toggle)
 ```sql
 -- GAMES
 games(id, externalId, status, userRating)
-  status: 'backlog' | 'wishlist' | 'started' | 'completed' | 'retired' | 'shelved'
+  status: 'backlog' | 'wishlist' | 'started' | 'completed' | 'dropped' | 'shelved'
+  -- dropped is stored as 'retired' inside the database, but the API surfaces 'dropped'
 gameplatforms(id, gameId, platform, storefront)
   platform: 'pc' | 'xbox' | 'switch' | '3ds'
   storefront: 'steam' | 'epic' | 'gog' | 'battlenet' | 'uplay' | 'ea' | 'xbox'
@@ -252,7 +253,8 @@ POST   /api/admin/import-games            -> bulk import HLTB IDs (platform/stor
 {
   id: string,
   externalId: string,          // HLTB ID
-  status: 'backlog' | 'wishlist' | 'started' | 'completed' | 'retired' | 'shelved',
+  status: 'backlog' | 'wishlist' | 'started' | 'completed' | 'dropped' | 'shelved',
+  // 'dropped' rows are persisted as 'retired' in SQLite (the mapper handles conversion)
   userRating: number | null,   // 1-10
   platforms: [{ platform: 'pc', storefront: 'steam' }],
   tags: ['rpg', 'metroidvania'],

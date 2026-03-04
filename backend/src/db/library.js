@@ -8,8 +8,19 @@ const defaultDb = join(__dirname, '../../backend.db')
 const dbPath = process.env.DB_PATH ?? defaultDb
 const dbDir = dirname(dbPath)
 mkdirSync(dbDir, { recursive: true })
+
 export const db = new Database(dbPath)
 db.pragma('foreign_keys = ON')
+
+export function mapGameStatusFromDb(status) {
+  if (!status) return status
+  return status === 'retired' ? 'dropped' : status
+}
+
+export function mapGameStatusForDb(status) {
+  if (!status) return status
+  return status === 'dropped' ? 'retired' : status
+}
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS games (

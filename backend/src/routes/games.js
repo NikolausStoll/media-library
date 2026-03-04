@@ -1,5 +1,7 @@
 import { Router } from 'express'
-import { db, getGameWithPlatforms } from '../db/library.js'
+import {
+  db, getGameWithPlatforms, mapGameStatusFromDb, mapGameStatusForDb,
+} from '../db/library.js'
 import { getFromCache, saveToCache, deleteFromCache } from '../services/hltbCache.js'
 import { getGame as fetchFromHltb } from '../services/hltbService.js'
 
@@ -23,7 +25,7 @@ async function aggregateGame(game) {
     externalId: game.externalId,
     name: hltb?.name ?? game.externalId,
     imageUrl: hltb?.imageUrl ?? null,
-    status: game.status,
+    status: mapGameStatusFromDb(game.status),
     platforms: game.platforms,
     tags: game.tags ?? [],
     gameplayMain: hltb?.gameplayMain ?? null,
@@ -86,7 +88,7 @@ router.post('/', async (req, res) => {
   if (!externalId || !status)
     return res.status(400).json({ error: 'externalId und status sind Pflichtfelder' })
 
-  const VALID = ['backlog', 'wishlist', 'started', 'completed', 'dropped', 'shelved']
+    const VALID = ['backlog', 'wishlist', 'started', 'completed', 'dropped', 'shelved']
   if (!VALID.includes(status))
     return res.status(400).json({ error: `Ungültiger status. Erlaubt: ${VALID.join(', ')}` })
 
@@ -98,7 +100,7 @@ router.post('/', async (req, res) => {
     const gameId = db.transaction(() => {
       const { lastInsertRowid } = db
         .prepare('INSERT INTO games (externalId, status) VALUES (?, ?)')
-        .run(externalId, status)
+        .run(externalId, mapGameStatusForDb(status))
 
       for (const p of platforms) {
         db.prepare('INSERT INTO gameplatforms (gameId, platform, storefront) VALUES (?, ?, ?)')
@@ -124,7 +126,7 @@ router.put('/:id', async (req, res) => {
 
   const merged = {
     externalId: req.body.externalId ?? existing.externalId,
-    status: req.body.status ?? existing.status,
+    status: req.body.status ? mapGameStatusForDb(req.body.status) : existing.status,
   }
 
   try {
