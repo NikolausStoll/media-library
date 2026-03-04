@@ -21,7 +21,7 @@ Phase 5 adds full Episode Tracking for Series (per-episode + season bulk toggle)
 - **Runtime:** Node.js with Express.js
 - **Database:** SQLite via `better-sqlite3`
 - **API Base:** Relative `/api` paths (no client-side URL overrides)
-- **Port:** Default 8787 (configurable via `PORT` env variable)
+- **Port:** Frontend `npm run dev` (Vite) opens on `localhost:5173`; backend Express listens on `PORT` (default `3000`). Production/dev containers (HA/add-on or `run-local.sh`) forward `8099` via the same `PORT` + `STATIC_DIR` wiring.
 - **External APIs:** TMDB (movies/series metadata, DE/EN, providers), HLTB (game playtimes)
 - **Cache TTL:** TMDB metadata: 7 days | Episode details: 30 days | HLTB: 7 days
 
@@ -37,48 +37,79 @@ Phase 5 adds full Episode Tracking for Series (per-episode + season bulk toggle)
 
 ```
 /
-â”œâ”€â”€ src/
-â”‚   â”œâ”€â”€ components/
-â”‚   â”‚   â”œâ”€â”€ GamesList.vue             # Games: platforms, HLTB, drag sort, tags
-â”‚   â”‚   â”œâ”€â”€ MoviesList.vue            # Movies: streaming providers, status
-â”‚   â”‚   â”œâ”€â”€ SeriesList.vue            # Series: episode tracking, season toggle
-â”‚   â”‚   â””â”€â”€ shared/
-â”‚   â”‚       â””â”€â”€ MediaCard.vue         # Unified card component (poster, title, meta)
-â”‚   â”œâ”€â”€ services/
-â”‚   â”‚   â”œâ”€â”€ gameStorage.js            # Games API calls + HLTB + Next/Sort
-â”‚   â”‚   â””â”€â”€ mediaStorage.js           # Movies + Series + Episode API calls
-â”‚   â””â”€â”€ App.vue                       # Main tab navigation (Games / Movies / Series)
-â”œâ”€â”€ tests/
-â”‚   â”œâ”€â”€ helpers.ts                    # mountApp(), shared fixtures (ZELDA, MARIO, METROID)
-â”‚   â”œâ”€â”€ GameList.render.test.ts       # Tab rendering, card counts
-â”‚   â”œâ”€â”€ Filters.test.ts               # Platform/Storefront filter, fuzzy search, sort
-â”‚   â”œâ”€â”€ GameBadges.test.ts            # PlayNext badge, statusCounts, cover fallback
-â”‚   â”œâ”€â”€ GameList.drag.test.ts         # Drag & Drop, startedOrder, saveSortOrder
-â”‚   â”œâ”€â”€ Overlay.test.ts               # Overlay functionality tests
-â”‚   â”œâ”€â”€ backend.mock.test.ts          # API call mocks: addGame, deleteGame, updateGame
-â”‚   â””â”€â”€ setup.ts                      # Global test setup (afterEach cleanup)
-â”œâ”€â”€ backend/
-â”‚   â”œâ”€â”€ src/
-â”‚   â”‚   â”œâ”€â”€ index.js                  # Express server entry point
-â”‚   â”‚   â”œâ”€â”€ db/
-â”‚   â”‚   â”‚   â””â”€â”€ library.js            # Full SQLite schema + migrations
-â”‚   â”‚   â”œâ”€â”€ services/
-â”‚   â”‚   â”‚   â”œâ”€â”€ tmdbService.js        # TMDB API (DE/EN, providers, episodes)
-â”‚   â”‚   â”‚   â””â”€â”€ tmdbCache.js          # 7d/30d cache read/write helpers
-â”‚   â”‚   â””â”€â”€ routes/
-â”‚   â”‚       â”œâ”€â”€ games.js              # PC/Xbox/Switch/3DS + storefronts
-â”‚   â”‚       â”œâ”€â”€ movies.js             # Watchlist/Watching/Finished
-â”‚   â”‚       â”œâ”€â”€ series.js             # Series + Episode progress endpoints
-â”‚   â”‚       â”œâ”€â”€ hltb.js               # HLTB search + cache
-â”‚   â”‚       â”œâ”€â”€ tmdb.js               # TMDB search proxy
-â”‚   â”‚       â”œâ”€â”€ next.js               # Cross-media Next Queue
-â”‚   â”‚       â”œâ”€â”€ sortOrder.js          # Game custom sort order
-â”‚   â”‚       â””â”€â”€ admin.js              # Cache purge
-â”‚   â””â”€â”€ package.json
-â”œâ”€â”€ vitest.config.ts
-â”œâ”€â”€ vite.config.ts
-â”œâ”€â”€ CLAUDE.md                         # This file
-â””â”€â”€ README.md
+├── src/
+│   ├── App.vue                         # Main tab navigation (Games / Movies / Series)
+│   ├── main.js
+│   ├── style.css
+│   ├── components/
+│   │   ├── GameList.vue
+│   │   ├── MovieList.vue
+│   │   ├── SeriesList.vue
+│   │   ├── games/
+│   │   │   ├── GameCard.vue
+│   │   │   ├── GameFilters.vue
+│   │   │   ├── GameSearchOverlay.vue
+│   │   │   └── StatusOverlay.vue
+│   │   └── shared/
+│   │       └── MediaCard.vue
+│   ├── services/
+│   │   ├── gameStorage.js              # Game API + HLTB helpers
+│   │   └── mediaStorage.js             # Movies + Series + Episodes
+│   ├── assets/
+│   │   └── global.css
+│   └── data/
+│       └── platformLogos.js
+├── public/
+│   ├── streamingProviders/
+│   ├── platforms/
+│   └── storefronts/
+├── tests/
+│   ├── helpers.ts
+│   ├── GameList.render.test.ts
+│   ├── Filters.test.ts
+│   ├── GameBadges.test.ts
+│   ├── GameList.drag.test.ts
+│   ├── Overlay.test.ts
+│   ├── backend.mock.test.ts
+│   └── setup.ts
+├── backend/
+│   ├── package.json
+│   └── src/
+│       ├── index.js
+│       ├── config/
+│       │   └── providers.js
+│       ├── db/
+│       │   └── library.js
+│       ├── services/
+│       │   ├── tmdbService.js
+│       │   ├── tmdbCache.js
+│       │   ├── hltbService.js
+│       │   └── hltbCache.js
+│       └── routes/
+│           ├── games.js
+│           ├── movies.js
+│           ├── series.js
+│           ├── hltb.js
+│           ├── tmdb.js
+│           ├── next.js
+│           ├── sortOrder.js
+│           └── admin.js
+├── docker/
+│   └── entrypoint.js
+├── media-library/                      # Everything needed for HA add-on
+│   ├── config.yaml
+│   ├── run.sh
+│   └── README.md                       # HA add-on docs
+├── data/
+├── dist/                               # Built SPA
+├── README.md
+├── AGENTS.md
+├── CLAUDE.md
+├── package.json
+├── package-lock.json
+├── Dockerfile
+├── repository.yaml
+└── run-local.sh
 ```
 
 ---
@@ -132,36 +163,53 @@ tmdbcacheepisodes(seriesId, season, episode, titleEn, airDate, runtime, updatedA
 
 ### Games (`/api/games`)
 ```
-GET    /api/games                    -> load all games (w/ platforms, tags, HLTB data)
-GET    /api/games/:id                -> single game
-POST   /api/games                    -> { externalId, status, platforms[], tags[] }
-PUT    /api/games/:id                -> { status, userRating }
-PUT    /api/games/:id/platforms      -> update platforms array
+GET    /api/games                     -> load all games (w/ platforms, tags, HLTB data)
+GET    /api/games/:id                 -> single game
+POST   /api/games                     -> { externalId, status, platforms[] }
+PUT    /api/games/:id                 -> { status?, userRating? }
+PUT    /api/games/:id/platforms       -> replace platform list
+PUT    /api/games/:id/tags            -> replace tags (`['physical','100%']`)
 DELETE /api/games/:id
-GET    /api/hltb/search?q=...        -> HowLongToBeat search + cache
-DELETE /api/hltb/cache/:extId        -> clear HLTB cache for one game
+DELETE /api/games/:id/cache           -> drop cached HLTB entry
+```
+- `status` must be one of `backlog`, `wishlist`, `started`, `completed`, `dropped`, `shelved`.
+- Tags are limited to the curated set `['physical','100%']`.
+
+### Sort Order (`/api/sort-order`)
+```
 GET    /api/sort-order               -> load drag order
-PUT    /api/sort-order               -> save drag order
+PUT    /api/sort-order               -> persist ordered list
+```
+
+### HLTB (`/api/hltb`)
+```
+GET    /api/hltb/search?q=...         -> HowLongToBeat search + cache
+GET    /api/hltb/:id                   -> cached/detail data for a specific HLTB entry
+DELETE /api/hltb/cache/:id            -> clear HLTB cache for this ID
 ```
 
 ### Movies (`/api/movies`)
 ```
 GET    /api/movies
 GET    /api/movies/:id
-POST   /api/movies                   -> { externalId, status, providers[] }
-PUT    /api/movies/:id               -> { status, userRating }
-PUT    /api/movies/:id/providers     -> update providers array
+POST   /api/movies                    -> { externalId, status, providers[] }
+PUT    /api/movies/:id                -> { status?, userRating? }
+PUT    /api/movies/:id/providers      -> replace providers
+DELETE /api/movies/:id/cache          -> purge cached TMDB data
 DELETE /api/movies/:id
 ```
+- Valid statuses: `watchlist`, `watching`, `finished`.
 
 ### Series (`/api/series`) + Episode Tracking (Phase 5)
 ```
 GET    /api/series
 GET    /api/series/:id
 POST   /api/series                          -> { externalId, status, providers[] }
-PUT    /api/series/:id                      -> { status, userRating }
-PUT    /api/series/:id/providers            -> update providers array
+PUT    /api/series/:id                      -> { status?, userRating? }
+PUT    /api/series/:id/providers            -> replace providers
+DELETE /api/series/:id/cache                -> drop cached TMDB data
 DELETE /api/series/:id
+GET    /api/series/progress-summary         -> watched counts used for cards
 
 -- Episode Tracking (NEW)
 GET    /api/series/:id/episodes             -> all episodes (cached from TMDB, EN titles)
@@ -170,14 +218,29 @@ POST   /api/series/:id/progress/toggle      -> { season, episode } -> toggle wat
 PUT    /api/series/:id/progress/season/:s   -> { episodes[], watched } -> bulk season toggle
 DELETE /api/series/:id/cache                -> purge episode cache for this series
 ```
+- Valid statuses: `watchlist`, `watching`, `paused`, `finished`, `dropped`.
 
 ### Shared
+#### TMDB (`/api/tmdb`)
 ```
 GET    /api/tmdb/search?q=...&type=movie|series
-GET    /api/next                     -> cross-media next queue
-POST   /api/next                     -> { mediaIds[], mediaType }
-DELETE /api/next/:mediaId            -> remove from queue
-POST   /api/admin/cache-clear        -> purge ALL caches
+GET    /api/tmdb/:id?type=movie|series     -> cached metadata
+DELETE /api/tmdb/cache/:id?type=movie|series -> invalidate cache
+```
+
+#### Next Queue (`/api/next`)
+```
+GET    /api/next?type=game|movie|series    -> queue entries (omit `type` for all)
+PUT    /api/next                            -> { mediaId, mediaType }[] (max 6 per type)
+DELETE /api/next/:mediaId?type=...         -> remove one entry
+```
+
+#### Admin (`/api/admin`)
+```
+GET    /api/admin                         -> HTML admin dashboard
+GET    /api/admin/export                  -> download JSON backup
+POST   /api/admin/import                  -> replace DB from JSON backup
+POST   /api/admin/import-games            -> bulk import HLTB IDs (platform/storefront/status)
 ```
 
 ---
@@ -370,10 +433,27 @@ npm run build
 PORT=3000
 TMDB_API_KEY=your_tmdb_key_here
 FRONTEND_URL=http://localhost:5173
+DB_PATH=../backend.db
+STATIC_DIR=../dist
 ```
+- `DB_PATH` points to the SQLite file (default `../backend.db`, containerized installs persist at `/data/backend.db`).
+- `STATIC_DIR` is where the built SPA lives (`dist/` by default, the add-on/container serves it from `/app/public` via this path).
 
 ---
 
+## Deployment Notes
+- `run-local.sh` builds `media-library` via Docker, then runs it on `:8099` with volumes `./data:/data` and environment from `.env` (`PORT`, `TMDB_API_KEY`, `DB_PATH`, `STATIC_DIR`, ...). The script enforces `--env-file .env` for consistency with HA add-on values.
+- The Home Assistant add-on (`media-library/`) exports `/app/public` as `STATIC_DIR`, `/data/backend.db` as persistent storage and requires `INGRESS=8099` plus credentials (GitHub PAT for `ghcr.io` and `TMDB_API_KEY` secret); `media-library/run.sh` simply exports the option values and execs `node backend/src/index.js`.
+
+---
+
+## Service Responsibilities
+- `src/services/gameStorage.js`: central hub for game CRUD, sort-order, Next queue, HLTB cache invalidation, and platform/tag updates.
+- `src/services/mediaStorage.js`: orchestrates movies/series CRUD, provider updates, episode/season progress endpoints, and TMDB search helper calls.
+- `backend/src/services/hltbService.js` + `hltbCache.js`: fetch/form a cache of HowLongToBeat metadata (name, runtimes, dlc) used to enrich `games`.
+- `backend/src/services/tmdbService.js`, `tmdbCache.js`: fetches TMDB metadata (DE/EN) plus episode lists, caching both TMDB responses and per-season episode data (30d TTL).
+
+---
 ## Known Patterns & Gotchas
 
 - `vue-draggable` is mocked implicitly via JSDOM - emit `'end'` directly to test drag callbacks
@@ -387,3 +467,17 @@ FRONTEND_URL=http://localhost:5173
   must come BEFORE generic `/:id/progress` to avoid Express mismatching `:id = 'progress'`
 - TMDB `streamingProviders` and `genres` are stored as JSON strings in SQLite,
   parsed to arrays in the aggregation function before sending to frontend
+- `POST /api/admin/import` wipes and rebuilds every table, so back up before hitting the endpoint.
+- `POST /api/admin/import-games` validates `status`, `platform`, and PC `storefront` values (`VALID_GAME_STATUSES`, `VALID_GAME_PLATFORMS`, `VALID_PC_STOREFRONTS`) and reports inserted/skipped IDs.
+
+---
+
+## Provider Definitions
+- `src/components/SeriesList.vue` maps TMDB provider IDs to logos in `public/streamingProviders/*.webp`.
+  - `8` – Netflix (`netflix.webp`)
+  - `337` – Disney (`disney.webp`)
+  - `9` – Prime (`prime.webp`)
+  - `30` – Wow (`wow.webp`)
+  - `2` – Apple (`apple.webp`)
+  - `531` – Paramount (`paramount.webp`)
+- Add new providers by dropping a `.webp` into `public/streamingProviders/` and referencing the same numeric ID in `SeriesList.vue` for filtering.

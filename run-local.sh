@@ -14,8 +14,21 @@ else
   echo "$source_env file not found; continuing with defaults"
 fi
 
+readonly CONTAINER_NAME=media-library-local
+
+cleanup() {
+  if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}\$"; then
+    docker rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
+  fi
+}
+
+trap cleanup EXIT
+
 docker build -t media-library .
-docker run -p 8099:8099 \
+
+cleanup
+
+docker run --name "${CONTAINER_NAME}" -p 8099:8099 \
   --env-file .env \
   --env PORT=8099 \
   -v "$(pwd)/data:/data" \
