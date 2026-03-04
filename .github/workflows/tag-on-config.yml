@@ -52,10 +52,12 @@ jobs:
           PY
 
       - name: Create tag from config version
+        id: create_tag
         if: steps.version.outputs.changed == 'true'
         run: |
           VERSION=${{ steps.version.outputs.version }}
           TAG="$VERSION"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           if git rev-parse "$TAG" >/dev/null 2>&1; then
@@ -64,3 +66,16 @@ jobs:
           fi
           git tag "$TAG"
           git push origin "$TAG"
+
+      - name: Trigger Docker Release workflow
+        if: steps.version.outputs.changed == 'true'
+        env:
+          DISPATCH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG=${{ steps.create_tag.outputs.tag }}
+          curl -X POST \
+            -H "Authorization: Bearer $DISPATCH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "User-Agent: GitHub Actions" \
+            https://api.github.com/repos/${{ github.repository }}/actions/workflows/docker-release.yml/dispatches \
+            -d "{\"ref\":\"$TAG\"}"
