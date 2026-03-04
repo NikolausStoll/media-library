@@ -654,7 +654,16 @@ function handleGlobalKeydown(e) {
         <div class="sidebar-section">
           <div class="sidebar-section-label">Search</div>
           <div class="search-row">
-            <input v-model="searchQuery" class="search-input" placeholder="Search..." @keydown.enter="openSearchOverlay" />
+            <div class="search-input-wrap" style="flex: 1">
+              <input
+                v-model="searchQuery"
+                class="search-input"
+                placeholder="Search..."
+                @keydown.enter="openSearchOverlay"
+                @keydown.esc="searchQuery = ''"
+              />
+              <button v-if="searchQuery" class="search-clear-btn" @click="searchQuery = ''">✕</button>
+            </div>
           </div>
           <button class="search-open-btn" @click="openSearchOverlay">Add Series</button>
         </div>
