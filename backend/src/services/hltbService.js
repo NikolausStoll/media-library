@@ -32,6 +32,15 @@ function toHours(seconds) {
   return Math.round((seconds / 3600) * 10) / 10
 }
 
+function normalizeType(value, fallback) {
+  if (!value) return fallback
+  const normalized = String(value).toLowerCase()
+  if (normalized.includes('expansion')) return 'dlc'
+  if (normalized.includes('dlc')) return 'dlc'
+  if (normalized.includes('game')) return 'game'
+  return fallback
+}
+
 export async function searchGames(query, isRetry = false) {
   const token = await getAuthToken(isRetry)
 
@@ -107,9 +116,11 @@ export async function getGame(id) {
     gameplayComplete: toHours(game.comp_100),
     gameplayAll: toHours(game.comp_all),
     rating: game.review_score ?? null,
+    gameType: normalizeType(game.game_type ?? game.category ?? 'game', 'game'),
     dlcs: relationships.map((d) => ({
       id: String(d.game_id),
       name: d.game_name,
+      type: normalizeType(d.game_type ?? d.relationship_type ?? d.type ?? 'dlc', 'dlc'),
     })),
   }
 }

@@ -39,7 +39,9 @@ const statusOptions = [
 ]
 
 // UI
-const sidebarOpen = ref(true)
+const MOBILE_BREAKPOINT = 768
+const isMobileLayout = ref(typeof window !== 'undefined' ? window.innerWidth <= MOBILE_BREAKPOINT : false)
+const sidebarOpen = ref(!isMobileLayout.value)
 const darkMode = ref(localStorage.getItem('darkMode') !== 'false')
 const viewMode = ref(localStorage.getItem('viewMode') || 'grid')
 const gridDensity = ref(localStorage.getItem('gridDensity') || 'normal')
@@ -50,8 +52,6 @@ const genreFilter = ref([])
 const providerFilter = ref([])
 const sortBy = ref('title') // title | year | rating
 const sortDirection = ref('asc')
-const MOBILE_BREAKPOINT = 768
-const isMobileLayout = ref(typeof window !== 'undefined' ? window.innerWidth <= MOBILE_BREAKPOINT : false)
 
 function handleResize() {
   isMobileLayout.value = window.innerWidth <= MOBILE_BREAKPOINT
@@ -83,6 +83,9 @@ const seriesProgress = ref({})
 watch(viewMode, val => localStorage.setItem('viewMode', val))
 watch(gridDensity, val => localStorage.setItem('gridDensity', val))
 watch(darkMode, val => localStorage.setItem('darkMode', val))
+watch(isMobileLayout, (mobile) => {
+  if (mobile) sidebarOpen.value = false
+})
 
 onMounted(async () => {
   document.body.classList.toggle('light-mode', !darkMode.value)

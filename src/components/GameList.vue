@@ -42,8 +42,11 @@ const addLoading     = ref(false)
 const addError       = ref('')
 const addSuccess     = ref(false)
 
+const MOBILE_BREAKPOINT = 768
+const isMobileLayout = ref(typeof window !== 'undefined' ? window.innerWidth <= MOBILE_BREAKPOINT : false)
+
 // UI
-const sidebarOpen        = ref(true)
+const sidebarOpen        = ref(!isMobileLayout.value)
 const darkMode = ref(localStorage.getItem('darkMode') !== 'false')
 const filterSectionsOpen = ref({ platformStorefront: true, sort: true })
 
@@ -558,8 +561,9 @@ function handleGlobalKeydown(e) {
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
-const MOBILE_BREAKPOINT = 768
-const isMobileLayout = ref(typeof window !== 'undefined' ? window.innerWidth <= MOBILE_BREAKPOINT : false)
+watch(isMobileLayout, (mobile) => {
+  if (mobile) sidebarOpen.value = false
+})
 
 function handleResize() {
   isMobileLayout.value = window.innerWidth <= MOBILE_BREAKPOINT

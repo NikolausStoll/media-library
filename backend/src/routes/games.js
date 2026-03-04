@@ -31,6 +31,7 @@ async function aggregateGame(game) {
     gameplayComplete: hltb?.gameplayComplete ?? null,
     gameplayAll: hltb?.gameplayAll ?? null,
     rating: hltb?.rating ?? null,
+    gameType: hltb?.gameType ?? 'game',
     dlcs: hltb?.dlcs ?? [],
   }
 }

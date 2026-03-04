@@ -81,6 +81,7 @@ db.exec(`
     gameplayAll      REAL,
     rating           REAL,
     dlcs             TEXT,
+    gameType         TEXT DEFAULT 'game',
     updatedAt        INTEGER
   );
 
@@ -129,6 +130,10 @@ db.exec(`
 
 try {
   db.prepare('ALTER TABLE tmdbcache ADD COLUMN ttlMs INTEGER DEFAULT 604800000').run()
+} catch {}
+
+try {
+  db.prepare("ALTER TABLE hltbcache ADD COLUMN gameType TEXT DEFAULT 'game'").run()
 } catch {}
 
 export function getGameWithPlatforms(id) {

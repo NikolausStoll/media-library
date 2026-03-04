@@ -1,6 +1,8 @@
 <!-- src/components/games/GameCard.vue -->
 <script setup>
-defineProps({
+import { computed, toRef } from 'vue'
+
+const props = defineProps({
   game: { type: Object, required: true },
   activeTab: { type: String, required: true },
   playNextList: { type: Array, default: () => [] },
@@ -11,6 +13,20 @@ defineProps({
 })
 
 const emit = defineEmits(['open-overlay', 'open-platform-editor', 'add-to-play-next', 'remove-from-play-next'])
+const game = toRef(props, 'game')
+
+const gameType = computed(() => ((game.value.gameType ?? 'game').toLowerCase()))
+
+const dlcLabel = computed(() => (gameType.value === 'dlc' ? 'Main' : 'DLC'))
+
+const badgeText = computed(() => {
+  const count = (game.value.dlcs ?? []).length
+  if (count === 0) return ''
+  if (dlcLabel.value === 'Main') return 'Main'
+  const suffix = count === 1 ? '' : 's'
+  return `${count} ${dlcLabel.value}${suffix}`
+})
+
 </script>
 
 <template>
@@ -68,7 +84,7 @@ const emit = defineEmits(['open-overlay', 'open-platform-editor', 'add-to-play-n
       <div class="card-row" v-if="game.rating != null || game.dlcs?.length || game.tags?.length">
         <div class="card-row-left">
           <div v-if="game.dlcs?.length" class="dlc-wrap" @click.stop>
-            <span class="dlc-count">{{ game.dlcs.length }} DLC</span>
+            <span class="dlc-count">{{ badgeText }}</span>
             <div class="dlc-tooltip">
               <div v-for="dlc in game.dlcs" :key="dlc.id" class="dlc-name">{{ dlc.name }}</div>
             </div>
