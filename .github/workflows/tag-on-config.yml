@@ -70,8 +70,12 @@ jobs:
       - name: Trigger Docker Release workflow
         if: steps.version.outputs.changed == 'true'
         env:
-          DISPATCH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DISPATCH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
+          if [[ -z "$DISPATCH_TOKEN" ]]; then
+            echo "GH_PAT secret is required to dispatch workflows. Create a PAT with repo+workflow scopes and save it as GH_PAT." >&2
+            exit 1
+          fi
           TAG=${{ steps.create_tag.outputs.tag }}
           curl -X POST \
             -H "Authorization: Bearer $DISPATCH_TOKEN" \
