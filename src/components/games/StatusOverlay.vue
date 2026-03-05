@@ -35,8 +35,22 @@ watch(
 <template>
   <div class="overlay" @click="emit('close')">
     <div class="overlay-content" @click.stop>
-      <div class="overlay-title">{{ game?.name }}</div>
-      <div class="overlay-subtitle">Move to</div>
+      <div class="overlay-title">
+        <template v-if="game?.externalId">
+          <a
+            class="hltb-title-link"
+            :href="`https://howlongtobeat.com/game/${game.externalId}`"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {{ game?.name }}
+          </a>
+        </template>
+        <span v-else>{{ game?.name }}</span>
+      </div>
+      <div class="overlay-subtitle">
+        <span>Move to</span>
+      </div>
 
       <div class="tabs" style="margin-bottom: 12px;">
         <button :class="['tab', { active: overlayTab === 'options' }]" @click="overlayTab = 'options'">
@@ -138,6 +152,13 @@ watch(
   gap: 16px;
   padding-top: 8px;
   align-items: stretch;
+}
+
+.hltb-title-link {
+  color: inherit;
+  text-decoration: none;
+  font-family: inherit;
+  font-size: inherit;
 }
 
 .detail-cover {

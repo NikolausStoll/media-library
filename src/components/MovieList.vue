@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import MediaCard from './shared/MediaCard.vue'
+import { formatReleaseDate, isFutureRelease } from '../utils/releaseDate.js'
 
 defineProps({ mediaType: { type: String, default: 'movie' } })
 const emit = defineEmits(['switch-media'])
@@ -105,12 +106,6 @@ const providerDefinitions = [
   { id: 531, name: 'Paramount', logo: '/streamingProviders/paramount.webp' },
 ]
 
-const releaseDateFormatter = new Intl.DateTimeFormat('de-DE', {
-  day: '2-digit',
-  month: 'short',
-  year: 'numeric',
-})
-
 
 function applySort(list) {
   const base =
@@ -153,17 +148,7 @@ function applyFilters(list) {
 }
 
 function isNotReleased(movie) {
-  if (!movie.releaseDateDe) return false
-  const parsed = Date.parse(movie.releaseDateDe)
-  if (Number.isNaN(parsed)) return false
-  return parsed > Date.now()
-}
-
-function formatReleaseDate(date) {
-  if (!date) return ''
-  const parsed = Date.parse(date)
-  if (Number.isNaN(parsed)) return date
-  return releaseDateFormatter.format(parsed)
+  return isFutureRelease(movie.releaseDateDe)
 }
 
 const baseMovies = computed(() => {
