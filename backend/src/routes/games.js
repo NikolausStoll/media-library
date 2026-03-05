@@ -35,6 +35,7 @@ async function aggregateGame(game) {
     rating: hltb?.rating ?? null,
     gameType: hltb?.gameType ?? 'game',
     dlcs: hltb?.dlcs ?? [],
+    releaseDateEu: hltb?.releaseDateEu ?? null,
   }
 }
 

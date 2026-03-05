@@ -1,6 +1,7 @@
 <!-- src/components/games/GameCard.vue -->
 <script setup>
 import { computed, toRef } from 'vue'
+import { formatReleaseDate, isFutureRelease, isYearOnlyRelease } from '../../utils/releaseDate.js'
 
 const props = defineProps({
   game: { type: Object, required: true },
@@ -25,6 +26,20 @@ const badgeText = computed(() => {
   if (dlcLabel.value === 'Main') return 'Main'
   const suffix = count === 1 ? '' : 's'
   return `${count} ${dlcLabel.value}${suffix}`
+})
+
+const releaseTarget = computed(() => game.value.releaseDate ?? game.value.releaseDateEu ?? '')
+
+const releaseDateLabel = computed(() => {
+  const date = releaseTarget.value
+  if (!date) return ''
+  return formatReleaseDate(date)
+})
+
+const showReleaseInsteadOfRating = computed(() => {
+  const date = releaseTarget.value
+  if (!date) return false
+  return isFutureRelease(date) || isYearOnlyRelease(date)
 })
 
 </script>
@@ -81,7 +96,7 @@ const badgeText = computed(() => {
         </div>
       </div>
 
-      <div class="card-row" v-if="game.rating != null || game.dlcs?.length || game.tags?.length">
+        <div class="card-row" v-if="(game.rating != null && !showReleaseInsteadOfRating) || releaseDateLabel || game.dlcs?.length || game.tags?.length">
         <div class="card-row-left">
           <div v-if="game.dlcs?.length" class="dlc-wrap" @click.stop>
             <span class="dlc-count">{{ badgeText }}</span>
@@ -94,7 +109,8 @@ const badgeText = computed(() => {
             <span v-if="game.tags.includes('100%')" class="card-tag-100" title="100%">100%</span>
           </div>
         </div>
-        <span v-if="game.rating != null" class="card-rating">{{ formatRating(game.rating) }}</span>
+        <span v-if="game.rating != null && !showReleaseInsteadOfRating" class="card-rating">{{ formatRating(game.rating) }}</span>
+        <span v-else-if="releaseDateLabel" class="card-time">{{ releaseDateLabel }}</span>
       </div>
     </div>
   </div>

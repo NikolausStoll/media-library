@@ -93,6 +93,7 @@ db.exec(`
     rating           REAL,
     dlcs             TEXT,
     gameType         TEXT DEFAULT 'game',
+    releaseDateEu    TEXT,
     updatedAt        INTEGER
   );
 
@@ -150,6 +151,10 @@ try {
 
 try {
   db.prepare('ALTER TABLE tmdbcache ADD COLUMN releaseDateDe TEXT').run()
+} catch {}
+
+try {
+  db.prepare('ALTER TABLE hltbcache ADD COLUMN releaseDateEu TEXT').run()
 } catch {}
 
 export function getGameWithPlatforms(id) {

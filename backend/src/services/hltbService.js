@@ -17,6 +17,16 @@ const PAGE_SIZE = 20
 const MAX_PAGES = 2
 const MAX_RESULTS = PAGE_SIZE * MAX_PAGES
 
+function normalizeReleaseDate(value) {
+  if (!value) return null
+  const normalized = String(value).trim()
+  if (!normalized) return null
+  if (normalized === '0000-00-00') return null
+  const yearOnlyMatch = normalized.match(/^(\d{4})-00-00$/)
+  if (yearOnlyMatch) return yearOnlyMatch[1]
+  return normalized
+}
+
 async function getAuthToken(force = false) {
   const now = Date.now()
   if (!force && authToken && now - tokenFetchedAt < TOKEN_TTL) return authToken
@@ -138,5 +148,6 @@ export async function getGame(id) {
       name: d.game_name,
       type: normalizeType(d.game_type ?? d.relationship_type ?? d.type ?? 'dlc', 'dlc'),
     })),
+    releaseDateEu: normalizeReleaseDate(game.release_eu),
   }
 }

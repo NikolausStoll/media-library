@@ -17,24 +17,26 @@ export function getFromCache(id) {
     rating:          row.rating,
     dlcs:            JSON.parse(row.dlcs ?? '[]'),
     gameType:        row.gameType ?? 'game',
+    releaseDateEu:   row.releaseDateEu ?? null,
   }
 }
 
 export function saveToCache(game) {
   db.prepare(`
     INSERT INTO hltbcache
-      (id, name, imageUrl, gameplayMain, gameplayExtra, gameplayComplete, gameplayAll, rating, dlcs, gameType, updatedAt)
+      (id, name, imageUrl, gameplayMain, gameplayExtra, gameplayComplete, gameplayAll, rating, dlcs, gameType, releaseDateEu, updatedAt)
     VALUES
-      (@id, @name, @imageUrl, @gameplayMain, @gameplayExtra, @gameplayComplete, @gameplayAll, @rating, @dlcs, @gameType, @updatedAt)
+      (@id, @name, @imageUrl, @gameplayMain, @gameplayExtra, @gameplayComplete, @gameplayAll, @rating, @dlcs, @gameType, @releaseDateEu, @updatedAt)
     ON CONFLICT(id) DO UPDATE SET
       name=excluded.name, imageUrl=excluded.imageUrl,
       gameplayMain=excluded.gameplayMain, gameplayExtra=excluded.gameplayExtra,
       gameplayComplete=excluded.gameplayComplete, gameplayAll=excluded.gameplayAll,
-    rating=excluded.rating, dlcs=excluded.dlcs, gameType=excluded.gameType, updatedAt=excluded.updatedAt
+      rating=excluded.rating, dlcs=excluded.dlcs, gameType=excluded.gameType, releaseDateEu=excluded.releaseDateEu, updatedAt=excluded.updatedAt
   `).run({
     ...game,
     dlcs: JSON.stringify(game.dlcs ?? []),
     gameType: game.gameType ?? 'game',
+    releaseDateEu: game.releaseDateEu ?? null,
     updatedAt: Date.now(),
   })
 }

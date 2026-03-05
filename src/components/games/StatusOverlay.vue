@@ -1,6 +1,7 @@
 <!-- src/components/games/StatusOverlay.vue -->
 <script setup>
-import { ref, watch, toRefs } from 'vue'
+import { computed, ref, watch, toRefs } from 'vue'
+import { formatReleaseDate } from '../../utils/releaseDate.js'
 
 const props = defineProps({
   game: { type: Object, default: null },
@@ -10,6 +11,13 @@ const props = defineProps({
   playNextAtLimit: { type: Boolean, default: false },
 })
 const { game } = toRefs(props)
+
+const releaseDateLabel = computed(() => {
+  const value = game?.value?.releaseDateEu
+  if (!value) return 'Release Date'
+  const formatted = formatReleaseDate(value)
+  return formatted || value
+})
 
 const emit = defineEmits([
   'close',
@@ -49,7 +57,7 @@ watch(
         <span v-else>{{ game?.name }}</span>
       </div>
       <div class="overlay-subtitle">
-        <span>Move to</span>
+        <span>EU · {{ releaseDateLabel }}</span>
       </div>
 
       <div class="tabs" style="margin-bottom: 12px;">

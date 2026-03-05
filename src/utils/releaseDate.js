@@ -28,3 +28,8 @@ export function isFutureRelease(date) {
   if (!parsed) return false
   return parsed.getTime() > Date.now()
 }
+
+export function isYearOnlyRelease(date) {
+  const { yearOnly } = parseReleaseDate(date)
+  return yearOnly
+}
