@@ -17,6 +17,16 @@ async function aggregateMovie(movie) {
       tmdb = null
     }
   }
+  const videos = Array.isArray(tmdb?.videos)
+    ? tmdb.videos
+    : (() => {
+      try {
+        return JSON.parse(tmdb?.videos ?? '[]')
+      } catch {
+        return []
+      }
+    })()
+
   return {
     id:                 String(movie.id),
     externalId:         movie.externalId,
@@ -34,6 +44,7 @@ async function aggregateMovie(movie) {
     genres:             JSON.parse(tmdb?.genres ?? '[]'),
     streamingProviders: JSON.parse(tmdb?.streamingProviders ?? '[]'),
     linkUrl:            tmdb?.linkUrl ?? null,
+    videos:             videos,
   }
 }
 

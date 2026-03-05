@@ -53,6 +53,12 @@ const showOverlay = ref(false)
 const deleteConfirm = ref(false)
 const overlayTab = ref('options')
 
+const sortedTrailerLinks = computed(() => {
+  const videos = overlayMovie.value?.videos ?? []
+  if (!videos.length) return []
+  return [...videos].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
+})
+
 // TMDB Search Overlay
 const showSearchOverlay = ref(false)
 const tmdbSearchQuery = ref('')
@@ -726,6 +732,16 @@ function handleGlobalKeydown(e) {
               </div>
             </div>
           </div>
+          <div class="movie-detail-page" v-if="sortedTrailerLinks.length">
+            <div class="movie-detail-trailers">
+              <span class="detail-label">Videos</span>
+              <ul>
+                <li v-for="video in sortedTrailerLinks" :key="video.id">
+                  <a :href="video.url" target="_blank" rel="noopener noreferrer">{{ video.name }}</a>
+                </li>
+              </ul>
+            </div>
+          </div>
         </template>
       </div>
     </div>
@@ -838,5 +854,23 @@ function handleGlobalKeydown(e) {
   border: 1px solid var(--border2);
   font-size: 11px;
   color: var(--text);
+}
+
+.movie-detail-trailers ul {
+  margin: 6px 0 0;
+  padding-left: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.movie-detail-trailers li {
+  font-size: 13px;
+}
+
+.movie-detail-trailers a {
+  color: var(--accent-light);
+  font-weight: 600;
 }
 </style>

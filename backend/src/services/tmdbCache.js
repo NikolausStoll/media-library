@@ -36,6 +36,7 @@ export function getFromCache(id, mediaType) {
     releaseDateDe:      row.releaseDateDe,
     originalLang:       row.originalLang,
     ttlMs:              row.ttlMs ?? SEVEN_DAYS_MS,
+    videos:             JSON.parse(row.videos ?? '[]'),
   }
 }
 
@@ -44,10 +45,10 @@ export function saveToCache(item) {
   db.prepare(`
     INSERT INTO tmdbcache
       (id, mediaType, titleEn, titleDe, imageUrl, year, certification, rating,
-       runtime, seasons, episodes, genres, streamingProviders, linkUrl, releaseDateDe, originalLang, updatedAt, ttlMs)
+       runtime, seasons, episodes, genres, streamingProviders, linkUrl, releaseDateDe, originalLang, videos, updatedAt, ttlMs)
     VALUES
       (@id, @mediaType, @titleEn, @titleDe, @imageUrl, @year, @certification, @rating,
-       @runtime, @seasons, @episodes, @genres, @streamingProviders, @linkUrl, @releaseDateDe, @originalLang, @updatedAt, @ttlMs)
+       @runtime, @seasons, @episodes, @genres, @streamingProviders, @linkUrl, @releaseDateDe, @originalLang, @videos, @updatedAt, @ttlMs)
     ON CONFLICT(id, mediaType) DO UPDATE SET
       titleEn=excluded.titleEn, titleDe=excluded.titleDe,
       imageUrl=excluded.imageUrl, year=excluded.year,
@@ -58,7 +59,12 @@ export function saveToCache(item) {
       linkUrl=excluded.linkUrl, releaseDateDe=excluded.releaseDateDe, originalLang=excluded.originalLang,
       updatedAt=excluded.updatedAt,
       ttlMs=excluded.ttlMs
-  `).run({ ...item, updatedAt: Date.now(), ttlMs })
+  `).run({
+    ...item,
+    videos: JSON.stringify(item.videos ?? []),
+    updatedAt: Date.now(),
+    ttlMs,
+  })
 }
 
 export function deleteFromCache(id, mediaType) {

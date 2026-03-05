@@ -21,6 +21,25 @@ function extractProviders(data) {
     })) ?? []
 }
 
+function isEnglishTrailer(video) {
+  if (!video) return false
+  const lang = String(video.iso_639_1 ?? '').toLowerCase()
+  return /^en/.test(lang) && String(video.type ?? '').toLowerCase() === 'trailer'
+}
+
+function buildVideoUrl(video) {
+  if (!video?.site || !video?.key) return null
+  const key = video.key
+  switch (video.site) {
+    case 'YouTube':
+      return `https://www.youtube.com/watch?v=${key}`
+    case 'Vimeo':
+      return `https://vimeo.com/${key}`
+    default:
+      return null
+  }
+}
+
 export async function searchMedia(query, type = 'movie') {
   const endpoint = type === 'movie' ? '/search/movie' : '/search/tv'
   const [resDe, resEn] = await Promise.all([
@@ -55,6 +74,7 @@ export async function getMovie(id) {
       language: 'de-DE',
     })),
     fetch(buildUrl(`/movie/${id}`, {
+      append_to_response: 'videos',
       language: 'en-US',
     })),
   ])
@@ -67,6 +87,15 @@ export async function getMovie(id) {
     ?.certification ?? null
 
   const isGerman = de.original_language === 'de'
+
+  const trailers = (en.videos?.results ?? [])
+    .filter(isEnglishTrailer)
+    .map(v => ({
+      id: v.id ?? `${id}-${v.key}`,
+      name: v.name ?? 'Trailer',
+      url: buildVideoUrl(v),
+    }))
+    .filter(v => v.url)
 
   return {
     id:                 String(id),
@@ -85,6 +114,7 @@ export async function getMovie(id) {
     linkUrl:            `https://www.themoviedb.org/movie/${id}`,
     releaseDateDe:      de.release_date ?? null,
     originalLang:       de.original_language ?? null,
+    videos:             trailers,
   }
 }
 

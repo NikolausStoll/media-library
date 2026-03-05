@@ -180,6 +180,25 @@ router.post('/import-games', (req, res) => {
   }
 })
 
+router.post('/clear-hltb-cache', (req, res) => {
+  try {
+    db.prepare('DELETE FROM hltbcache').run()
+    res.json({ success: true })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+router.post('/clear-tmdb-cache', (req, res) => {
+  try {
+    db.prepare('DELETE FROM tmdbcache').run()
+    db.prepare('DELETE FROM tmdbcacheepisodes').run()
+    res.json({ success: true })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // ─── ADMIN PAGE ───────────────────────────────────────────────────────────────
 router.get('/', (req, res) => {
   res.send(`<!DOCTYPE html>
@@ -304,6 +323,15 @@ router.get('/', (req, res) => {
     <pre id="bulkImportSummary" style="display:none"></pre>
   </div>
 
+  <div class="card">
+    <h2>Caches verwalten</h2>
+    <p>Leert den HLTB-Cache bzw. TMDB-Cache inklusive Episoden, damit beim nächsten Aufruf frische Daten geladen werden.</p>
+    <button class="danger" onclick="clearHltbCache()">HLTB-Cache löschen</button>
+    <button class="danger" onclick="clearTmdbCache()">Movie/Series + Episoden löschen</button>
+    <div id="hltbCacheStatus" class="status"></div>
+    <div id="tmdbCacheStatus" class="status"></div>
+  </div>
+
   <script>
     let pendingImport = null
 
@@ -375,6 +403,26 @@ router.get('/', (req, res) => {
         pendingImport = null
       } catch (err) {
         showStatus('importStatus', err.message, false)
+      }
+    }
+
+    async function clearHltbCache() {
+      try {
+        const res = await fetch('/api/admin/clear-hltb-cache', { method: 'POST' })
+        if (!res.ok) throw new Error('HLTB-Cache löschen fehlgeschlagen')
+        showStatus('hltbCacheStatus', 'HLTB-Cache geleert', true)
+      } catch (err) {
+        showStatus('hltbCacheStatus', err.message, false)
+      }
+    }
+
+    async function clearTmdbCache() {
+      try {
+        const res = await fetch('/api/admin/clear-tmdb-cache', { method: 'POST' })
+        if (!res.ok) throw new Error('TMDB-Cache löschen fehlgeschlagen')
+        showStatus('tmdbCacheStatus', 'TMDB + Episoden geleert', true)
+      } catch (err) {
+        showStatus('tmdbCacheStatus', err.message, false)
       }
     }
 

@@ -115,6 +115,7 @@ db.exec(`
     releaseDateDe      TEXT,
     originalLang       TEXT,
     updatedAt          INTEGER,
+    videos             TEXT,
     ttlMs              INTEGER DEFAULT 604800000,
     PRIMARY KEY(id, mediaType)
   );
@@ -151,6 +152,10 @@ try {
 
 try {
   db.prepare('ALTER TABLE tmdbcache ADD COLUMN releaseDateDe TEXT').run()
+} catch {}
+
+try {
+  db.prepare('ALTER TABLE tmdbcache ADD COLUMN videos TEXT').run()
 } catch {}
 
 try {
