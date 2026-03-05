@@ -29,6 +29,7 @@ async function aggregateMovie(movie) {
     year:               tmdb?.year ?? null,
     certification:      tmdb?.certification ?? null,
     rating:             tmdb?.rating ?? null,
+    releaseDateDe:      tmdb?.releaseDateDe ?? null,
     runtime:            tmdb?.runtime ?? null,
     genres:             JSON.parse(tmdb?.genres ?? '[]'),
     streamingProviders: JSON.parse(tmdb?.streamingProviders ?? '[]'),

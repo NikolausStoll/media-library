@@ -111,6 +111,7 @@ db.exec(`
     genres             TEXT,
     streamingProviders TEXT,
     linkUrl            TEXT,
+    releaseDateDe      TEXT,
     originalLang       TEXT,
     updatedAt          INTEGER,
     ttlMs              INTEGER DEFAULT 604800000,
@@ -145,6 +146,10 @@ try {
 
 try {
   db.prepare("ALTER TABLE hltbcache ADD COLUMN gameType TEXT DEFAULT 'game'").run()
+} catch {}
+
+try {
+  db.prepare('ALTER TABLE tmdbcache ADD COLUMN releaseDateDe TEXT').run()
 } catch {}
 
 export function getGameWithPlatforms(id) {

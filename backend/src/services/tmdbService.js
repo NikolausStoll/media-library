@@ -83,6 +83,7 @@ export async function getMovie(id) {
     genres:             JSON.stringify(en.genres?.map(g => g.name) ?? []),
     streamingProviders: JSON.stringify(extractProviders(de)),
     linkUrl:            `https://www.themoviedb.org/movie/${id}`,
+    releaseDateDe:      de.release_date ?? null,
     originalLang:       de.original_language ?? null,
   }
 }

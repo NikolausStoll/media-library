@@ -105,6 +105,12 @@ const providerDefinitions = [
   { id: 531, name: 'Paramount', logo: '/streamingProviders/paramount.webp' },
 ]
 
+const releaseDateFormatter = new Intl.DateTimeFormat('de-DE', {
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+})
+
 
 function applySort(list) {
   const base =
@@ -146,7 +152,21 @@ function applyFilters(list) {
   return applySort(base)
 }
 
-const filteredMovies = computed(() => {
+function isNotReleased(movie) {
+  if (!movie.releaseDateDe) return false
+  const parsed = Date.parse(movie.releaseDateDe)
+  if (Number.isNaN(parsed)) return false
+  return parsed > Date.now()
+}
+
+function formatReleaseDate(date) {
+  if (!date) return ''
+  const parsed = Date.parse(date)
+  if (Number.isNaN(parsed)) return date
+  return releaseDateFormatter.format(parsed)
+}
+
+const baseMovies = computed(() => {
   const base =
     activeTab.value === 'all'
       ? movieList.value
@@ -154,10 +174,18 @@ const filteredMovies = computed(() => {
 
   if (activeTab.value === 'watchlist' && nextList.value.length) {
     const inNext = new Set(nextList.value.map(String))
-    return applyFilters(base.filter(m => !inNext.has(String(m.id))))
+    return base.filter(m => !inNext.has(String(m.id)))
   }
-  return applyFilters(base)
+  return base
 })
+
+const filteredReleasedMovies = computed(() =>
+  applyFilters(baseMovies.value.filter(m => !isNotReleased(m))),
+)
+
+const filteredNotReleasedMovies = computed(() =>
+  applyFilters(baseMovies.value.filter(isNotReleased)),
+)
 
 const nextMovies = computed(() => {
   const candidates = nextList.value
@@ -240,6 +268,7 @@ async function clearMovieCache() {
 }
 
 async function addToNext(movie) {
+  if (isNotReleased(movie)) return
   if (nextList.value.length >= 6) return
   const id = String(movie.id)
   if (nextList.value.includes(id)) return
@@ -400,7 +429,7 @@ function handleGlobalKeydown(e) {
 
           <div class="game-grid">
             <MediaCard
-              v-for="movie in filteredMovies"
+              v-for="movie in filteredReleasedMovies"
               :key="movie.id"
               :title="movie.title"
               :title-de="movie.titleDe"
@@ -411,7 +440,7 @@ function handleGlobalKeydown(e) {
             >
               <template #corner>
                 <button
-                  v-if="activeTab === 'watchlist' && !nextList.includes(String(movie.id)) && nextList.length < 6"
+                  v-if="activeTab === 'watchlist' && !nextList.includes(String(movie.id)) && nextList.length < 6 && !isNotReleased(movie)"
                   class="card-pn-btn"
                   title="Add to Watch Next"
                   @click.stop="addToNext(movie)"
@@ -441,15 +470,76 @@ function handleGlobalKeydown(e) {
                   <span v-if="movie.runtime" class="card-time">{{ movie.runtime }} min</span>
                 </div>
                 <div v-if="movie.rating != null" class="card-row">
-                  <span v-if="movie.certification" class="dlc-count">{{ movie.certification }}</span>
-                  <span v-else class="platform-text">Rating</span>
+                  <span class="dlc-count">{{ movie.certification }}</span>
                   <span class="card-rating">★ {{ movie.rating.toFixed(1) }}</span>
                 </div>
               </template>
             </MediaCard>
           </div>
 
-          <p v-if="filteredMovies.length === 0" class="empty-state">No movies found</p>
+          <div
+            v-if="activeTab === 'watchlist' && filteredNotReleasedMovies.length"
+            class="list-separator"
+          ></div>
+          <div
+            v-if="activeTab === 'watchlist' && filteredNotReleasedMovies.length"
+            class="section-label"
+          >Not Released (DE)</div>
+          <div
+            v-if="activeTab === 'watchlist' && filteredNotReleasedMovies.length"
+            class="game-grid"
+          >
+            <MediaCard
+              v-for="movie in filteredNotReleasedMovies"
+              :key="movie.id"
+              :title="movie.title"
+              :title-de="movie.titleDe"
+              :image-url="movie.imageUrl"
+              :year="movie.year"
+              :is-next="nextList.includes(String(movie.id))"
+              @click="openOverlay(movie, $event)"
+            >
+              <template #details>
+                <div class="card-row">
+                  <div class="card-platform" @click.stop>
+                    <template v-if="movie.streamingProviders?.length">
+                      <span class="platform-primary">
+                        <img
+                          :src="movie.streamingProviders[0].logo"
+                          class="platform-logo-sm"
+                          :title="movie.streamingProviders[0].name"
+                        />
+                      </span>
+                      <img
+                        v-for="p in movie.streamingProviders.slice(1)"
+                        :key="p.id"
+                        :src="p.logo"
+                        class="platform-logo-sm"
+                        :title="p.name"
+                      />
+                    </template>
+                  </div>
+                  <span v-if="movie.runtime" class="card-time">{{ movie.runtime }} min</span>
+                </div>
+                <div v-if="movie.rating != null" class="card-row">
+                  <span class="dlc-count">{{ movie.certification }}</span>
+                  <span class="card-time">{{ formatReleaseDate(movie.releaseDateDe) }}</span>
+                </div>
+                <div
+                  v-else-if="movie.releaseDateDe && isNotReleased(movie)"
+                  class="card-row"
+                >
+                  <span class="platform-text">DE Release</span>
+                  <span class="card-time">{{ formatReleaseDate(movie.releaseDateDe) }}</span>
+                </div>
+              </template>
+            </MediaCard>
+          </div>
+
+          <p
+            v-if="filteredReleasedMovies.length === 0 && (!filteredNotReleasedMovies.length || activeTab !== 'watchlist')"
+            class="empty-state"
+          >No movies found</p>
         </template>
       </div>
     </div>
@@ -610,7 +700,7 @@ function handleGlobalKeydown(e) {
             </div>
           </div>
             <button
-              v-if="overlayMovie.status === 'watchlist'"
+              v-if="overlayMovie.status === 'watchlist' && !isNotReleased(overlayMovie)"
               class="clear-cache-btn"
               :disabled="!nextList.includes(String(overlayMovie.id)) && nextList.length >= 6"
               @click="nextList.includes(String(overlayMovie.id)) ? removeNext(overlayMovie.id) : addToNext(overlayMovie)"
