@@ -87,17 +87,36 @@ router.post('/import', (req, res) => {
 
       // HLTB Cache
       const insertHltb = db.prepare(`
-        INSERT INTO hltbcache (id, name, imageUrl, gameplayMain, gameplayExtra, gameplayComplete, gameplayAll, rating, dlcs, updatedAt)
-        VALUES (@id, @name, @imageUrl, @gameplayMain, @gameplayExtra, @gameplayComplete, @gameplayAll, @rating, @dlcs, @updatedAt)
+        INSERT INTO hltbcache (
+          id, name, imageUrl, gameplayMain, gameplayExtra, gameplayComplete, gameplayAll,
+          rating, dlcs, gameType, releaseDateEu, updatedAt
+        )
+        VALUES (
+          @id, @name, @imageUrl, @gameplayMain, @gameplayExtra, @gameplayComplete, @gameplayAll,
+          @rating, @dlcs, @gameType, @releaseDateEu, @updatedAt
+        )
       `)
-      for (const c of data.hltbcache ?? []) insertHltb.run(c)
+      for (const c of data.hltbcache ?? []) {
+        insertHltb.run({
+          ...c,
+          gameType: c.gameType ?? 'game',
+          releaseDateEu: c.releaseDateEu ?? null,
+        })
+      }
 
       // TMDB Cache
       const insertTmdb = db.prepare(`
-        INSERT INTO tmdbcache (id, mediaType, titleEn, titleDe, imageUrl, year, certification, rating, runtime, seasons, episodes, genres, linkUrl, originalLang, updatedAt)
-        VALUES (@id, @mediaType, @titleEn, @titleDe, @imageUrl, @year, @certification, @rating, @runtime, @seasons, @episodes, @genres, @linkUrl, @originalLang, @updatedAt)
+        INSERT INTO tmdbcache (id, mediaType, titleEn, titleDe, imageUrl, year, certification, rating, runtime, seasons, episodes, genres, streamingProviders, linkUrl, releaseDateDe, originalLang, videos, updatedAt)
+        VALUES (@id, @mediaType, @titleEn, @titleDe, @imageUrl, @year, @certification, @rating, @runtime, @seasons, @episodes, @genres, @streamingProviders, @linkUrl, @releaseDateDe, @originalLang, @videos, @updatedAt)
       `)
-      for (const c of data.tmdbcache ?? []) insertTmdb.run(c)
+      for (const c of data.tmdbcache ?? []) {
+        insertTmdb.run({
+          ...c,
+          releaseDateDe: c.releaseDateDe ?? null,
+          streamingProviders: c.streamingProviders ?? '[]',
+          videos: c.videos ?? '[]',
+        })
+      }
     })()
 
     res.json({

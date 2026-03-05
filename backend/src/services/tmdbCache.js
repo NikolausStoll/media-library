@@ -61,6 +61,7 @@ export function saveToCache(item) {
       ttlMs=excluded.ttlMs
   `).run({
     ...item,
+    releaseDateDe: item.releaseDateDe ?? null,
     videos: JSON.stringify(item.videos ?? []),
     updatedAt: Date.now(),
     ttlMs,
