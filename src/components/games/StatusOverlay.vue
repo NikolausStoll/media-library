@@ -38,6 +38,13 @@ watch(
   },
   { immediate: true },
 )
+
+const dlcGameTimesText = (dlc) => {
+  if (dlc?.gameplayAll == null) return '—'
+  return `${dlc.gameplayAll} h`
+}
+
+const formatDlcRating = (rating) => (rating == null ? '—' : `${rating}%`)
 </script>
 
 <template>
@@ -128,24 +135,49 @@ watch(
           <div v-if="game?.imageUrl" class="detail-cover">
             <img :src="game.imageUrl" :alt="game?.name" />
           </div>
-          <div class="detail-metrics">
-            <div class="metric-box metric-box-all">
-              <span class="metric-label">Average</span>
-              <span class="metric-value" v-if="game?.gameplayAll != null">{{ game.gameplayAll }} h</span>
-              <span class="metric-value" v-else>—</span>
+          <div class="detail-info">
+            <div class="detail-metrics">
+              <div class="metric-box metric-box-all">
+                <span class="metric-label">Average</span>
+                <span class="metric-value" v-if="game?.gameplayAll != null">{{ game.gameplayAll }} h</span>
+                <span class="metric-value" v-else>—</span>
+              </div>
+              <div class="metric-box" v-if="game?.gameplayMain != null">
+                <span class="metric-label">Main Story</span>
+                <span class="metric-value">{{ game.gameplayMain }} h</span>
+              </div>
+              <div class="metric-box" v-if="game?.gameplayExtra != null">
+                <span class="metric-label">Main Story & Sides</span>
+                <span class="metric-value">{{ game.gameplayExtra }} h</span>
+              </div>
+              <div class="metric-box" v-if="game?.gameplayComplete != null">
+                <span class="metric-label">Completionist</span>
+                <span class="metric-value">{{ game.gameplayComplete }} h</span>
+              </div>
             </div>
-            <div class="metric-box" v-if="game?.gameplayMain != null">
-              <span class="metric-label">Main Story</span>
-              <span class="metric-value">{{ game.gameplayMain }} h</span>
-            </div>
-            <div class="metric-box" v-if="game?.gameplayExtra != null">
-              <span class="metric-label">Main Story & Sides</span>
-              <span class="metric-value">{{ game.gameplayExtra }} h</span>
-            </div>
-            <div class="metric-box" v-if="game?.gameplayComplete != null">
-              <span class="metric-label">Completionist</span>
-              <span class="metric-value">{{ game.gameplayComplete }} h</span>
-            </div>
+          </div>
+        </div>
+        <div class="overlay-detail-page-dlc">          
+          <div v-if="game?.dlcs?.length" class="dlc-section">
+            <div class="dlc-section-title">DLCs</div>
+            <table class="dlc-table">
+              <tbody>
+                <tr v-for="dlc in game.dlcs" :key="dlc.id">
+                  <td>
+                    <a
+                      class="dlc-link"
+                      :href="`https://howlongtobeat.com/game/${dlc.id}`"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {{ dlc.name }}
+                    </a>
+                  </td>
+                  <td>{{ dlcGameTimesText(dlc) }}</td>
+                  <td>{{ formatDlcRating(dlc.rating) }}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </template>
@@ -156,6 +188,13 @@ watch(
 <style scoped>
 .overlay-detail-page {
   display: flex;
+  flex-direction: row;
+  gap: 16px;
+  padding-top: 8px;
+  align-items: stretch;
+}
+.overlay-detail-page-dlc {
+  display: block;
   flex-direction: row;
   gap: 16px;
   padding-top: 8px;
@@ -180,9 +219,16 @@ watch(
   width: 100%;
   max-width: 240px;
   height: 100%;
-  border-radius: 6px;
+  border-radius: 2px;
   object-fit: cover;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.detail-info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
 }
 
 .detail-metrics {
@@ -220,6 +266,60 @@ watch(
 
 .metric-box-all .metric-value {
   font-weight: 700;
+}
+
+.dlc-section {
+  margin-top: 18px;
+  display: block;
+}
+
+.dlc-section-title {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.dlc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  table-layout: fixed;
+}
+
+.dlc-table td {
+  text-align: left;
+  padding: 4px 0;
+  vertical-align: top;
+}
+
+.dlc-table tbody tr + tr td {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dlc-table td:nth-child(1) {
+  width: 55%;
+}
+
+.dlc-table td:nth-child(2) {
+  width: 6%;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.dlc-table td:nth-child(3) {
+  width: 6%;
+  color: var(--text-muted);
+  font-weight: 400;
+  text-align: right;
+  ;
+}
+
+.dlc-link {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: none;
 }
 
 @media (max-width: 768px) {

@@ -27,6 +27,17 @@ function normalizeReleaseDate(value) {
   return normalized
 }
 
+function mapDlcEntry(entry) {
+  if (!entry) return null
+  return {
+    id: String(entry.game_id),
+    name: entry.game_name ?? '',
+    type: normalizeType(entry.game_type ?? entry.relationship_type ?? entry.type ?? 'dlc', 'dlc'),
+    gameplayAll: toHours(entry.comp_all),
+    rating: entry.review_score ?? null,
+  }
+}
+
 async function getAuthToken(force = false) {
   const now = Date.now()
   if (!force && authToken && now - tokenFetchedAt < TOKEN_TTL) return authToken
@@ -143,11 +154,7 @@ export async function getGame(id) {
     gameplayAll: toHours(game.comp_all),
     rating: game.review_score ?? null,
     gameType: normalizeType(game.game_type ?? game.category ?? 'game', 'game'),
-    dlcs: relationships.map((d) => ({
-      id: String(d.game_id),
-      name: d.game_name,
-      type: normalizeType(d.game_type ?? d.relationship_type ?? d.type ?? 'dlc', 'dlc'),
-    })),
+    dlcs: relationships.map(mapDlcEntry).filter(Boolean),
     releaseDateEu: normalizeReleaseDate(game.release_eu),
   }
 }
