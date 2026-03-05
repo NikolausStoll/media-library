@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import MediaCard from './shared/MediaCard.vue'
+import configText from '../../media-library/config.yaml?raw'
 
 defineProps({ mediaType: { type: String, default: 'series' } })
 const emit = defineEmits(['switch-media'])
@@ -45,6 +46,9 @@ const sidebarOpen = ref(!isMobileLayout.value)
 const darkMode = ref(localStorage.getItem('darkMode') !== 'false')
 const viewMode = ref(localStorage.getItem('viewMode') || 'grid')
 const gridDensity = ref(localStorage.getItem('gridDensity') || 'normal')
+
+const configVersionMatch = configText.match(/version:\s*["']([^"']+)["']/)
+const configVersion = configVersionMatch?.[1] ?? 'unbekannt'
 
 const activeTab = ref('watching')
 const searchQuery = ref('')
@@ -735,6 +739,7 @@ function handleGlobalKeydown(e) {
           <button class="theme-toggle-btn" @click="toggleDarkMode" style="margin-top: 8px">
             {{ darkMode ? 'Light Mode' : 'Dark Mode' }}
           </button>
+          <div class="sidebar-version">Version {{ configVersion }}</div>
         </div>
       </div>
     </aside>

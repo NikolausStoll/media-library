@@ -1,5 +1,7 @@
 <!-- src/components/games/GameFilters.vue -->
 <script setup>
+import configText from '../../../media-library/config.yaml?raw'
+
 defineProps({
   mediaType: { type: String, default: 'game' },
   activeTab: { type: String, required: true },
@@ -31,6 +33,9 @@ const emit = defineEmits([
   'set-grid-density',
   'toggle-dark-mode',
 ])
+
+const configVersionMatch = configText.match(/version:\s*["']([^"']+)["']/)
+const configVersion = configVersionMatch?.[1] ?? 'unbekannt'
 </script>
 
 <template>
@@ -153,6 +158,8 @@ const emit = defineEmits([
       <button class="theme-toggle-btn" @click="emit('toggle-dark-mode')" style="margin-top: 8px">
         {{ darkMode ? 'Light Mode' : 'Dark Mode' }}
       </button>
+      <div class="sidebar-version">Version {{ configVersion }}</div>
     </div>
   </div>
 </template>
+

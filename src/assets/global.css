@@ -1301,6 +1301,13 @@ body.light-mode {
   gap: 2px;
 }
 
+.sidebar-version {
+  margin-top: 8px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: right;
+}
+
 /* ── Theme Toggle ── */
 .sidebar-content > .theme-toggle-section { margin-top: auto; padding-top: 16px; }
 
