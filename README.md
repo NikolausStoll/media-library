@@ -55,13 +55,13 @@ npm run dev
 ### Environment Variables
 
 - Frontend: no build-time API URL is required (the SPA calls `/api/...` by default).
-- Backend (`backend/.env`):
+- Backend (`.env`):
   ```
   PORT=3000
   FRONTEND_URL=http://localhost:5173
   TMDB_API_KEY=your_tmdb_key_here
-  DB_PATH=../backend.db
-  STATIC_DIR=../dist
+  DB_PATH=backend.db
+  STATIC_DIR=/app/public
   ```
 
 ---
