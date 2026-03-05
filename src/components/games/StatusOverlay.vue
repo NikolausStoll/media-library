@@ -284,7 +284,7 @@ const formatDlcRating = (rating) => (rating == null ? '—' : `${rating}%`)
 .dlc-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   table-layout: fixed;
 }
 
@@ -318,7 +318,7 @@ const formatDlcRating = (rating) => (rating == null ? '—' : `${rating}%`)
 
 .dlc-link {
   color: inherit;
-  font-weight: 600;
+  font-weight: 400;
   text-decoration: none;
 }
 
