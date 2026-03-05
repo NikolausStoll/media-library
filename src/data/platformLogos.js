@@ -5,7 +5,7 @@
 const PLACEHOLDER = '/platforms/playstation.svg';
 
 export const platformLogos = {
-  pc:     PLACEHOLDER,               // kein PC-Logo vorhanden
+  pc:     '/platforms/pc.svg',               // kein PC-Logo vorhanden
   xbox:   '/platforms/xbox.svg',
   switch: '/platforms/switch.svg',
   '3ds':  '/platforms/3ds.svg',               // kein 3DS-Logo vorhanden

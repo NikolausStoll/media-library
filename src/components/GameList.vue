@@ -455,7 +455,9 @@ function addPlatform(platformId) {
   platformEditor.value.platforms.push(plat)
 }
 
-function changeStorefront(plat, storefrontId) { plat.storefront = storefrontId; }
+function changeStorefront(plat, storefrontId) {
+  plat.storefront = storefrontId === 'other' ? null : storefrontId
+}
 
 function changePlatform(index, newPlatformId) {
   const plat = { platform: newPlatformId }
@@ -828,11 +830,12 @@ onUnmounted(() => {
             </select>
             <select
               v-if="plat.platform === 'pc'"
-              :value="plat.storefront"
+              :value="plat.storefront ?? 'other'"
               @change="changeStorefront(plat, $event.target.value)"
               class="storefront-select"
             >
               <option v-for="s in storefronts" :key="s.id" :value="s.id">{{ s.label }}</option>
+              <option value="other">Other</option>
             </select>
             <button
               v-if="platformEditor.platforms.length > 1"
