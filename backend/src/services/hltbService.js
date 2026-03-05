@@ -13,6 +13,9 @@ const HEADERS = {
 let authToken = null
 let tokenFetchedAt = 0
 const TOKEN_TTL = 30 * 60 * 1000
+const PAGE_SIZE = 20
+const MAX_PAGES = 2
+const MAX_RESULTS = PAGE_SIZE * MAX_PAGES
 
 async function getAuthToken(force = false) {
   const now = Date.now()
@@ -41,14 +44,27 @@ function normalizeType(value, fallback) {
   return fallback
 }
 
-export async function searchGames(query, isRetry = false) {
+export async function searchGames(query) {
+  const results = []
+
+  for (let page = 1; page <= MAX_PAGES; page += 1) {
+    const pageResults = await searchPage(query, page)
+    if (!pageResults.length) break
+    results.push(...pageResults)
+    if (pageResults.length < PAGE_SIZE) break
+  }
+
+  return results.slice(0, MAX_RESULTS)
+}
+
+async function searchPage(query, page, isRetry = false) {
   const token = await getAuthToken(isRetry)
 
   const body = JSON.stringify({
     searchType: 'games',
     searchTerms: query.trim().split(/\s+/),
-    searchPage: 1,
-    size: 20,
+    searchPage: page,
+    size: PAGE_SIZE,
     searchOptions: {
       games: {
         userId: 0,
@@ -78,7 +94,7 @@ export async function searchGames(query, isRetry = false) {
   if (res.status === 403) {
     if (isRetry) throw new Error('Search fehlgeschlagen: 403 auch nach Token-Refresh')
     console.log('403 – Token erneuern und retry...')
-    return searchGames(query, true)
+    return searchPage(query, page, true)
   }
 
   if (!res.ok) throw new Error(`Search fehlgeschlagen: HTTP ${res.status}`)

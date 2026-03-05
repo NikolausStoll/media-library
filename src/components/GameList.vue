@@ -71,6 +71,7 @@ const hltbResults  = ref([])
 const hltbLoading  = ref(false)
 const hltbError    = ref('')
 const hltbSearched = ref(false)
+const HLTB_RESULTS_LIMIT = 40
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
@@ -513,7 +514,13 @@ async function searchHltb() {
     if (!res.ok) throw new Error(`Error ${res.status}`)
     const data = await res.json()
     const existingIds = new Set(gameList.value.map(g => String(g.externalId)))
-    hltbResults.value = data.filter(r => !existingIds.has(String(r.id)))
+    const filtered = []
+    for (const result of data) {
+      if (existingIds.has(String(result.id))) continue
+      filtered.push(result)
+      if (filtered.length >= HLTB_RESULTS_LIMIT) break
+    }
+    hltbResults.value = filtered
   } catch (err) {
     hltbError.value = err.message
   } finally {
