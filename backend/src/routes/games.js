@@ -6,6 +6,23 @@ import { getFromCache, saveToCache, deleteFromCache } from '../services/hltbCach
 import { getGame as fetchFromHltb } from '../services/hltbService.js'
 
 const router = Router()
+const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/
+const GAME_COMPLETION_STATUSES = new Set(['completed'])
+
+function normalizeDateInput(value) {
+  if (value === undefined) return undefined
+  if (value === null || value === '') return null
+  if (!DATE_REGEX.test(value))
+    throw new Error('completedAt muss im Format YYYY-MM-DD vorliegen')
+  return value
+}
+
+function resolveCompletedAt(existing, requested, status, today) {
+  if (requested !== undefined) return requested
+  if (existing) return existing
+  if (GAME_COMPLETION_STATUSES.has(status)) return today
+  return existing
+}
 
 async function aggregateGame(game) {
   let hltb = getFromCache(game.externalId)
@@ -36,6 +53,8 @@ async function aggregateGame(game) {
     gameType: hltb?.gameType ?? 'game',
     dlcs: hltb?.dlcs ?? [],
     releaseDateEu: hltb?.releaseDateEu ?? null,
+    completedAt: game.completedAt ?? null,
+    lastTouched: game.lastTouched ?? null,
   }
 }
 
@@ -98,10 +117,14 @@ router.post('/', async (req, res) => {
     return res.status(409).json({ error: `Spiel mit externalId ${externalId} existiert bereits` })
 
   try {
+    const today = new Date().toISOString().slice(0, 10)
+    const completedAt = GAME_COMPLETION_STATUSES.has(status) ? today : null
     const gameId = db.transaction(() => {
       const { lastInsertRowid } = db
-        .prepare('INSERT INTO games (externalId, status) VALUES (?, ?)')
-        .run(externalId, mapGameStatusForDb(status))
+        .prepare(
+          'INSERT INTO games (externalId, status, completedAt, lastTouched) VALUES (?, ?, ?, ?)',
+        )
+        .run(externalId, mapGameStatusForDb(status), completedAt, today)
 
       for (const p of platforms) {
         db.prepare('INSERT INTO gameplatforms (gameId, platform, storefront) VALUES (?, ?, ?)')
@@ -130,9 +153,24 @@ router.put('/:id', async (req, res) => {
     status: req.body.status ? mapGameStatusForDb(req.body.status) : existing.status,
   }
 
+  let requestedCompletedAt
   try {
-    db.prepare('UPDATE games SET externalId=?, status=? WHERE id=?')
-      .run(merged.externalId, merged.status, id)
+    requestedCompletedAt = normalizeDateInput(req.body.completedAt)
+  } catch (err) {
+    return res.status(400).json({ error: err.message })
+  }
+
+  const today = new Date().toISOString().slice(0, 10)
+  const completedAt = resolveCompletedAt(
+    existing.completedAt,
+    requestedCompletedAt,
+    merged.status,
+    today,
+  )
+
+  try {
+    db.prepare('UPDATE games SET externalId=?, status=?, completedAt=?, lastTouched=? WHERE id=?')
+      .run(merged.externalId, merged.status, completedAt, today, id)
     res.json(await aggregateGame(getGameWithPlatforms(id)))
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -156,6 +194,8 @@ router.put('/:id/platforms', async (req, res) => {
           .run(id, p.platform, p.storefront ?? null)
       }
     })()
+    const today = new Date().toISOString().slice(0, 10)
+    db.prepare('UPDATE games SET lastTouched = ? WHERE id = ?').run(today, id)
     res.json(await aggregateGame(getGameWithPlatforms(id)))
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -185,6 +225,8 @@ router.put('/:id/tags', async (req, res) => {
       const stmt = db.prepare('INSERT OR IGNORE INTO gametags (gameId, tag) VALUES (?, ?)')
       for (const tag of tags) stmt.run(id, tag)
     })()
+    const today = new Date().toISOString().slice(0, 10)
+    db.prepare('UPDATE games SET lastTouched = ? WHERE id = ?').run(today, id)
     res.json(await aggregateGame(getGameWithPlatforms(id)))
   } catch (err) {
     res.status(500).json({ error: err.message })

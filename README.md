@@ -63,6 +63,11 @@ npm run dev
   DB_PATH=backend.db
   STATIC_DIR=/app/public
   ```
+- Completion metadata:
+  - `completedAt` (`YYYY-MM-DD`) records when a game/movie/series first entered the completed/finished status.
+  - `lastTouched` is refreshed automatically whenever the record is modified (rating, status, tags, providers).
+  - Episode tracking rows also have `lastTouched` so progress toggles stay fresh.
+  - Run `cd backend && npm run seed:completions` to reset `completedAt`/`lastTouched` for existing completed entries.
 
 ---
 

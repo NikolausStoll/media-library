@@ -2,6 +2,8 @@ name: Tag on Config Version
 
 on:
   push:
+    branches:
+      - main
     paths:
       - media-library/config.yaml
 

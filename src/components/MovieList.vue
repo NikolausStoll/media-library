@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import CompletionDateEditor from './shared/CompletionDateEditor.vue'
 import MediaCard from './shared/MediaCard.vue'
 import { formatReleaseDate, isFutureRelease } from '../utils/releaseDate.js'
 import configText from '../../media-library/config.yaml?raw'
@@ -190,8 +191,12 @@ const nextMovies = computed(() => {
   return applyFilters(candidates)
 })
 
+const effectiveAddStatus = computed(() =>
+  activeTab.value === 'all' ? 'watchlist' : activeTab.value,
+)
+
 const addStatusLabel = computed(() => {
-  const label = statusOptions.find(o => o.id === activeTab.value)?.label ?? activeTab.value
+  const label = statusOptions.find(o => o.id === effectiveAddStatus.value)?.label ?? effectiveAddStatus.value
   return label ? label.charAt(0).toUpperCase() + label.slice(1).toLowerCase() : ''
 })
 
@@ -215,12 +220,13 @@ async function changeStatus(newStatus) {
   if (!movie || movie.status === newStatus) return
   const wasInNext = nextList.value.includes(String(movie.id))
 
-  movie.status = newStatus
   showOverlay.value = false
   overlayMovie.value = null
 
   try {
-    await updateMovie(movie.id, { status: newStatus })
+    const updated = await updateMovie(movie.id, { status: newStatus })
+    const idx = movieList.value.findIndex(m => String(m.id) === String(movie.id))
+    if (idx !== -1) movieList.value[idx] = updated
   } finally {
     if (wasInNext && newStatus !== 'watchlist') {
       await removeFromNext(movie.id, 'movie')
@@ -262,6 +268,18 @@ async function clearMovieCache() {
   }
 }
 
+async function handleMovieCompletionDateSave(date) {
+  if (!overlayMovie.value) return
+  try {
+    const updated = await updateMovie(overlayMovie.value.id, { completedAt: date })
+    const idx = movieList.value.findIndex(m => String(m.id) === String(updated.id))
+    if (idx !== -1) movieList.value[idx] = updated
+    overlayMovie.value = updated
+  } catch (err) {
+    console.error('Failed to update movie completion date', err)
+  }
+}
+
 async function addToNext(movie) {
   if (isNotReleased(movie)) return
   if (nextList.value.length >= 6) return
@@ -298,7 +316,7 @@ async function searchTmdbMovies() {
 
 async function handleAddMovie(tmdbItem, statusOverride) {
   try {
-    const status = statusOverride ?? activeTab.value
+    const status = statusOverride ?? effectiveAddStatus.value
     const movie = await addMovie({ externalId: tmdbItem.id, status })
     movieList.value.push(movie)
     tmdbResults.value = tmdbResults.value.filter(r => String(r.id) !== String(tmdbItem.id))
@@ -661,6 +679,12 @@ function handleGlobalKeydown(e) {
           <span v-if="overlayMovie.year">{{ overlayMovie.year }}</span>
           <span v-if="overlayMovie.runtime"> · {{ overlayMovie.runtime }} min</span>
           <span v-if="overlayMovie.certification"> · {{ overlayMovie.certification }}</span>
+          <CompletionDateEditor
+            v-if="overlayMovie && (overlayMovie.completedAt || overlayMovie.status === 'finished')"
+            label=" · Finished"
+            :value="overlayMovie.completedAt"
+            @save="handleMovieCompletionDateSave"
+          />
         </div>
 
         <div class="tabs" style="margin-bottom: 12px;">

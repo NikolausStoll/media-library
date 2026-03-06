@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "dev": "nodemon src/index.js",
+    "seed:completions": "node ./scripts/seedCompletionDates.js"
   },
   "dependencies": {
     "better-sqlite3": "^9.4.3",
