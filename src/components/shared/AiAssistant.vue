@@ -57,6 +57,9 @@ watch(() => props.mediaType, (mediaType) => {
 })
 
 const isSubmitDisabled = computed(() => loading.value)
+const showWatchlistButton = computed(() =>
+  props.mediaType === 'movie' || (props.mediaType === 'series' && mode.value !== 'continue')
+)
 
 async function submit() {
   if (isSubmitDisabled.value) return
@@ -273,7 +276,7 @@ watch(resultSuggestions, (val) => {
               />
               <span class="ai-result-title">{{ s }}</span>
               <button
-                v-if="mediaType === 'movie' || mediaType === 'series'"
+                v-if="showWatchlistButton"
                 type="button"
                 class="ai-watchlist-btn"
                 :disabled="addingTitle !== null"
@@ -294,7 +297,7 @@ watch(resultSuggestions, (val) => {
               <div>
                 <p class="ai-result-suggestion">{{ resultSuggestions[0] }}</p>
                 <button
-                  v-if="mediaType === 'movie' || mediaType === 'series'"
+                  v-if="showWatchlistButton"
                   type="button"
                   class="ai-watchlist-btn"
                   :disabled="addingTitle !== null"
@@ -367,8 +370,8 @@ watch(resultSuggestions, (val) => {
   flex-wrap: wrap;
 }
 .ai-result-poster {
-  width: 48px;
-  height: 72px;
+  width: 64px;
+  height: 96px;
   object-fit: cover;
   border-radius: 2px;
   flex-shrink: 0;
@@ -383,8 +386,8 @@ watch(resultSuggestions, (val) => {
   align-items: flex-start;
 }
 .ai-result-single .ai-result-poster {
-  width: 80px;
-  height: 120px;
+  width: 112px;
+  height: 168px;
 }
 .ai-watchlist-btn {
   padding: 6px 10px;
