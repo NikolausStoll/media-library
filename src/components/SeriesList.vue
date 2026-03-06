@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import CompletionDateEditor from './shared/CompletionDateEditor.vue'
 import MediaCard from './shared/MediaCard.vue'
 import configText from '../../media-library/config.yaml?raw'
 
@@ -294,12 +295,13 @@ async function changeStatus(newStatus) {
   if (!item || item.status === newStatus) return
   const wasInNext = nextList.value.includes(String(item.id))
 
-  item.status = newStatus
   showOverlay.value = false
   overlayItem.value = null
 
   try {
-    await updateSeries(item.id, { status: newStatus })
+    const updated = await updateSeries(item.id, { status: newStatus })
+    const idx = seriesList.value.findIndex(s => String(s.id) === String(item.id))
+    if (idx !== -1) seriesList.value[idx] = updated
   } finally {
     if (wasInNext && newStatus !== 'watchlist') {
       await removeFromNext(item.id, 'series')
@@ -338,6 +340,18 @@ async function clearSeriesCache() {
     await fetch(`/api/series/${overlayItem.value.id}/cache`, { method: 'DELETE' })
   } catch (err) {
     console.error('clear series cache failed', err)
+  }
+}
+
+async function handleSeriesCompletionDateSave(date) {
+  if (!overlayItem.value) return
+  try {
+    const updated = await updateSeries(overlayItem.value.id, { completedAt: date })
+    const idx = seriesList.value.findIndex(s => String(s.id) === String(updated.id))
+    if (idx !== -1) seriesList.value[idx] = updated
+    overlayItem.value = updated
+  } catch (err) {
+    console.error('Failed to update series completion date', err)
   }
 }
 
@@ -763,6 +777,12 @@ function handleGlobalKeydown(e) {
           <span v-if="overlayItem.seasonCount != null"> · {{ overlayItem.seasonCount }} {{ overlayItem.seasonCount === 1 ? 'Season' : 'Seasons' }}</span>
           <span v-if="overlayItem.episodeCount != null"> · {{ overlayItem.episodeCount }} Episodes</span>
           <span v-if="overlayItem.runtime"> · {{ overlayItem.runtime }} min</span>
+          <CompletionDateEditor
+            v-if="overlayItem && (overlayItem.completedAt || overlayItem.status === 'finished')"
+            label=" · Finished"
+            :value="overlayItem.completedAt"
+            @save="handleSeriesCompletionDateSave"
+          />
         </div>
 
         <div class="tabs" style="margin-bottom: 12px;">

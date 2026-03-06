@@ -27,7 +27,9 @@ db.exec(`
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     externalId TEXT NOT NULL UNIQUE,
     status     TEXT NOT NULL CHECK(status IN ('backlog','wishlist','started','completed','retired','shelved')),
-    userRating INTEGER CHECK(userRating BETWEEN 1 AND 10)
+    userRating INTEGER CHECK(userRating BETWEEN 1 AND 10),
+    completedAt TEXT,
+    lastTouched TEXT
   );
 
   CREATE TABLE IF NOT EXISTS gameplatforms (
@@ -64,14 +66,18 @@ db.exec(`
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     externalId TEXT NOT NULL UNIQUE,
     status     TEXT NOT NULL CHECK(status IN ('watchlist','watching','finished')),
-    userRating INTEGER CHECK(userRating BETWEEN 1 AND 10)
+    userRating INTEGER CHECK(userRating BETWEEN 1 AND 10),
+    completedAt TEXT,
+    lastTouched TEXT
   );
 
   CREATE TABLE IF NOT EXISTS series (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     externalId TEXT NOT NULL UNIQUE,
     status     TEXT NOT NULL CHECK(status IN ('watchlist','watching','finished','dropped','paused')),
-    userRating INTEGER CHECK(userRating BETWEEN 1 AND 10)
+    userRating INTEGER CHECK(userRating BETWEEN 1 AND 10),
+    completedAt TEXT,
+    lastTouched TEXT
   );
 
   CREATE TABLE IF NOT EXISTS mediaproviders (
@@ -137,6 +143,7 @@ db.exec(`
     season    INTEGER NOT NULL,
     episode   INTEGER NOT NULL,
     watchedAt INTEGER,
+    lastTouched TEXT,
     UNIQUE(seriesId, season, episode),
     FOREIGN KEY (seriesId) REFERENCES series(id) ON DELETE CASCADE
   );
@@ -161,6 +168,32 @@ try {
 try {
   db.prepare('ALTER TABLE hltbcache ADD COLUMN releaseDateEu TEXT').run()
 } catch {}
+
+const ensureColumn = (table, columnDef) => {
+  try {
+    db.prepare(`ALTER TABLE ${table} ADD COLUMN ${columnDef}`).run()
+  } catch {}
+}
+
+ensureColumn('games', 'completedAt TEXT')
+ensureColumn('games', 'lastTouched TEXT')
+ensureColumn('movies', 'completedAt TEXT')
+ensureColumn('movies', 'lastTouched TEXT')
+ensureColumn('series', 'completedAt TEXT')
+ensureColumn('series', 'lastTouched TEXT')
+ensureColumn('episodeprogress', 'lastTouched TEXT')
+
+const today = new Date().toISOString().slice(0, 10)
+db.prepare('UPDATE games SET completedAt = COALESCE(completedAt, ?), lastTouched = COALESCE(lastTouched, ?) WHERE status = ?')
+  .run(today, today, 'completed')
+db.prepare('UPDATE games SET lastTouched = COALESCE(lastTouched, ?)').run(today)
+db.prepare('UPDATE movies SET completedAt = COALESCE(completedAt, ?), lastTouched = COALESCE(lastTouched, ?) WHERE status = ?')
+  .run(today, today, 'finished')
+db.prepare('UPDATE movies SET lastTouched = COALESCE(lastTouched, ?)').run(today)
+db.prepare('UPDATE series SET completedAt = COALESCE(completedAt, ?), lastTouched = COALESCE(lastTouched, ?) WHERE status = ?')
+  .run(today, today, 'finished')
+db.prepare('UPDATE series SET lastTouched = COALESCE(lastTouched, ?)').run(today)
+db.prepare('UPDATE episodeprogress SET lastTouched = COALESCE(lastTouched, ?)').run(today)
 
 export function getGameWithPlatforms(id) {
   const game = db.prepare('SELECT * FROM games WHERE id = ?').get(id)

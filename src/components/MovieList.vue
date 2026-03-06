@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import CompletionDateEditor from './shared/CompletionDateEditor.vue'
 import MediaCard from './shared/MediaCard.vue'
 import { formatReleaseDate, isFutureRelease } from '../utils/releaseDate.js'
 import configText from '../../media-library/config.yaml?raw'
@@ -215,12 +216,13 @@ async function changeStatus(newStatus) {
   if (!movie || movie.status === newStatus) return
   const wasInNext = nextList.value.includes(String(movie.id))
 
-  movie.status = newStatus
   showOverlay.value = false
   overlayMovie.value = null
 
   try {
-    await updateMovie(movie.id, { status: newStatus })
+    const updated = await updateMovie(movie.id, { status: newStatus })
+    const idx = movieList.value.findIndex(m => String(m.id) === String(movie.id))
+    if (idx !== -1) movieList.value[idx] = updated
   } finally {
     if (wasInNext && newStatus !== 'watchlist') {
       await removeFromNext(movie.id, 'movie')
@@ -259,6 +261,18 @@ async function clearMovieCache() {
     await fetch(`/api/movies/${overlayMovie.value.id}/cache`, { method: 'DELETE' })
   } catch (err) {
     console.error('failed to clear movie cache', err)
+  }
+}
+
+async function handleMovieCompletionDateSave(date) {
+  if (!overlayMovie.value) return
+  try {
+    const updated = await updateMovie(overlayMovie.value.id, { completedAt: date })
+    const idx = movieList.value.findIndex(m => String(m.id) === String(updated.id))
+    if (idx !== -1) movieList.value[idx] = updated
+    overlayMovie.value = updated
+  } catch (err) {
+    console.error('Failed to update movie completion date', err)
   }
 }
 
@@ -661,6 +675,12 @@ function handleGlobalKeydown(e) {
           <span v-if="overlayMovie.year">{{ overlayMovie.year }}</span>
           <span v-if="overlayMovie.runtime"> · {{ overlayMovie.runtime }} min</span>
           <span v-if="overlayMovie.certification"> · {{ overlayMovie.certification }}</span>
+          <CompletionDateEditor
+            v-if="overlayMovie && (overlayMovie.completedAt || overlayMovie.status === 'finished')"
+            label=" · Finished"
+            :value="overlayMovie.completedAt"
+            @save="handleMovieCompletionDateSave"
+          />
         </div>
 
         <div class="tabs" style="margin-bottom: 12px;">

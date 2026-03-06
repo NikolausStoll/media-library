@@ -154,6 +154,19 @@ async function handleAddGame() {
   }
 }
 
+async function handleCompletionDateUpdate({ id, completedAt }) {
+  if (!id) return
+  try {
+    const updated = await updateGame(id, { completedAt })
+    const idx = gameList.value.findIndex(g => String(g.id) === String(id))
+    if (idx !== -1) gameList.value[idx] = updated
+    if (overlayGame.value && String(overlayGame.value.id) === String(id))
+      overlayGame.value = updated
+  } catch (err) {
+    console.error('Failed to update completion date', err)
+  }
+}
+
 function onAddKeydown(e) {
   if (e.key === 'Enter') handleAddGame()
 }
@@ -382,7 +395,6 @@ async function changeStatus(newStatus) {
   const wasInPlayNext = playNextList.value.includes(gameId)
   const wasStarted = game.status === 'started'
 
-  game.status = newStatus
   showOverlay.value = false
   overlayGame.value = null
 
@@ -396,7 +408,9 @@ async function changeStatus(newStatus) {
     await saveSortOrder(startedOrder.value)
   }
 
-  await updateGame(game.id, { status: newStatus })
+  const updated = await updateGame(game.id, { status: newStatus })
+  const idx = gameList.value.findIndex(g => String(g.id) === String(game.id))
+  if (idx !== -1) gameList.value[idx] = updated
 }
 
 async function handleDeleteGame() {
@@ -806,6 +820,7 @@ onUnmounted(() => {
       @delete-trigger="deleteConfirm = true"
       @delete-confirm="handleDeleteGame"
       @delete-cancel="deleteConfirm = false"
+      @update-completion-date="handleCompletionDateUpdate"
     />
 
     <!-- Platform Editor Overlay -->
