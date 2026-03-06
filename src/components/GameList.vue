@@ -932,8 +932,6 @@ onUnmounted(() => {
     <AiAssistant
       v-if="showAiAssistant"
       :media-type="mediaType"
-      :active-tab="activeTab"
-      :context-items="aiContextItems"
       @close="showAiAssistant = false"
     />
   </div>

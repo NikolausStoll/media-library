@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ ! -f .env ]]; then
-  echo ".env file not found; please create one with TMDB_API_KEY, AI_API_KEY (optional), PORT, DB_PATH, STATIC_DIR, etc."
+  echo ".env file not found; please create one with TMDB_API_KEY, AI_API_KEY (optional), AI_MODEL (optional), PORT, DB_PATH, STATIC_DIR, etc."
   exit 1
 fi
 

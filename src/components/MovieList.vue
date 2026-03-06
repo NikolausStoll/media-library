@@ -627,13 +627,6 @@ function handleGlobalKeydown(e) {
         </div>
 
         <div class="sidebar-section">
-          <div class="sidebar-section-label">AI-Assistent</div>
-          <button class="ai-assistant-btn" type="button" @click="showAiAssistant = true">
-            KI-Empfehlung
-          </button>
-        </div>
-
-        <div class="sidebar-section">
           <div class="sidebar-section-label">Sort</div>
           <div class="filter-options filter-options-single">
             <button :class="['filter-btn', { active: sortBy === 'title' }]" @click="setSort('title')">
@@ -681,23 +674,25 @@ function handleGlobalKeydown(e) {
           </div>
         </div>
 
-          <div class="sidebar-footer">
-          <div class="view-section">
-            <div class="sidebar-section-label">View</div>
-            <div class="view-toggle">
-              <button :class="['view-btn', { active: viewMode === 'grid' }]" @click="viewMode = 'grid'">Grid</button>
-              <button :class="['view-btn', { active: viewMode === 'list' }]" @click="viewMode = 'list'">List</button>
-            </div>
-            <div v-if="viewMode === 'grid'" class="view-toggle">
-              <button :class="['view-btn', { active: gridDensity === 'normal' }]" @click="gridDensity = 'normal'">3 cols</button>
-              <button :class="['view-btn', { active: gridDensity === 'compact' }]" @click="gridDensity = 'compact'">6 cols</button>
-              <button :class="['view-btn', { active: gridDensity === 'dense' }]" @click="gridDensity = 'dense'">9 cols</button>
-            </div>
+        <div class="sidebar-footer">
+          <div class="sidebar-section-label">AI Assistant</div>
+          <button class="ai-assistant-btn" type="button" @click="showAiAssistant = true">
+            Recommendation
+          </button>
+          <div class="sidebar-section-label" style="margin-top: 12px">VIEW</div>
+          <div class="view-toggle">
+            <button :class="['view-btn', { active: viewMode === 'grid' }]" @click="viewMode = 'grid'">Grid</button>
+            <button :class="['view-btn', { active: viewMode === 'list' }]" @click="viewMode = 'list'">List</button>
+          </div>
+          <div v-if="viewMode === 'grid'" class="view-toggle">
+            <button :class="['view-btn', { active: gridDensity === 'normal' }]" @click="gridDensity = 'normal'">3 cols</button>
+            <button :class="['view-btn', { active: gridDensity === 'compact' }]" @click="gridDensity = 'compact'">6 cols</button>
+            <button :class="['view-btn', { active: gridDensity === 'dense' }]" @click="gridDensity = 'dense'">9 cols</button>
           </div>
           <button class="theme-toggle-btn" @click="toggleDarkMode" style="margin-top: 8px">
             {{ darkMode ? 'Light Mode' : 'Dark Mode' }}
           </button>
-            <div class="sidebar-version">Version {{ configVersion }}</div>
+          <div class="sidebar-version">Version {{ configVersion }}</div>
         </div>
       </div>
     </aside>
@@ -871,9 +866,8 @@ function handleGlobalKeydown(e) {
   <AiAssistant
     v-if="showAiAssistant"
     :media-type="mediaType"
-    :active-tab="activeTab"
-    :context-items="aiContextItems"
     @close="showAiAssistant = false"
+    @movie-added="movieList.push($event)"
   />
   </div>
 </template>
