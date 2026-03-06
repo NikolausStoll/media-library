@@ -5,7 +5,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "seed:completions": "node ./scripts/seedCompletionDates.js"
+    "test": "node ./tests/ai.test.js"
   },
   "dependencies": {
     "better-sqlite3": "^9.4.3",
@@ -13,7 +13,8 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.1",
     "express": "^4.18.2",
-    "node-fetch": "^3.3.2"
+    "node-fetch": "^3.3.2",
+    "openai": "^4.32.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"

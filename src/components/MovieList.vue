@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import AiAssistant from './shared/AiAssistant.vue'
 import CompletionDateEditor from './shared/CompletionDateEditor.vue'
 import MediaCard from './shared/MediaCard.vue'
 import { formatReleaseDate, isFutureRelease } from '../utils/releaseDate.js'
@@ -33,6 +34,7 @@ const sidebarOpen = ref(!isMobileLayout.value)
 const darkMode = ref(localStorage.getItem('darkMode') !== 'false')
 const viewMode = ref(localStorage.getItem('viewMode') || 'grid')
 const gridDensity = ref(localStorage.getItem('gridDensity') || 'normal')
+const showAiAssistant = ref(false)
 
 const configVersionMatch = configText.match(/version:\s*["']([^"']+)["']/)
 const configVersion = configVersionMatch?.[1] ?? 'unbekannt'
@@ -194,6 +196,38 @@ const nextMovies = computed(() => {
 const effectiveAddStatus = computed(() =>
   activeTab.value === 'all' ? 'watchlist' : activeTab.value,
 )
+
+const aiContextItems = computed(() => {
+  const seen = new Set()
+  const entries = []
+  const pushMovie = (movie, note) => {
+    if (!movie) return
+    const id = String(movie.id)
+    if (seen.has(id)) return
+    seen.add(id)
+    const metadata = [
+      movie.year ? String(movie.year) : null,
+      movie.rating != null ? `★ ${movie.rating.toFixed(1)}` : null,
+      movie.streamingProviders?.length ? movie.streamingProviders.map(p => p.name).slice(0, 3).join(', ') : null,
+    ]
+      .filter(Boolean)
+      .join(' · ')
+    entries.push({
+      title: movie.title ?? movie.titleDe ?? 'Unbekannter Film',
+      status: note ?? movie.status,
+      metadata: metadata || 'Keine Details',
+    })
+  }
+
+  filteredReleasedMovies.value.slice(0, 5).forEach(movie => pushMovie(movie))
+  filteredNotReleasedMovies.value.slice(0, 3).forEach(movie => pushMovie(movie, 'Not Released'))
+
+  if (entries.length < 4) {
+    nextMovies.value.slice(0, 4).forEach(movie => pushMovie(movie, 'Watch Next'))
+  }
+
+  return entries
+})
 
 const addStatusLabel = computed(() => {
   const label = statusOptions.find(o => o.id === effectiveAddStatus.value)?.label ?? effectiveAddStatus.value
@@ -640,23 +674,25 @@ function handleGlobalKeydown(e) {
           </div>
         </div>
 
-          <div class="sidebar-footer">
-          <div class="view-section">
-            <div class="sidebar-section-label">View</div>
-            <div class="view-toggle">
-              <button :class="['view-btn', { active: viewMode === 'grid' }]" @click="viewMode = 'grid'">Grid</button>
-              <button :class="['view-btn', { active: viewMode === 'list' }]" @click="viewMode = 'list'">List</button>
-            </div>
-            <div v-if="viewMode === 'grid'" class="view-toggle">
-              <button :class="['view-btn', { active: gridDensity === 'normal' }]" @click="gridDensity = 'normal'">3 cols</button>
-              <button :class="['view-btn', { active: gridDensity === 'compact' }]" @click="gridDensity = 'compact'">6 cols</button>
-              <button :class="['view-btn', { active: gridDensity === 'dense' }]" @click="gridDensity = 'dense'">9 cols</button>
-            </div>
+        <div class="sidebar-footer">
+          <div class="sidebar-section-label">AI Assistant</div>
+          <button class="ai-assistant-btn" type="button" @click="showAiAssistant = true">
+            Recommendation
+          </button>
+          <div class="sidebar-section-label" style="margin-top: 12px">VIEW</div>
+          <div class="view-toggle">
+            <button :class="['view-btn', { active: viewMode === 'grid' }]" @click="viewMode = 'grid'">Grid</button>
+            <button :class="['view-btn', { active: viewMode === 'list' }]" @click="viewMode = 'list'">List</button>
+          </div>
+          <div v-if="viewMode === 'grid'" class="view-toggle">
+            <button :class="['view-btn', { active: gridDensity === 'normal' }]" @click="gridDensity = 'normal'">3 cols</button>
+            <button :class="['view-btn', { active: gridDensity === 'compact' }]" @click="gridDensity = 'compact'">6 cols</button>
+            <button :class="['view-btn', { active: gridDensity === 'dense' }]" @click="gridDensity = 'dense'">9 cols</button>
           </div>
           <button class="theme-toggle-btn" @click="toggleDarkMode" style="margin-top: 8px">
             {{ darkMode ? 'Light Mode' : 'Dark Mode' }}
           </button>
-            <div class="sidebar-version">Version {{ configVersion }}</div>
+          <div class="sidebar-version">Version {{ configVersion }}</div>
         </div>
       </div>
     </aside>
@@ -827,6 +863,12 @@ function handleGlobalKeydown(e) {
         </div>
       </div>
     </div>
+  <AiAssistant
+    v-if="showAiAssistant"
+    :media-type="mediaType"
+    @close="showAiAssistant = false"
+    @movie-added="movieList.push($event)"
+  />
   </div>
 </template>
 

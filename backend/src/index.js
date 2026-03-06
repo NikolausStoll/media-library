@@ -12,6 +12,7 @@ import tmdbRouter    from './routes/tmdb.js'
 import nextRouter    from './routes/next.js'
 import sortRouter    from './routes/sortOrder.js'
 import adminRouter   from './routes/admin.js'
+import aiRouter      from './routes/ai.js'
 
 const app = express()
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -22,7 +23,7 @@ const STATIC_DIR =
 const hasStatic = STATIC_DIR && existsSync(path.join(STATIC_DIR, 'index.html'))
 
 app.use(cors({ origin: process.env.FRONTEND_URL ?? 'http://localhost:5173' }))
-app.use(express.json())
+app.use(express.json({ limit: '10mb' }))
 
 if (!process.env.TMDB_API_KEY) {
   console.warn('TMDB_API_KEY nicht gesetzt; TMDB-Anfragen schlagen möglicherweise fehl.')
@@ -37,6 +38,7 @@ apiRouter.use('/tmdb', tmdbRouter)
 apiRouter.use('/next', nextRouter)
 apiRouter.use('/sort-order', sortRouter)
 apiRouter.use('/admin', adminRouter)
+apiRouter.use('/ai', aiRouter)
 
 apiRouter.get('/config', (req, res) => {
   res.json({

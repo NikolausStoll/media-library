@@ -20,6 +20,7 @@ import {
   updateGameTags,
 } from '../services/gameStorage.js'
 
+import AiAssistant from './shared/AiAssistant.vue'
 import GameCard from './games/GameCard.vue'
 import StatusOverlay from './games/StatusOverlay.vue'
 import GameSearchOverlay from './games/GameSearchOverlay.vue'
@@ -49,6 +50,7 @@ const isMobileLayout = ref(typeof window !== 'undefined' ? window.innerWidth <= 
 const sidebarOpen        = ref(!isMobileLayout.value)
 const darkMode = ref(localStorage.getItem('darkMode') !== 'false')
 const filterSectionsOpen = ref({ platformStorefront: true, sort: true })
+const showAiAssistant = ref(false)
 
 // Overlays
 const overlayGame        = ref(null)
@@ -334,6 +336,45 @@ const statusCounts = computed(() => {
   c['started'] += gameList.value.filter(g => g.status === 'shelved').length
   c['all'] = gameList.value.filter(g => g.status !== 'wishlist').length
   return c
+})
+
+const aiContextItems = computed(() => {
+  const seen = new Set()
+  const entries = []
+  const pushItem = (game, note) => {
+    if (!game) return
+    const id = String(game.id)
+    if (seen.has(id)) return
+    seen.add(id)
+    const metadata = [
+      game.platforms?.length ? game.platforms.map(p => p.platform).join(', ') : null,
+      game.tags?.length ? `Tags: ${game.tags.join(', ')}` : null,
+      game.gameplayAll != null ? `${game.gameplayAll} h` : null,
+    ]
+      .filter(Boolean)
+      .join(' · ')
+    entries.push({
+      title: game.name ?? 'Unbekanntes Spiel',
+      status: note ?? game.status,
+      metadata: metadata || 'Keine Details',
+    })
+  }
+
+  filteredGames.value.slice(0, 6).forEach(game =>
+    pushItem(game, playNextList.value.includes(String(game.id)) ? 'Play Next' : undefined),
+  )
+
+  if (entries.length < 4) {
+    for (const id of playNextList.value) {
+      if (entries.length >= 4) break
+      if (seen.has(id)) continue
+      const game = gameList.value.find(g => String(g.id) === id)
+      if (!game) continue
+      pushItem(game, 'Play Next')
+    }
+  }
+
+  return entries
 })
 
 
@@ -763,7 +804,8 @@ onUnmounted(() => {
           :darkMode="darkMode"
           :searchQuery="searchQuery"
           @switch-media="(value) => emit('switch-media', value)"
-          @open-search-overlay="openSearchOverlay"
+            @open-search-overlay="openSearchOverlay"
+            @open-ai-assistant="showAiAssistant = true"
           @update:searchQuery="searchQuery = $event"
           @toggle-filter="(type, val) => toggleFilter(type === 'platform' ? platformFilter : type === 'storefront' ? storefrontFilter : tagFilter, val)"
           @toggle-filter-section="(sec) => filterSectionsOpen[sec] = !filterSectionsOpen[sec]"
@@ -886,6 +928,11 @@ onUnmounted(() => {
       @search="searchHltb"
       @add="({ result, status }) => handleAddFromSearch(result, status)"
       @close="closeSearchOverlay"
+    />
+    <AiAssistant
+      v-if="showAiAssistant"
+      :media-type="mediaType"
+      @close="showAiAssistant = false"
     />
   </div>
 </template>

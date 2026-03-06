@@ -1,7 +1,7 @@
 name: "Media Library"
 slug: "media-library"
 description: "Media Library (games, movies, series)"
-version: "1.7.1"
+version: "1.8.0"
 url: "https://github.com/NikolausStoll/media-library"
 
 arch:
@@ -27,8 +27,12 @@ options:
   db_path: "/data/backend.db"
   static_dir: "/app/public"
   TMDB_API_KEY: ""
+  AI_API_KEY: ""
+  AI_MODEL: "gpt-4o-mini"
 schema:
   port: int(1024,65535)
   db_path: str
   static_dir: str
   TMDB_API_KEY: password
+  AI_API_KEY: password
+  AI_MODEL: str
