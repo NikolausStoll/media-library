@@ -440,6 +440,8 @@ DB_PATH=../backend.db
 STATIC_DIR=../dist
 ```
 - `AI_API_KEY` aktiviert die KI-Empfehlung; lasse es leer, wenn du keine OpenAI-Verbindung möchtest.
+- `completedAt` (YYYY-MM-DD) wird beim Wechsel in Finished/Completed gesetzt und bleibt erhalten.
+- `lastTouched` wird bei jeder Änderung aktualisiert (Ratings, Status, Tags, Provider) – auch `episodeprogress` speichert einen Stempel.
 - `DB_PATH` points to the SQLite file (default `../backend.db`, containerized installs persist at `/data/backend.db`).
 - `STATIC_DIR` is where the built SPA lives (`dist/` by default, the add-on/container serves it from `/app/public` via this path).
 

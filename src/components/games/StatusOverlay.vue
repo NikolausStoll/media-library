@@ -2,6 +2,7 @@
 <script setup>
 import { computed, ref, watch, toRefs } from 'vue'
 import { formatReleaseDate } from '../../utils/releaseDate.js'
+import CompletionDateEditor from '../shared/CompletionDateEditor.vue'
 
 const props = defineProps({
   game: { type: Object, default: null },
@@ -28,6 +29,7 @@ const emit = defineEmits([
   'delete-trigger',
   'delete-confirm',
   'delete-cancel',
+  'update-completion-date',
 ])
 
 const overlayTab = ref('options')
@@ -64,7 +66,13 @@ const formatDlcRating = (rating) => (rating == null ? '—' : `${rating}%`)
         <span v-else>{{ game?.name }}</span>
       </div>
       <div class="overlay-subtitle">
-        <span>EU · {{ releaseDateLabel }}</span>
+        <span>EU {{ releaseDateLabel }}</span>
+        <CompletionDateEditor
+          v-if="game && (game.completedAt || game.status === 'completed')"
+          label=" · Completed"
+          :value="game.completedAt"
+          @save="(date) => emit('update-completion-date', { id: game.id, completedAt: date })"
+        />
       </div>
 
       <div class="tabs" style="margin-bottom: 12px;">

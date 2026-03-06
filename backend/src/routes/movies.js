@@ -5,6 +5,23 @@ import { getMovie } from '../services/tmdbService.js'
 
 const router = Router()
 const VALID_STATUS = ['watchlist', 'watching', 'finished']
+const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/
+const MOVIE_COMPLETION_STATUSES = new Set(['finished'])
+
+function normalizeDateInput(value) {
+  if (value === undefined) return undefined
+  if (value === null || value === '') return null
+  if (!DATE_REGEX.test(value))
+    throw new Error('completedAt muss im Format YYYY-MM-DD vorliegen')
+  return value
+}
+
+function resolveCompletedAt(existing, requested, status, today) {
+  if (requested !== undefined) return requested
+  if (existing) return existing
+  if (MOVIE_COMPLETION_STATUSES.has(status)) return today
+  return existing
+}
 
 async function aggregateMovie(movie) {
   let tmdb = getFromCache(movie.externalId, 'movie')
@@ -45,6 +62,8 @@ async function aggregateMovie(movie) {
     streamingProviders: JSON.parse(tmdb?.streamingProviders ?? '[]'),
     linkUrl:            tmdb?.linkUrl ?? null,
     videos:             videos,
+    completedAt:        movie.completedAt ?? null,
+    lastTouched:        movie.lastTouched ?? null,
   }
 }
 
@@ -71,8 +90,12 @@ router.post('/', async (req, res) => {
   if (db.prepare('SELECT id FROM movies WHERE externalId = ?').get(externalId))
     return res.status(409).json({ error: `Film mit externalId ${externalId} existiert bereits` })
   try {
+    const today = new Date().toISOString().slice(0, 10)
+    const completedAt = MOVIE_COMPLETION_STATUSES.has(status) ? today : null
     const movieId = db.transaction(() => {
-      const { lastInsertRowid } = db.prepare('INSERT INTO movies (externalId, status) VALUES (?, ?)').run(externalId, status)
+      const { lastInsertRowid } = db
+        .prepare('INSERT INTO movies (externalId, status, completedAt, lastTouched) VALUES (?, ?, ?, ?)')
+        .run(externalId, status, completedAt, today)
       for (const p of providers)
         db.prepare(`INSERT INTO mediaproviders (mediaId, mediaType, provider) VALUES (?, 'movie', ?)`).run(lastInsertRowid, p)
       return lastInsertRowid
@@ -93,9 +116,21 @@ router.put('/:id', async (req, res) => {
   if (req.body.userRating !== undefined && (req.body.userRating < 1 || req.body.userRating > 10))
     return res.status(400).json({ error: 'userRating muss zwischen 1 und 10 liegen' })
   try {
-    const status     = req.body.status ?? existing.status
+    const status = req.body.status ?? existing.status
     const userRating = req.body.userRating ?? existing.userRating
-    db.prepare('UPDATE movies SET status = ?, userRating = ? WHERE id = ?').run(status, userRating, id)
+
+    let requestedCompletedAt
+    try {
+      requestedCompletedAt = normalizeDateInput(req.body.completedAt)
+    } catch (err) {
+      return res.status(400).json({ error: err.message })
+    }
+
+    const today = new Date().toISOString().slice(0, 10)
+    const completedAt = resolveCompletedAt(existing.completedAt, requestedCompletedAt, status, today)
+    db.prepare(
+      'UPDATE movies SET status = ?, userRating = ?, completedAt = ?, lastTouched = ? WHERE id = ?',
+    ).run(status, userRating, completedAt, today, id)
     res.json(await aggregateMovie(getMediaWithProviders(id, 'movie')))
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -114,6 +149,8 @@ router.put('/:id/providers', async (req, res) => {
       for (const p of req.body)
         db.prepare(`INSERT INTO mediaproviders (mediaId, mediaType, provider) VALUES (?, 'movie', ?)`).run(id, p)
     })()
+    const today = new Date().toISOString().slice(0, 10)
+    db.prepare('UPDATE movies SET lastTouched = ? WHERE id = ?').run(today, id)
     res.json(await aggregateMovie(getMediaWithProviders(id, 'movie')))
   } catch (err) {
     res.status(500).json({ error: err.message })
