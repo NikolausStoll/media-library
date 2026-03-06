@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { db, getMediaWithProviders } from '../db/library.js'
-import { getFromCache, saveToCache, getEpisodesFromCache, saveEpisodesToCache, deleteFromCache, updateSeriesRuntimeInCache } from '../services/tmdbCache.js'
+import { getFromCache, saveToCache, getEpisodesFromCache, saveEpisodesToCache, deleteFromCache, deleteEpisodesFromCache, updateSeriesRuntimeInCache } from '../services/tmdbCache.js'
 import { getSeries, fetchEpisodes } from '../services/tmdbService.js'
 
 const router = Router()
@@ -214,6 +214,7 @@ router.delete('/:id/cache', (req, res) => {
   if (!series) return res.status(404).json({ error: 'Serie nicht gefunden' })
   try {
     deleteFromCache(series.externalId, 'series')
+    deleteEpisodesFromCache(series.externalId)
     res.json({ success: true })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -223,9 +224,11 @@ router.delete('/:id/cache', (req, res) => {
 // DELETE /api/series/:id
 router.delete('/:id', (req, res) => {
   const id = Number(req.params.id)
-  if (!db.prepare('SELECT id FROM series WHERE id = ?').get(id))
-    return res.status(404).json({ error: 'Serie nicht gefunden' })
+  const series = db.prepare('SELECT id, externalId FROM series WHERE id = ?').get(id)
+  if (!series) return res.status(404).json({ error: 'Serie nicht gefunden' })
   try {
+    deleteFromCache(series.externalId, 'series')
+    deleteEpisodesFromCache(series.externalId)
     db.prepare('DELETE FROM series WHERE id = ?').run(id)
     res.status(204).send()
   } catch (err) {

@@ -1754,6 +1754,7 @@ body.light-mode {
 
   /* Sidebar Toggle bewegt sich mit der Sidebar auf Mobile */
   .sidebar-toggle-external {
+    width: 35px;
     transition: right 0.3s ease, transform 0.3s ease;
   }
 

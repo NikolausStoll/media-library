@@ -172,9 +172,10 @@ router.delete('/:id/cache', (req, res) => {
 // DELETE /api/movies/:id
 router.delete('/:id', (req, res) => {
   const id = Number(req.params.id)
-  if (!db.prepare('SELECT id FROM movies WHERE id = ?').get(id))
-    return res.status(404).json({ error: 'Film nicht gefunden' })
+  const movie = db.prepare('SELECT id, externalId FROM movies WHERE id = ?').get(id)
+  if (!movie) return res.status(404).json({ error: 'Film nicht gefunden' })
   try {
+    deleteFromCache(movie.externalId, 'movie')
     db.prepare('DELETE FROM movies WHERE id = ?').run(id)
     res.status(204).send()
   } catch (err) {
