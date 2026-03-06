@@ -1,6 +1,6 @@
 <script setup>
-import { computed, ref } from 'vue'
-import { searchTmdb, addMovie } from '../../services/mediaStorage.js'
+import { computed, ref, watch } from 'vue'
+import { searchTmdb, addMovie, addSeries } from '../../services/mediaStorage.js'
 
 const LOCATIONS = [
   { id: 'bed', label: 'Bed' },
@@ -22,6 +22,11 @@ const GAME_MODES = [
   { id: 'new', label: 'Start something new' },
 ]
 
+const SERIES_MODES = [
+  { id: 'continue', label: 'Continue watching' },
+  { id: 'new', label: 'New recommendation' },
+]
+
 const TIME_PRESETS = [
   { id: 30, label: '30 min' },
   { id: 60, label: '1h' },
@@ -33,7 +38,7 @@ const props = defineProps({
   mediaType: { type: String, required: true },
 })
 
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'movie-added', 'series-added'])
 
 const location = ref('couch')
 const mood = ref('relaxed')
@@ -46,6 +51,10 @@ const error = ref('')
 const locationOptions = computed(() =>
   props.mediaType === 'game' ? LOCATIONS : LOCATIONS.filter((l) => l.id !== 'desk')
 )
+
+watch(() => props.mediaType, (mediaType) => {
+  if (mediaType === 'series' && mode.value !== 'continue' && mode.value !== 'new') mode.value = 'continue'
+})
 
 const isSubmitDisabled = computed(() => loading.value)
 
@@ -61,7 +70,7 @@ async function submit() {
       availableMinutes: Number(availableMinutes.value),
       mediaType: props.mediaType,
     }
-    if (props.mediaType === 'game') body.mode = mode.value
+    if (props.mediaType === 'game' || props.mediaType === 'series') body.mode = mode.value
 
     const response = await fetch('/api/ai/suggest', {
       method: 'POST',
@@ -96,20 +105,27 @@ const resultReasoning = computed(() => result.value?.reasoning ?? '')
 
 const addingTitle = ref(null)
 const addError = ref('')
+const suggestionDetails = ref({}) // title -> { id, imageUrl }
 
 async function addToWatchlist(title) {
   if (!title?.trim()) return
   addingTitle.value = title
   addError.value = ''
+  const type = props.mediaType === 'movie' ? 'movie' : 'series'
   try {
-    const results = await searchTmdb(title.trim(), 'movie')
+    const results = await searchTmdb(title.trim(), type)
     const first = results?.[0]
     if (!first?.id) {
       addError.value = `No TMDB match for "${title}".`
       return
     }
-    const movie = await addMovie({ externalId: String(first.id), status: 'watchlist', providers: [] })
-    emit('movie-added', movie)
+    if (props.mediaType === 'movie') {
+      const movie = await addMovie({ externalId: String(first.id), status: 'watchlist', providers: [] })
+      emit('movie-added', movie)
+    } else {
+      const series = await addSeries({ externalId: String(first.id), status: 'watchlist', providers: [] })
+      emit('series-added', series)
+    }
     addingTitle.value = null
   } catch (err) {
     addError.value = err.message ?? 'Failed to add to watchlist.'
@@ -117,6 +133,29 @@ async function addToWatchlist(title) {
     addingTitle.value = null
   }
 }
+
+async function fetchPostersForSuggestions() {
+  const list = resultSuggestions.value
+  if (!list?.length || (props.mediaType !== 'movie' && props.mediaType !== 'series')) return
+  const type = props.mediaType
+  const next = {}
+  for (const title of list) {
+    if (!title?.trim()) continue
+    try {
+      const results = await searchTmdb(title.trim(), type)
+      const first = results?.[0]
+      if (first?.id) next[title] = { id: first.id, imageUrl: first.imageUrl || null }
+    } catch {
+      /* ignore */
+    }
+  }
+  suggestionDetails.value = next
+}
+
+watch(resultSuggestions, (val) => {
+  suggestionDetails.value = {}
+  if (val?.length) fetchPostersForSuggestions()
+}, { immediate: true })
 </script>
 
 <template>
@@ -179,6 +218,22 @@ async function addToWatchlist(title) {
           </div>
         </div>
 
+        <div class="ai-field" v-if="mediaType === 'series'">
+          <label class="ai-label">Mode</label>
+          <div class="ai-option-group">
+            <button
+              v-for="opt in SERIES_MODES"
+              :key="opt.id"
+              type="button"
+              class="ai-option-btn"
+              :class="{ active: mode === opt.id }"
+              @click="mode = opt.id"
+            >
+              {{ opt.label }}
+            </button>
+          </div>
+        </div>
+
         <div class="ai-field">
           <label class="ai-label">Available time</label>
           <div class="ai-option-group">
@@ -210,9 +265,15 @@ async function addToWatchlist(title) {
         <template v-if="resultSuggestions.length">
           <ul class="ai-result-list" v-if="resultSuggestions.length > 1">
             <li v-for="(s, i) in resultSuggestions" :key="i" class="ai-result-list-item">
-              <span>{{ s }}</span>
+              <img
+                v-if="suggestionDetails[s]?.imageUrl"
+                :src="suggestionDetails[s].imageUrl"
+                :alt="s"
+                class="ai-result-poster"
+              />
+              <span class="ai-result-title">{{ s }}</span>
               <button
-                v-if="mediaType === 'movie'"
+                v-if="mediaType === 'movie' || mediaType === 'series'"
                 type="button"
                 class="ai-watchlist-btn"
                 :disabled="addingTitle !== null"
@@ -223,16 +284,26 @@ async function addToWatchlist(title) {
             </li>
           </ul>
           <template v-else>
-            <p class="ai-result-suggestion">{{ resultSuggestions[0] }}</p>
-            <button
-              v-if="mediaType === 'movie'"
-              type="button"
-              class="ai-watchlist-btn"
-              :disabled="addingTitle !== null"
-              @click="addToWatchlist(resultSuggestions[0])"
-            >
-              {{ addingTitle === resultSuggestions[0] ? '…' : 'Add to watchlist' }}
-            </button>
+            <div class="ai-result-single">
+              <img
+                v-if="suggestionDetails[resultSuggestions[0]]?.imageUrl"
+                :src="suggestionDetails[resultSuggestions[0]].imageUrl"
+                :alt="resultSuggestions[0]"
+                class="ai-result-poster"
+              />
+              <div>
+                <p class="ai-result-suggestion">{{ resultSuggestions[0] }}</p>
+                <button
+                  v-if="mediaType === 'movie' || mediaType === 'series'"
+                  type="button"
+                  class="ai-watchlist-btn"
+                  :disabled="addingTitle !== null"
+                  @click="addToWatchlist(resultSuggestions[0])"
+                >
+                  {{ addingTitle === resultSuggestions[0] ? '…' : 'Add to watchlist' }}
+                </button>
+              </div>
+            </div>
           </template>
         </template>
         <p v-else class="ai-result-suggestion">{{ resultMessage || 'No specific recommendation.' }}</p>
@@ -294,6 +365,26 @@ async function addToWatchlist(title) {
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
+}
+.ai-result-poster {
+  width: 48px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.ai-result-title {
+  flex: 1;
+  min-width: 0;
+}
+.ai-result-single {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.ai-result-single .ai-result-poster {
+  width: 80px;
+  height: 120px;
 }
 .ai-watchlist-btn {
   padding: 6px 10px;

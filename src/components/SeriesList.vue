@@ -997,6 +997,7 @@ function handleGlobalKeydown(e) {
       v-if="showAiAssistant"
       :media-type="mediaType"
       @close="showAiAssistant = false"
+      @series-added="loadSeries()"
     />
   </div>
 </template>

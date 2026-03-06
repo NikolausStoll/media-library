@@ -6,7 +6,8 @@ const router = Router()
 const VALID_LOCATIONS = ['bed', 'couch', 'desk']
 const VALID_MOODS = ['relaxed', 'energetic', 'melancholic', 'sociable', 'focused']
 const VALID_MEDIA_TYPES = ['game', 'movie', 'series']
-const VALID_MODES = ['continue', 'shelved', 'new']
+const VALID_GAME_MODES = ['continue', 'shelved', 'new']
+const VALID_SERIES_MODES = ['continue', 'new']
 const VALID_MINUTES = [30, 60, 120, 180]
 
 router.post('/suggest', async (req, res) => {
@@ -25,8 +26,11 @@ router.post('/suggest', async (req, res) => {
   if (!mediaType || !VALID_MEDIA_TYPES.includes(mediaType)) {
     return res.status(400).json({ error: 'mediaType is required (game, movie, series)' })
   }
-  if (mediaType === 'game' && mode && !VALID_MODES.includes(mode)) {
+  if (mediaType === 'game' && mode && !VALID_GAME_MODES.includes(mode)) {
     return res.status(400).json({ error: 'mode must be continue, shelved, or new' })
+  }
+  if (mediaType === 'series' && mode && !VALID_SERIES_MODES.includes(mode)) {
+    return res.status(400).json({ error: 'mode must be continue or new' })
   }
   if (mediaType !== 'game' && location === 'desk') {
     return res.status(400).json({ error: 'Desk is only allowed for games' })
@@ -38,7 +42,7 @@ router.post('/suggest', async (req, res) => {
       mood,
       availableMinutes: mins,
       mediaType,
-      mode: mediaType === 'game' ? (mode || 'continue') : undefined,
+      mode: mediaType === 'game' ? (mode || 'continue') : mediaType === 'series' ? (mode || 'continue') : undefined,
     })
     res.json(suggestion)
   } catch (err) {

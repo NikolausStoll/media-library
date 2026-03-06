@@ -1172,7 +1172,9 @@ body.light-mode {
 }
 
 .ai-assistant-modal {
-  width: min(480px, 100%);
+  width: 90%;
+  max-width: 560px;
+  min-width: 220px;
   background: var(--surface);
   border: 1px solid var(--border2);
   border-radius: 2px;
@@ -1205,7 +1207,7 @@ body.light-mode {
 .ai-close-btn {
   background: transparent;
   border: 1px solid var(--border2);
-  border-radius: 50%;
+  border-radius: 2px;
   color: var(--text);
   width: 28px;
   height: 28px;
@@ -1251,11 +1253,12 @@ body.light-mode {
 }
 
 .ai-label {
-  font-size: 11px;
-  color: var(--text-dim);
-  letter-spacing: 0.08em;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  margin: 0;
+  color: var(--text-dim);
+  margin: 0 0 8px 0;
 }
 
 .ai-prompt-input {
@@ -1283,7 +1286,6 @@ body.light-mode {
   padding: 10px;
   font-weight: 600;
   font-size: 12px;
-  text-transform: uppercase;
   background: var(--accent);
   color: #fff;
   cursor: pointer;

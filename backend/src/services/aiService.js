@@ -54,17 +54,17 @@ function getContextData(mediaType, mode) {
 }
 
 function formatFilteredItems(items) {
-  if (!items?.length) return '(no entries)'
+  if (!items?.length) return '-'
   return items.map((item, i) => {
     const parts = [`${i + 1}. ${item.title}`, item.status]
-    if (item.progress) parts.push(`Progress: ${item.progress}`)
-    if (item.genres) parts.push(`Genres: ${item.genres}`)
-    if (item.lastTouched) parts.push(`lastTouched: ${item.lastTouched}`)
-    if (item.gameplayMain != null) parts.push(`~${item.gameplayMain}h`)
-    if (item.gameplayAll != null) parts.push(`Total ~${item.gameplayAll}h`)
-    if (item.platforms) parts.push(`Platform: ${item.platforms}`)
-    if (item.hype !== undefined) parts.push(`Hype: ${item.hype}`)
-    return parts.join(' · ')
+    if (item.progress) parts.push(item.progress)
+    if (item.genres) parts.push(item.genres)
+    if (item.lastTouched) parts.push(item.lastTouched)
+    if (item.gameplayAll != null) parts.push(`${item.gameplayAll}h`)
+    if (item.rating != null) parts.push(typeof item.rating === 'number' && item.rating > 10 ? `${item.rating}%` : `★${item.rating}`)
+    if (item.platforms) parts.push(item.platforms)
+    if (item.hype !== undefined) parts.push(`H${item.hype}`)
+    return parts.join(' ')
   }).join('\n')
 }
 
@@ -74,66 +74,114 @@ function buildPrompt(params, contextData) {
   const moodPreset = MOOD_PRESETS.find((p) => p.id === mood) || MOOD_PRESETS[0]
   const time = getTimeContext()
 
-  const moodLabel = `${moodPreset.emoji} ${moodPreset.label}`
   const modeLabel = mediaType === 'game' && mode ? MODE_LABELS[mode] || mode : mediaType
+  const plat =
+    location === 'bed' ? 'Switch only' : location === 'couch' ? 'Xbox or Switch' : 'any'
+  const lowEnergy = time.energyLevel === 'low' || time.timeOfDay === 'evening'
+  const sessionHint = lowEnergy
+    ? ' Late/low energy: prefer light, short sessions; avoid deep complex games.'
+    : ' Match time to HLTB h + rating; consider session length.'
 
   let taskLine = ''
   if (mediaType === 'movie') {
-    taskLine = 'Find 2–3 movie titles I do not know yet (not from my watchlist) that match my taste. List only the movie titles.'
+    const skipEpics = location === 'bed' || availableMinutes < 120
+    taskLine = skipEpics
+      ? '2–3 titles (not watchlist). Bed/short time: no long epics, prefer light or single-session.'
+      : '2–3 movie titles (not on watchlist), match taste. Output titles only.'
   } else if (mediaType === 'series') {
-    taskLine = 'Recommend 1–2 series to continue. Prioritise: series where I am close to a season finale, or light series for tired evenings. Downgrade complex series when energy is low. Give a short reasoning.'
-  } else if (mediaType === 'game') {
-    if (mode === 'continue') {
-      taskLine = 'Recommend 1–2 games to continue playing. Check if complexity fits current mood. Give a short reasoning why now.'
-    } else if (mode === 'shelved') {
-      taskLine = 'Recommend 1–2 shelved games. Consider: How long has it been? Is there a good re-entry point? Explain briefly why now is a good time to pick it up again.'
-    } else {
-      taskLine = 'Recommend 1–2 games I can start fresh (Wishlist/Play Next/Backlog). Hype: Wishlist=4, Play Next=2, Backlog=0. Choose to fit time, mood and platform. Give a short reasoning.'
+    const seriesTasks = {
+      continue: '1–2 series from LIST (currently watching) to continue. Prefer near season end or light for tired. Low energy = less complex. Short reason.',
+      new: '1–2 new series (exclude SEEN and WATCHLIST). Use my finished (with rating), taste, and what I\'m currently watching. Match taste. Short reason.',
     }
+    taskLine = seriesTasks[mode] || seriesTasks.continue
+  } else if (mediaType === 'game') {
+    const modeTasks = {
+      continue: `1–2 games to continue. P:${plat}.${sessionHint} Short reason.`,
+      shelved: `1–2 shelved. P:${plat}. Re-entry? How long since? HLTB fit.${sessionHint} Brief reason.`,
+      new: `1–2 fresh (Wishlist H4 / Play Next H2 / Backlog H0). P:${plat}.${sessionHint} Short reason.`,
+    }
+    taskLine = modeTasks[mode] || modeTasks.continue
   }
 
   const filteredBlob = formatFilteredItems(contextData.filteredItems)
   const recentBlob = contextData.recentlyCompleted?.length
     ? contextData.recentlyCompleted.join('\n')
-    : '(none)'
-  const genresBlob = contextData.topGenres?.length ? contextData.topGenres.join(', ') : '(none)'
+    : '-'
+  const genresBlob = contextData.topGenres?.length ? contextData.topGenres.join(', ') : '-'
 
-  const userContent = `You are a personal media advisor.
+  const locLine =
+    mediaType === 'game'
+      ? `${locationPreset.label} (games P: ${plat})`
+      : locationPreset.label
+  const typeLine =
+    mediaType === 'game' && mode ? `${mediaType} ${modeLabel}` : mediaType === 'series' && mode ? `series ${mode}` : mediaType
 
-CONTEXT:
-- Time of day: ${time.timeOfDay} | Weekday: ${time.weekday} | Weekend: ${time.isWeekend}
-- Mood: ${moodLabel} | Energy: ${time.energyLevel}
-- Available time: ${availableMinutes} minutes
-- Location/device: ${locationPreset.label}
-- Media type: ${mediaType}${mediaType === 'game' && mode ? ` | Mode: ${modeLabel}` : ''}
+  const contextLine =
+    `Time=${time.timeOfDay} Day=${time.weekday}${time.isWeekend ? ' Weekend' : ''} | Mood=${moodPreset.label} Energy=${time.energyLevel} | Avail=${availableMinutes}min | Loc=${locLine} | Type=${typeLine}`
 
-MY BACKLOG (pre-filtered):
+  let excludeBlob = ''
+  const addSeen = (titles, max = 80) =>
+    titles.length > max ? titles.slice(0, max).join(', ') + ` …+${titles.length - max} more` : titles.join(', ')
+  const addWatchlist = (titles, max = 50) =>
+    titles.length > max ? titles.slice(0, max).join(', ') + ` …+${titles.length - max} more` : titles.join(', ')
+  if ((mediaType === 'movie' || mediaType === 'series') && contextData.finishedTitles?.length) {
+    excludeBlob += `SEEN (do not suggest): ${addSeen(contextData.finishedTitles)}\n`
+  }
+  if ((mediaType === 'movie' || mediaType === 'series') && contextData.watchlistTitles?.length) {
+    excludeBlob += `WATCHLIST (do not suggest): ${addWatchlist(contextData.watchlistTitles)}\n`
+  }
+
+  const listLabel = mediaType === 'series' && mode === 'continue' ? 'CURRENTLY WATCHING (pick from here):\n' : mediaType === 'series' ? 'CURRENTLY WATCHING (context):\n' : ''
+  const userContent = `${contextLine}
+
+${excludeBlob}${listLabel}LIST:
 ${filteredBlob}
 
-TASTE PROFILE (from completed titles):
-Top genres: ${genresBlob}
-Recent completions: ${recentBlob}
+TASTE: ${genresBlob}
+RECENT (title + my rating): ${recentBlob}
 
-TASK:
-${taskLine}
-
-Reply concisely. For movies: list only 2–3 titles I do not know yet. For games/series: only titles from my backlog. Respond as JSON with keys: suggestion (or suggestions array for movies), reasoning, message.`
+DO: ${taskLine}
+${mediaType === 'game' || (mediaType === 'series' && mode === 'continue') ? 'Only from LIST.' : ''}${mediaType === 'movie' || (mediaType === 'series' && mode === 'new') ? ' Exclude SEEN and WATCHLIST.' : ''}`
 
   return {
-    systemContent: 'You are a personal media advisor. Answer in English. Output valid JSON only.',
+    systemContent:
+      'Personal media advisor. English. One JSON object only. Keys: suggestion (string, for games/series) or suggestions (array, for movies), reasoning, message.',
     userContent,
   }
 }
 
+function extractFirstJsonObject(str) {
+  const trimmed = str.trim()
+  const start = trimmed.indexOf('{')
+  if (start === -1) return trimmed
+  let depth = 0
+  for (let i = start; i < trimmed.length; i++) {
+    if (trimmed[i] === '{') depth++
+    else if (trimmed[i] === '}') {
+      depth--
+      if (depth === 0) return trimmed.slice(start, i + 1)
+    }
+  }
+  return trimmed.slice(start)
+}
+
 const parseOpenAiResponse = (text) => {
   if (!text) return {}
-  const trimmed = text.trim()
-  const jsonMatch = trimmed.match(/\{[\s\S]*\}/)
-  const toParse = jsonMatch ? jsonMatch[0] : trimmed
+  const toParse = extractFirstJsonObject(text)
   try {
-    return JSON.parse(toParse)
+    const parsed = JSON.parse(toParse)
+    const suggestion =
+      parsed.suggestion ??
+      parsed.game ??
+      parsed.title ??
+      parsed.recommendation ??
+      ''
+    return {
+      ...parsed,
+      suggestion: suggestion || parsed.suggestion,
+    }
   } catch {
-    return { message: trimmed }
+    return { message: text.trim() }
   }
 }
 
@@ -159,6 +207,9 @@ export async function generateSuggestionFromParams(params) {
     return fallbackFromContext(mediaType, contextData)
   }
 
+  console.log('[AI] Request – system:', systemContent)
+  console.log('[AI] Request – user:', userContent)
+
   try {
     const response = await aiClient.chat.completions.create({
       model: MODEL,
@@ -170,8 +221,9 @@ export async function generateSuggestionFromParams(params) {
     })
 
     const text = response?.choices?.[0]?.message?.content ?? ''
+    console.log('[AI] Response:', text)
     const parsed = parseOpenAiResponse(text)
-    const suggestion = parsed.suggestion ?? parsed.title ?? parsed.recommendation ?? ''
+    const suggestion = parsed.suggestion ?? ''
     const suggestions = Array.isArray(parsed.suggestions) ? parsed.suggestions : undefined
 
     return {
