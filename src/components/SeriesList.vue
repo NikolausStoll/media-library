@@ -220,8 +220,12 @@ const nextSeries = computed(() => {
   return applySeriesFilters(candidates)
 })
 
+const effectiveAddStatus = computed(() =>
+  activeTab.value === 'all' ? 'watchlist' : activeTab.value,
+)
+
 const addStatusLabel = computed(() => {
-  const label = statusOptions.find(o => o.id === activeTab.value)?.label ?? activeTab.value
+  const label = statusOptions.find(o => o.id === effectiveAddStatus.value)?.label ?? effectiveAddStatus.value
   return label ? label.charAt(0).toUpperCase() + label.slice(1).toLowerCase() : ''
 })
 
@@ -423,7 +427,7 @@ async function searchTmdbSeries() {
 
 async function handleAddSeries(tmdbItem, statusOverride) {
   try {
-    const status = statusOverride ?? activeTab.value
+    const status = statusOverride ?? effectiveAddStatus.value
     const series = await addSeries({ externalId: tmdbItem.id, status })
     seriesList.value.push(series)
     tmdbResults.value = tmdbResults.value.filter(r => String(r.id) !== String(tmdbItem.id))

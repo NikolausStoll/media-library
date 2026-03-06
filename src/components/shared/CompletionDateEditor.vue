@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref, watch, nextTick } from 'vue'
-import { formatDateDDMMYYYY } from '../../utils/dateFormat.js'
+import { formatDateDDMMYYYY, parseToISODate } from '../../utils/dateFormat.js'
 
 const props = defineProps({
   label: { type: String, required: true },
@@ -10,25 +10,27 @@ const props = defineProps({
 const emit = defineEmits(['save'])
 
 const editing = ref(false)
-const inputValue = ref(props.value ?? '')
+const inputValue = ref(formatDateDDMMYYYY(props.value) || '')
 const inputRef = ref(null)
 const displayValue = computed(() => formatDateDDMMYYYY(props.value))
 
 watch(
   () => props.value,
   (val) => {
-    inputValue.value = val ?? ''
+    inputValue.value = formatDateDDMMYYYY(val) || ''
   },
 )
 
 function startEditing() {
+  inputValue.value = formatDateDDMMYYYY(props.value) || ''
   editing.value = true
   nextTick(() => inputRef.value?.focus())
 }
 
 function finishEditing() {
   editing.value = false
-  emit('save', inputValue.value || null)
+  const parsed = parseToISODate(inputValue.value)
+  emit('save', parsed !== null ? parsed : (props.value || null))
 }
 </script>
 
@@ -46,9 +48,10 @@ function finishEditing() {
     <input
       v-else
       ref="inputRef"
-      type="date"
+      type="text"
       class="completion-date-input"
       v-model="inputValue"
+      placeholder="TT.MM.JJJJ"
       @blur="finishEditing"
       @keydown.enter.prevent="finishEditing"
     />

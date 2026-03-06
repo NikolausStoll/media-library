@@ -191,8 +191,12 @@ const nextMovies = computed(() => {
   return applyFilters(candidates)
 })
 
+const effectiveAddStatus = computed(() =>
+  activeTab.value === 'all' ? 'watchlist' : activeTab.value,
+)
+
 const addStatusLabel = computed(() => {
-  const label = statusOptions.find(o => o.id === activeTab.value)?.label ?? activeTab.value
+  const label = statusOptions.find(o => o.id === effectiveAddStatus.value)?.label ?? effectiveAddStatus.value
   return label ? label.charAt(0).toUpperCase() + label.slice(1).toLowerCase() : ''
 })
 
@@ -312,7 +316,7 @@ async function searchTmdbMovies() {
 
 async function handleAddMovie(tmdbItem, statusOverride) {
   try {
-    const status = statusOverride ?? activeTab.value
+    const status = statusOverride ?? effectiveAddStatus.value
     const movie = await addMovie({ externalId: tmdbItem.id, status })
     movieList.value.push(movie)
     tmdbResults.value = tmdbResults.value.filter(r => String(r.id) !== String(tmdbItem.id))

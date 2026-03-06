@@ -16,8 +16,12 @@ const emit = defineEmits(['update:searchQuery', 'search', 'add', 'close'])
 const searchInputRef = ref(null)
 onMounted(() => searchInputRef.value?.focus())
 
+const defaultAddStatus = computed(() =>
+  props.activeTab === 'all' ? 'backlog' : props.activeTab,
+)
+
 const addToLabel = computed(() => {
-  const label = props.tabs.find(t => t.id === props.activeTab)?.label ?? props.activeTab
+  const label = props.statusOptions.find(o => o.id === defaultAddStatus.value)?.label ?? defaultAddStatus.value
   return label ? label.charAt(0).toUpperCase() + label.slice(1).toLowerCase() : ''
 })
 
@@ -61,9 +65,9 @@ const addToLabel = computed(() => {
             <div class="search-result-actions">
               <button
                 class="search-result-add-btn primary"
-                @click="emit('add', { result, status: activeTab })"
-                :title="`Add to ${tabs.find(t => t.id === activeTab)?.label}`"
-              >+ {{ tabs.find(t => t.id === activeTab)?.label }}</button>
+                @click="emit('add', { result, status: defaultAddStatus })"
+                :title="`Add to ${statusOptions.find(o => o.id === defaultAddStatus)?.label}`"
+              >+ {{ statusOptions.find(o => o.id === defaultAddStatus)?.label }}</button>
               <select
                 class="search-result-status-select"
                 @change="emit('add', { result, status: $event.target.value }); $event.target.value = ''"
