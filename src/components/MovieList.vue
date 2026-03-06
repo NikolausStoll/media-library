@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import AiAssistant from './shared/AiAssistant.vue'
 import MediaCard from './shared/MediaCard.vue'
 import { formatReleaseDate, isFutureRelease } from '../utils/releaseDate.js'
 import configText from '../../media-library/config.yaml?raw'
@@ -32,6 +33,7 @@ const sidebarOpen = ref(!isMobileLayout.value)
 const darkMode = ref(localStorage.getItem('darkMode') !== 'false')
 const viewMode = ref(localStorage.getItem('viewMode') || 'grid')
 const gridDensity = ref(localStorage.getItem('gridDensity') || 'normal')
+const showAiAssistant = ref(false)
 
 const configVersionMatch = configText.match(/version:\s*["']([^"']+)["']/)
 const configVersion = configVersionMatch?.[1] ?? 'unbekannt'
@@ -188,6 +190,38 @@ const nextMovies = computed(() => {
     .filter(Boolean)
     .filter(m => m.status === 'watchlist')
   return applyFilters(candidates)
+})
+
+const aiContextItems = computed(() => {
+  const seen = new Set()
+  const entries = []
+  const pushMovie = (movie, note) => {
+    if (!movie) return
+    const id = String(movie.id)
+    if (seen.has(id)) return
+    seen.add(id)
+    const metadata = [
+      movie.year ? String(movie.year) : null,
+      movie.rating != null ? `★ ${movie.rating.toFixed(1)}` : null,
+      movie.streamingProviders?.length ? movie.streamingProviders.map(p => p.name).slice(0, 3).join(', ') : null,
+    ]
+      .filter(Boolean)
+      .join(' · ')
+    entries.push({
+      title: movie.title ?? movie.titleDe ?? 'Unbekannter Film',
+      status: note ?? movie.status,
+      metadata: metadata || 'Keine Details',
+    })
+  }
+
+  filteredReleasedMovies.value.slice(0, 5).forEach(movie => pushMovie(movie))
+  filteredNotReleasedMovies.value.slice(0, 3).forEach(movie => pushMovie(movie, 'Not Released'))
+
+  if (entries.length < 4) {
+    nextMovies.value.slice(0, 4).forEach(movie => pushMovie(movie, 'Watch Next'))
+  }
+
+  return entries
 })
 
 const addStatusLabel = computed(() => {
@@ -575,6 +609,13 @@ function handleGlobalKeydown(e) {
         </div>
 
         <div class="sidebar-section">
+          <div class="sidebar-section-label">AI-Assistent</div>
+          <button class="ai-assistant-btn" type="button" @click="showAiAssistant = true">
+            KI-Empfehlung
+          </button>
+        </div>
+
+        <div class="sidebar-section">
           <div class="sidebar-section-label">Sort</div>
           <div class="filter-options filter-options-single">
             <button :class="['filter-btn', { active: sortBy === 'title' }]" @click="setSort('title')">
@@ -803,6 +844,13 @@ function handleGlobalKeydown(e) {
         </div>
       </div>
     </div>
+  <AiAssistant
+    v-if="showAiAssistant"
+    :media-type="mediaType"
+    :active-tab="activeTab"
+    :context-items="aiContextItems"
+    @close="showAiAssistant = false"
+  />
   </div>
 </template>
 

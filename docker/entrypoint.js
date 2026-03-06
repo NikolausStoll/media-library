@@ -26,13 +26,16 @@ const port = resolveSetting('PORT', '8099', ['port'])
 const dbPath = resolveSetting('DB_PATH', '/data/backend.db', ['db_path', 'dbPath'])
 const staticDir = resolveSetting('STATIC_DIR', '/app/public', ['static_dir', 'staticDir'])
 const tmdbKey = resolveSetting('TMDB_API_KEY', '', ['TMDB_API_KEY', 'tmdb_api_key'])
+const aiKey = resolveSetting('AI_API_KEY', '', ['AI_API_KEY', 'ai_api_key'])
 
 process.env.PORT = String(port)
 process.env.DB_PATH = String(dbPath)
 process.env.STATIC_DIR = String(staticDir)
 process.env.TMDB_API_KEY = String(tmdbKey ?? '')
+process.env.AI_API_KEY = String(aiKey ?? '')
 
 console.log(tmdbKey ? 'TMDB_API_KEY set' : 'TMDB_API_KEY not set')
+console.log(aiKey ? 'AI_API_KEY set' : 'AI_API_KEY not set')
 
 const backend = spawn('node', ['backend/src/index.js'], { stdio: 'inherit' })
 

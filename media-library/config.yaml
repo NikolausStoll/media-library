@@ -27,8 +27,10 @@ options:
   db_path: "/data/backend.db"
   static_dir: "/app/public"
   TMDB_API_KEY: ""
+  AI_API_KEY: ""
 schema:
   port: int(1024,65535)
   db_path: str
   static_dir: str
   TMDB_API_KEY: password
+  AI_API_KEY: password

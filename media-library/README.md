@@ -10,4 +10,4 @@
 - `repository.yaml` at the repo root is the manifest that Supervisor reads; it points at this `config.yaml`.
 - The add-on uses a prebuilt Docker image, so HA only needs to pull and run the container (no build on HA). Provide GHCR credentials (GitHub user + PAT with `read:packages`) so Supervisor can download `ghcr.io/nikolausstoll/media-library:latest`.
 - Data is persisted in `/data/backend.db`, so mount a volume to keep your library between restarts.
-- `run.sh` exports the configured `port`, `db_path`, `static_dir`, and password-protected `TMDB_API_KEY` to the environment before launching `node backend/src/index.js`. Leave `TMDB_API_KEY` blank if you want to skip TMDB lookups.
+- `run.sh` exports the configured `port`, `db_path`, `static_dir`, `TMDB_API_KEY`, and optionally `AI_API_KEY` to the environment before launching `node backend/src/index.js`. Leave the keys blank if you want to skip the respective integrations.

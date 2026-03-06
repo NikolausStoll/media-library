@@ -60,9 +60,12 @@ npm run dev
   PORT=3000
   FRONTEND_URL=http://localhost:5173
   TMDB_API_KEY=your_tmdb_key_here
+  AI_API_KEY=your_ai_key_here
   DB_PATH=backend.db
   STATIC_DIR=/app/public
   ```
+
+- `AI_API_KEY` ist optional und wird für die neue KI-Empfehlung benötigt; lasse es leer, wenn keine Verbindung zu OpenAI hergestellt werden soll.
 
 ---
 

@@ -434,10 +434,12 @@ npm run build
 ```
 PORT=3000
 TMDB_API_KEY=your_tmdb_key_here
+AI_API_KEY=your_ai_key_here
 FRONTEND_URL=http://localhost:5173
 DB_PATH=../backend.db
 STATIC_DIR=../dist
 ```
+- `AI_API_KEY` aktiviert die KI-Empfehlung; lasse es leer, wenn du keine OpenAI-Verbindung möchtest.
 - `DB_PATH` points to the SQLite file (default `../backend.db`, containerized installs persist at `/data/backend.db`).
 - `STATIC_DIR` is where the built SPA lives (`dist/` by default, the add-on/container serves it from `/app/public` via this path).
 

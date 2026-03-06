@@ -12,6 +12,7 @@ import tmdbRouter    from './routes/tmdb.js'
 import nextRouter    from './routes/next.js'
 import sortRouter    from './routes/sortOrder.js'
 import adminRouter   from './routes/admin.js'
+import aiRouter      from './routes/ai.js'
 
 const app = express()
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -37,6 +38,7 @@ apiRouter.use('/tmdb', tmdbRouter)
 apiRouter.use('/next', nextRouter)
 apiRouter.use('/sort-order', sortRouter)
 apiRouter.use('/admin', adminRouter)
+apiRouter.use('/ai', aiRouter)
 
 apiRouter.get('/config', (req, res) => {
   res.json({

@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import AiAssistant from './shared/AiAssistant.vue'
 import MediaCard from './shared/MediaCard.vue'
 import configText from '../../media-library/config.yaml?raw'
 
@@ -46,6 +47,7 @@ const sidebarOpen = ref(!isMobileLayout.value)
 const darkMode = ref(localStorage.getItem('darkMode') !== 'false')
 const viewMode = ref(localStorage.getItem('viewMode') || 'grid')
 const gridDensity = ref(localStorage.getItem('gridDensity') || 'normal')
+const showAiAssistant = ref(false)
 
 const configVersionMatch = configText.match(/version:\s*["']([^"']+)["']/)
 const configVersion = configVersionMatch?.[1] ?? 'unbekannt'
@@ -217,6 +219,36 @@ const nextSeries = computed(() => {
     .filter(Boolean)
     .filter(s => s.status === 'watchlist')
   return applySeriesFilters(candidates)
+})
+
+const aiContextItems = computed(() => {
+  const seen = new Set()
+  const entries = []
+  const pushSeries = (item, note) => {
+    if (!item) return
+    const id = String(item.id)
+    if (seen.has(id)) return
+    seen.add(id)
+    const metadata = [
+      item.seasonCount != null ? `${item.seasonCount} Season${item.seasonCount === 1 ? '' : 's'}` : null,
+      item.rating != null ? `★ ${item.rating.toFixed(1)}` : null,
+      item.streamingProviders?.length ? item.streamingProviders.map(p => p.name).slice(0, 3).join(', ') : null,
+    ]
+      .filter(Boolean)
+      .join(' · ')
+    entries.push({
+      title: item.title ?? item.titleDe ?? 'Unbekannte Serie',
+      status: note ?? item.status,
+      metadata: metadata || 'Keine Details',
+    })
+  }
+
+  filteredSeries.value.slice(0, 5).forEach(series => pushSeries(series))
+  if (entries.length < 4) {
+    nextSeries.value.slice(0, 4).forEach(series => pushSeries(series, 'Watch Next'))
+  }
+
+  return entries
 })
 
 const addStatusLabel = computed(() => {
@@ -674,6 +706,12 @@ function handleGlobalKeydown(e) {
           </div>
           <button class="search-open-btn" @click="openSearchOverlay">Add Series</button>
         </div>
+        <div class="sidebar-section">
+          <div class="sidebar-section-label">AI-Assistent</div>
+          <button class="ai-assistant-btn" type="button" @click="showAiAssistant = true">
+            KI-Empfehlung
+          </button>
+        </div>
 
         <div class="sidebar-section">
           <div class="sidebar-section-label">Sort</div>
@@ -934,6 +972,13 @@ function handleGlobalKeydown(e) {
         </div>
       </div>
     </div>
+    <AiAssistant
+      v-if="showAiAssistant"
+      :media-type="mediaType"
+      :active-tab="activeTab"
+      :context-items="aiContextItems"
+      @close="showAiAssistant = false"
+    />
   </div>
 </template>
 

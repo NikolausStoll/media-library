@@ -22,6 +22,7 @@ defineProps({
 const emit = defineEmits([
   'switch-media',
   'open-search-overlay',
+  'open-ai-assistant',
   'update:searchQuery',
   'toggle-filter',
   'toggle-filter-section',
@@ -64,6 +65,9 @@ const configVersion = configVersionMatch?.[1] ?? 'unbekannt'
         </div>
       </div>
       <button class="search-open-btn" @click="emit('open-search-overlay')">Add Games</button>
+      <button class="ai-assistant-btn" type="button" @click="emit('open-ai-assistant')">
+        KI-Empfehlung
+      </button>
     </div>
 
     <!-- Sort -->

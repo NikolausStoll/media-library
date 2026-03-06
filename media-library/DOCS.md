@@ -60,6 +60,10 @@ Directory that the backend uses to serve the built frontend. Do not change unles
 
 Password field used to fetch metadata, including runtime, streaming providers, and episode data for movies and series. Leave it empty if you want to skip TMDB lookups; the add-on still works for games.
 
+### Option: `AI_API_KEY`
+
+Password field that enables the AI recommendation assistant. When left empty, the backend falls back to library-based suggestions without contacting OpenAI.
+
 ## Usage
 
 After starting the add-on, click on "Open Web UI" to access the Media Library interface.
