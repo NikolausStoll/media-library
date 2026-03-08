@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import AiAssistant from './shared/AiAssistant.vue'
 import CompletionDateEditor from './shared/CompletionDateEditor.vue'
 import MediaCard from './shared/MediaCard.vue'
+import { formatReleaseDate } from '../utils/releaseDate.js'
 import configText from '../../media-library/config.yaml?raw'
 
 defineProps({ mediaType: { type: String, default: 'series' } })
@@ -124,6 +125,10 @@ onUnmounted(() => {
   document.removeEventListener('keydown', handleGlobalKeydown)
   window.removeEventListener('resize', handleResize)
 })
+
+async function refreshSeriesList() {
+  seriesList.value = await loadSeries()
+}
 
 const statusCounts = computed(() => {
   const counts = {}
@@ -812,7 +817,7 @@ function handleGlobalKeydown(e) {
           <span v-else>{{ overlayItem.title }}</span>
         </div>
         <div class="overlay-subtitle">
-          <span v-if="overlayItem.year">{{ overlayItem.year }}</span>
+          <span v-if="overlayItem.releaseDateDe || overlayItem.year">{{ formatReleaseDate(overlayItem.releaseDateDe) || overlayItem.year }}</span>
           <span v-if="overlayItem.seasonCount != null"> · {{ overlayItem.seasonCount }} {{ overlayItem.seasonCount === 1 ? 'Season' : 'Seasons' }}</span>
           <span v-if="overlayItem.episodeCount != null"> · {{ overlayItem.episodeCount }} Episodes</span>
           <span v-if="overlayItem.runtime"> · {{ overlayItem.runtime }} min</span>
@@ -996,8 +1001,9 @@ function handleGlobalKeydown(e) {
     <AiAssistant
       v-if="showAiAssistant"
       :media-type="mediaType"
+      :existing-external-ids="seriesList.map(s => s.externalId)"
       @close="showAiAssistant = false"
-      @series-added="loadSeries()"
+      @series-added="refreshSeriesList()"
     />
   </div>
 </template>

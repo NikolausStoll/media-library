@@ -1,12 +1,11 @@
 /**
- * AI context data for suggestion prompts. Reads from DB and cache tables only (no external API calls).
+ * AI context for suggestions. Two modes: whats-next | new-recommendation.
+ * Reads from DB and cache only (no external API).
  */
 import { db } from '../db/library.js'
-import { mapGameStatusFromDb } from '../db/library.js'
 
 const TODAY_ISO = new Date().toISOString().slice(0, 10)
-
-// ─── Movies: finished + watchlist for exclusion; recent with ratings for taste ─
+const CURRENT_YEAR = new Date().getFullYear()
 
 function parseJsonArray(str, fallback = []) {
   if (!str) return fallback
@@ -18,21 +17,95 @@ function parseJsonArray(str, fallback = []) {
   }
 }
 
-export function getMovieContext() {
+/** Movie/Series: released if releaseDateDe <= today or (no date and year <= current year). */
+function isReleasedTmdb(row) {
+  if (row.releaseDateDe) return row.releaseDateDe <= TODAY_ISO
+  if (row.year) {
+    const y = parseInt(row.year, 10)
+    return !Number.isNaN(y) && y <= CURRENT_YEAR
+  }
+  return true
+}
+
+// ─── Movies ───────────────────────────────────────────────────────────────────
+
+function hasStreamingProvider(row) {
+  const providers = parseJsonArray(row.streamingProviders)
+  return Array.isArray(providers) && providers.length > 0
+}
+
+export function getMovieContext(mode, options = {}) {
+  const { streamingOnly = false } = options
   const finishedRows = db.prepare(`
-    SELECT m.userRating, m.completedAt, t.titleEn, t.titleDe, t.genres
+    SELECT m.externalId, m.userRating, m.completedAt, t.titleEn, t.titleDe, t.genres
     FROM movies m
     LEFT JOIN tmdbcache t ON t.id = m.externalId AND t.mediaType = 'movie'
     WHERE m.status = 'finished'
     ORDER BY m.completedAt DESC
   `).all()
 
-  const finishedTitles = finishedRows.map((r) => r.titleEn || r.titleDe || r.externalId || '').filter(Boolean)
-  const recentlyCompleted = finishedRows.slice(0, 25).map((r) => {
-    const title = r.titleEn || r.titleDe || r.externalId
-    const rating = r.userRating != null ? `★${r.userRating}` : ''
-    return `${title}${rating ? ` ${rating}` : ''}`
-  })
+  const genreCount = new Map()
+  for (const r of finishedRows) {
+    for (const g of parseJsonArray(r.genres)) {
+      const name = typeof g === 'string' ? g : (g?.name || g)
+      if (name) genreCount.set(name, (genreCount.get(name) || 0) + 1)
+    }
+  }
+  const genrePreference = [...genreCount.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([name, count]) => ({ name, count }))
+
+  const watchlistRows = db.prepare(`
+    SELECT t.titleEn, t.titleDe, t.releaseDateDe, t.year, t.streamingProviders, m.externalId
+    FROM movies m
+    LEFT JOIN tmdbcache t ON t.id = m.externalId AND t.mediaType = 'movie'
+    WHERE m.status = 'watchlist'
+  `).all()
+
+  let watchlistReleased = watchlistRows.filter((r) => isReleasedTmdb(r))
+  if (mode === 'whats-next' && streamingOnly) {
+    watchlistReleased = watchlistReleased.filter(hasStreamingProvider)
+  }
+  const watchlistTitles = watchlistReleased.map((r) => r.titleEn || r.titleDe || r.externalId || '').filter(Boolean)
+  if (mode === 'whats-next') {
+    const recentlyCompleted = finishedRows.slice(0, 5).map((r) => ({
+      title: r.titleEn || r.titleDe || r.externalId || '',
+      rating: r.userRating != null ? r.userRating : null,
+    })).filter((r) => r.title)
+    return {
+      mode: 'whats-next',
+      recentlyCompleted,
+      genrePreference,
+      poolTitles: watchlistTitles,
+      excludeTmdbIds: [],
+    }
+  }
+
+  // new-recommendation: no exclude list, 10 recent for taste
+  const recentlyCompleted = finishedRows.slice(0, 10).map((r) => ({
+    title: r.titleEn || r.titleDe || r.externalId || '',
+    rating: r.userRating != null ? r.userRating : null,
+  })).filter((r) => r.title)
+  return {
+    mode: 'new-recommendation',
+    recentlyCompleted,
+    genrePreference,
+    poolTitles: [],
+  }
+}
+
+// ─── Series ───────────────────────────────────────────────────────────────────
+
+export function getSeriesContext(mode, episodeLength = 'any', options = {}) {
+  const { streamingOnly = false } = options
+  const finishedRows = db.prepare(`
+    SELECT s.externalId, s.userRating, t.titleEn, t.titleDe, t.genres, t.runtime
+    FROM series s
+    LEFT JOIN tmdbcache t ON t.id = s.externalId AND t.mediaType = 'series'
+    WHERE s.status = 'finished'
+    ORDER BY s.completedAt DESC, s.id DESC
+  `).all()
 
   const genreCount = new Map()
   for (const r of finishedRows) {
@@ -41,116 +114,95 @@ export function getMovieContext() {
       if (name) genreCount.set(name, (genreCount.get(name) || 0) + 1)
     }
   }
-  const topGenres = [...genreCount.entries()]
+  const genrePreference = [...genreCount.entries()]
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 10)
-    .map(([name]) => name)
+    .slice(0, 5)
+    .map(([name, count]) => ({ name, count }))
 
   const watchlistRows = db.prepare(`
-    SELECT t.titleEn, t.titleDe, m.externalId
-    FROM movies m
-    LEFT JOIN tmdbcache t ON t.id = m.externalId AND t.mediaType = 'movie'
-    WHERE m.status = 'watchlist'
+    SELECT t.titleEn, t.titleDe, t.releaseDateDe, t.year, t.runtime, t.streamingProviders, s.externalId
+    FROM series s
+    LEFT JOIN tmdbcache t ON t.id = s.externalId AND t.mediaType = 'series'
+    WHERE s.status = 'watchlist'
   `).all()
-  const watchlistTitles = watchlistRows.map((r) => r.titleEn || r.titleDe || r.externalId || '').filter(Boolean)
+  const pausedRows = db.prepare(`
+    SELECT t.titleEn, t.titleDe, t.releaseDateDe, t.year, t.runtime, t.streamingProviders, s.externalId
+    FROM series s
+    LEFT JOIN tmdbcache t ON t.id = s.externalId AND t.mediaType = 'series'
+    WHERE s.status = 'paused'
+  `).all()
 
-  return {
-    recentlyCompleted,
-    topGenres,
-    finishedTitles,
-    watchlistTitles,
-    filteredItems: [],
+  let watchlistReleased = watchlistRows.filter((r) => isReleasedTmdb(r))
+  let pausedReleased = pausedRows.filter((r) => isReleasedTmdb(r))
+  if (mode === 'whats-next' && streamingOnly) {
+    watchlistReleased = watchlistReleased.filter(hasStreamingProvider)
+    pausedReleased = pausedReleased.filter(hasStreamingProvider)
   }
-}
 
-// ─── Series: watching + paused, last_interaction from series + episodes ─────
+  if (mode === 'whats-next') {
+    const recentlyCompleted = finishedRows.slice(0, 5).map((r) => ({
+      title: r.titleEn || r.titleDe || r.externalId || '',
+      rating: r.userRating != null ? r.userRating : null,
+    })).filter((r) => r.title)
+    const poolWatchlist = watchlistReleased.map((r) => ({
+      title: r.titleEn || r.titleDe || r.externalId,
+      weight: 'high',
+      runtime: r.runtime,
+    })).filter((r) => r.title)
+    const poolPaused = pausedReleased.map((r) => ({
+      title: r.titleEn || r.titleDe || r.externalId,
+      weight: 'low',
+      runtime: r.runtime,
+    })).filter((r) => r.title)
+    return {
+      mode: 'whats-next',
+      recentlyCompleted,
+      genrePreference,
+      poolItems: [...poolWatchlist, ...poolPaused],
+      excludeTmdbIds: [],
+      episodeLength: 'any',
+    }
+  }
 
-export function getSeriesContext() {
+  // new-recommendation: last 5 finished + last 5 from paused/watching with recent episode progress
   const withProgress = db.prepare(`
     SELECT s.id, s.externalId, s.status, s.lastTouched,
            (SELECT MAX(ep.watchedAt) FROM episodeprogress ep WHERE ep.seriesId = s.id) AS maxEpisodeWatched
     FROM series s
     WHERE s.status IN ('watching', 'paused')
   `).all()
-
   const lastInteraction = (row) => {
-    const a = row.lastTouched ? new Date(row.lastTouched).getTime() : 0
-    const b = row.maxEpisodeWatched ?? 0
-    return Math.max(a, b)
+    const touched = row.lastTouched ? new Date(row.lastTouched).getTime() : 0
+    const ep = row.maxEpisodeWatched ?? 0
+    return Math.max(touched, ep)
   }
+  const sortedProgress = [...withProgress].sort((a, b) => lastInteraction(b) - lastInteraction(a))
+  const recentFromProgress = sortedProgress.slice(0, 5)
 
-  const statusOrder = { watching: 0, paused: 1 }
-  const sorted = [...withProgress].sort((a, b) => {
-    if (statusOrder[a.status] !== statusOrder[b.status])
-      return statusOrder[a.status] - statusOrder[b.status]
-    return lastInteraction(b) - lastInteraction(a) // DESC: most recent first
-  })
-
-  const filteredItems = []
-  for (const row of sorted) {
-    const progressRows = db.prepare(
-      'SELECT season, episode FROM episodeprogress WHERE seriesId = ? ORDER BY season DESC, episode DESC LIMIT 1'
-    ).get(row.id)
-    const progressStr = progressRows
-      ? `S${progressRows.season} E${progressRows.episode}`
-      : '–'
-    const tmdb = db.prepare('SELECT titleEn, titleDe, genres FROM tmdbcache WHERE id = ? AND mediaType = ?').get(row.externalId, 'series')
-    const title = tmdb?.titleEn || tmdb?.titleDe || row.externalId
-    const genres = parseJsonArray(tmdb?.genres).join(', ')
-    const lastTouched = row.lastTouched || (row.maxEpisodeWatched ? new Date(row.maxEpisodeWatched).toISOString().slice(0, 10) : '–')
-    filteredItems.push({
-      title,
+  const recentlyCompleted = finishedRows.slice(0, 5).map((r) => ({
+    title: r.titleEn || r.titleDe || r.externalId || '',
+    rating: r.userRating != null ? r.userRating : null,
+  })).filter((r) => r.title)
+  const recentlyWatchingPaused = []
+  for (const row of recentFromProgress) {
+    const t = db.prepare('SELECT titleEn, titleDe FROM tmdbcache WHERE id = ? AND mediaType = ?').get(row.externalId, 'series')
+    recentlyWatchingPaused.push({
+      title: t?.titleEn || t?.titleDe || row.externalId,
       status: row.status,
-      progress: progressStr,
-      genres: genres || '–',
-      lastTouched,
     })
   }
 
-  const finishedRows = db.prepare(`
-    SELECT s.externalId, s.userRating, t.titleEn, t.titleDe, t.genres
-    FROM series s
-    LEFT JOIN tmdbcache t ON t.id = s.externalId AND t.mediaType = 'series'
-    WHERE s.status = 'finished'
-    ORDER BY s.id DESC
-  `).all()
-  const finishedTitles = finishedRows.map((r) => r.titleEn || r.titleDe || r.externalId || '').filter(Boolean)
-  const recentlyCompleted = finishedRows.slice(0, 25).map((r) => {
-    const title = r.titleEn || r.titleDe || r.externalId
-    const rating = r.userRating != null ? `★${r.userRating}` : ''
-    return `${title}${rating ? ` ${rating}` : ''}`
-  })
-
-  const genreCount = new Map()
-  for (const r of finishedRows) {
-    for (const g of parseJsonArray(r.genres)) {
-      const name = typeof g === 'string' ? g : (g?.name || g)
-      if (name) genreCount.set(name, (genreCount.get(name) || 0) + 1)
-    }
-  }
-  const topGenres = [...genreCount.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10)
-    .map(([name]) => name)
-
-  const watchlistRows = db.prepare(`
-    SELECT t.titleEn, t.titleDe, s.externalId
-    FROM series s
-    LEFT JOIN tmdbcache t ON t.id = s.externalId AND t.mediaType = 'series'
-    WHERE s.status = 'watchlist'
-  `).all()
-  const watchlistTitles = watchlistRows.map((r) => r.titleEn || r.titleDe || r.externalId || '').filter(Boolean)
-
   return {
-    filteredItems,
+    mode: 'new-recommendation',
     recentlyCompleted,
-    topGenres,
-    finishedTitles,
-    watchlistTitles,
+    recentlyWatchingPaused,
+    genrePreference,
+    poolItems: [],
+    episodeLength,
   }
 }
 
-// ─── Games: continue / shelved / new ─────────────────────────────────────────
+// ─── Games ───────────────────────────────────────────────────────────────────
 
 function getHltbRow(externalId) {
   return db.prepare('SELECT name, gameplayMain, gameplayAll, rating, releaseDateEu FROM hltbcache WHERE id = ?').get(externalId)
@@ -160,116 +212,131 @@ function getNextGameIds() {
   return db.prepare('SELECT mediaId FROM next WHERE mediaType = ?').all('game').map((r) => r.mediaId)
 }
 
-export function getGameContext(mode) {
-  const nextIds = new Set(getNextGameIds().map(String))
+function gamePlatforms(gameId) {
+  return db.prepare('SELECT platform, storefront FROM gameplatforms WHERE gameId = ?').all(gameId)
+}
+
+function platformStr(platforms) {
+  return platforms.map((p) => p.platform + (p.storefront ? ` (${p.storefront})` : '')).join(', ') || '–'
+}
+
+export function getGameContext(mode, options = {}) {
+  const { platformFilter = [], sessionHint = 'any', availableMinutes } = options
   const today = TODAY_ISO
 
-  if (mode === 'continue') {
-    const orderRows = db.prepare('SELECT gameId, position FROM sortorder ORDER BY position').all()
-    const orderByPos = new Map(orderRows.map((r) => [r.gameId, r.position]))
-    const rows = db.prepare(`
-      SELECT g.id, g.externalId, g.status, g.lastTouched
-      FROM games g
-      WHERE g.status = 'started'
-    `).all()
-    rows.sort((a, b) => {
-      const posA = orderByPos.get(a.id) ?? 1e9
-      const posB = orderByPos.get(b.id) ?? 1e9
-      if (posA !== posB) return posA - posB
-      const ta = a.lastTouched || ''
-      const tb = b.lastTouched || ''
-      return ta.localeCompare(tb)
-    })
-
-    const filteredItems = rows.map((g) => {
-      const h = getHltbRow(g.externalId)
-      const platforms = db.prepare('SELECT platform, storefront FROM gameplatforms WHERE gameId = ?').all(g.id)
-      const platformStr = platforms.map((p) => p.platform + (p.storefront ? ` (${p.storefront})` : '')).join(', ') || '–'
-      return {
-        title: h?.name || g.externalId,
-        status: mapGameStatusFromDb(g.status),
-        lastTouched: g.lastTouched || '–',
-        gameplayMain: h?.gameplayMain ?? null,
-        gameplayAll: h?.gameplayAll ?? null,
-        rating: h?.rating ?? null,
-        platforms: platformStr,
-      }
-    })
-    return { filteredItems, recentlyCompleted: [], topGenres: [] }
-  }
-
-  if (mode === 'shelved') {
-    const rows = db.prepare(`
-      SELECT g.id, g.externalId, g.status, g.lastTouched
-      FROM games g
-      WHERE g.status = 'shelved'
-    `).all()
-
-    const filteredItems = rows.map((g) => {
-      const h = getHltbRow(g.externalId)
-      const platforms = db.prepare('SELECT platform, storefront FROM gameplatforms WHERE gameId = ?').all(g.id)
-      const platformStr = platforms.map((p) => p.platform).join(', ') || '–'
-      return {
-        title: h?.name || g.externalId,
-        status: mapGameStatusFromDb(g.status),
-        lastTouched: g.lastTouched || '–',
-        gameplayMain: h?.gameplayMain ?? null,
-        gameplayAll: h?.gameplayAll ?? null,
-        rating: h?.rating ?? null,
-        platforms: platformStr,
-      }
-    })
-    return { filteredItems, recentlyCompleted: [], topGenres: [] }
-  }
-
-  // mode === 'new': wishlist (released) + playnext + backlog, with hype
-  const wishlistReleased = db.prepare(`
-    SELECT g.id, g.externalId, g.status
+  const completedRows = db.prepare(`
+    SELECT g.id, g.externalId, h.name, h.gameplayMain, h.gameplayAll, h.rating
     FROM games g
-    INNER JOIN hltbcache h ON h.id = g.externalId
-    WHERE g.status = 'wishlist'
-      AND h.releaseDateEu IS NOT NULL AND h.releaseDateEu <= ?
-  `).all(today)
-
-  const backlog = db.prepare("SELECT id, externalId, status FROM games WHERE status = 'backlog'").all()
-  const playnextGames = db.prepare(`
-    SELECT g.id, g.externalId, g.status
-    FROM games g
-    INNER JOIN next n ON n.mediaId = g.id AND n.mediaType = 'game'
+    LEFT JOIN hltbcache h ON h.id = g.externalId
+    WHERE g.status IN ('completed', 'retired')
+    ORDER BY g.completedAt DESC NULLS LAST, g.id DESC
   `).all()
 
-  const seen = new Set()
-  const withHype = []
-  for (const g of wishlistReleased) {
-    if (seen.has(g.id)) continue
-    seen.add(g.id)
-    withHype.push({ ...g, hype: 4 })
-  }
-  for (const g of playnextGames) {
-    if (seen.has(g.id)) continue
-    seen.add(g.id)
-    withHype.push({ ...g, hype: 2 })
-  }
-  for (const g of backlog) {
-    if (seen.has(g.id)) continue
-    seen.add(g.id)
-    withHype.push({ ...g, hype: 0 })
+  const completedIds = completedRows.map((r) => String(r.externalId))
+
+  if (mode === 'whats-next') {
+    const wishlistReleased = db.prepare(`
+      SELECT g.id, g.externalId
+      FROM games g
+      INNER JOIN hltbcache h ON h.id = g.externalId
+      WHERE g.status = 'wishlist'
+        AND h.releaseDateEu IS NOT NULL AND h.releaseDateEu <= ?
+    `).all(today)
+    const playnextGames = db.prepare(`
+      SELECT g.id, g.externalId
+      FROM games g
+      INNER JOIN next n ON n.mediaId = g.id AND n.mediaType = 'game'
+    `).all()
+    const seen = new Set()
+    const pool = []
+    for (const g of wishlistReleased) {
+      if (seen.has(g.id)) continue
+      seen.add(g.id)
+      pool.push({ ...g, source: 'wishlist' })
+    }
+    for (const g of playnextGames) {
+      if (seen.has(g.id)) continue
+      seen.add(g.id)
+      pool.push({ ...g, source: 'playnext' })
+    }
+
+    let poolGames = pool.map((g) => {
+      const h = getHltbRow(g.externalId)
+      const platforms = gamePlatforms(g.id)
+      const platformStrVal = platformStr(platforms)
+      return {
+        id: g.id,
+        externalId: g.externalId,
+        title: h?.name || g.externalId,
+        source: g.source,
+        platforms: platformStrVal,
+        platformList: platforms.map((p) => p.platform),
+        gameplayMain: h?.gameplayMain ?? null,
+        gameplayAll: h?.gameplayAll ?? null,
+        rating: h?.rating ?? null,
+      }
+    })
+
+    if (platformFilter?.length) {
+      poolGames = poolGames.filter((g) =>
+        g.platformList.some((p) => platformFilter.includes(p))
+      )
+    }
+
+    const recentlyCompleted = completedRows.slice(0, 5).map((r) => {
+      const rating = r.rating != null ? (r.rating > 10 ? `${r.rating}%` : `★${r.rating}`) : ''
+      return `${r.name || r.externalId}${rating ? ` ${rating}` : ''}`
+    })
+
+    return {
+      mode: 'whats-next',
+      poolItems: poolGames,
+      recentlyCompleted,
+      excludeGameIds: [],
+      sessionHint,
+      platformFilter: platformFilter || [],
+    }
   }
 
-  const filteredItems = withHype.map((g) => {
+  // new-recommendation: pool = wishlist, backlog, started, shelved (no completed/retired)
+  const recentlyCompleted = completedRows.slice(0, 10).map((r) => {
+    const rating = r.rating != null ? (r.rating > 10 ? `${r.rating}%` : `★${r.rating}`) : ''
+    return `${r.name || r.externalId}${rating ? ` ${rating}` : ''}`
+  })
+
+  let candidateRows = db.prepare(`
+    SELECT g.id, g.externalId, g.status
+    FROM games g
+    LEFT JOIN hltbcache h ON h.id = g.externalId
+    WHERE g.status IN ('wishlist', 'backlog', 'started', 'shelved')
+  `).all()
+
+  let poolGames = candidateRows.map((g) => {
     const h = getHltbRow(g.externalId)
-    const platforms = db.prepare('SELECT platform, storefront FROM gameplatforms WHERE gameId = ?').all(g.id)
-    const platformStr = platforms.map((p) => p.platform).join(', ') || '–'
+    const platforms = gamePlatforms(g.id)
     return {
+      ...g,
       title: h?.name || g.externalId,
-      status: mapGameStatusFromDb(g.status),
-      hype: g.hype,
+      platforms: platformStr(platforms),
+      platformList: platforms.map((p) => p.platform),
       gameplayMain: h?.gameplayMain ?? null,
       gameplayAll: h?.gameplayAll ?? null,
       rating: h?.rating ?? null,
-      platforms: platformStr,
     }
   })
 
-  return { filteredItems, recentlyCompleted: [], topGenres: [] }
+  if (platformFilter?.length) {
+    poolGames = poolGames.filter((g) =>
+      g.platformList.some((p) => platformFilter.includes(p))
+    )
+  }
+
+  return {
+    mode: 'new-recommendation',
+    poolItems: poolGames,
+    recentlyCompleted,
+    excludeGameIds: completedIds,
+    availableMinutes: availableMinutes ?? null,
+    platformFilter: platformFilter || [],
+  }
 }

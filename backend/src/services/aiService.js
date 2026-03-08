@@ -5,26 +5,7 @@ const MODEL = process.env.AI_MODEL ?? 'gpt-4o-mini'
 let cachedClient = null
 let cachedKey = ''
 
-export const LOCATION_PRESETS = [
-  { id: 'bed', label: 'Bed' },
-  { id: 'couch', label: 'Couch' },
-  { id: 'desk', label: 'Desk' },
-]
-
-export const MOOD_PRESETS = [
-  { id: 'relaxed', label: 'Relaxed', emoji: '😴' },
-  { id: 'energetic', label: 'Energetic', emoji: '⚡' },
-  { id: 'melancholic', label: 'Melancholic', emoji: '😢' },
-  { id: 'sociable', label: 'Sociable', emoji: '🤝' },
-  { id: 'focused', label: 'Focused', emoji: '🧠' },
-]
-
 const WEEKDAY_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-const MODE_LABELS = {
-  continue: 'Continue playing',
-  shelved: 'Pick up paused',
-  new: 'Start something new',
-}
 
 function getAiClient() {
   const key = (process.env.AI_API_KEY ?? '').trim()
@@ -40,118 +21,167 @@ function getTimeContext() {
   const h = now.getHours()
   const timeOfDay = h < 12 ? 'morning' : h < 18 ? 'afternoon' : 'evening'
   const weekday = WEEKDAY_EN[now.getDay()]
-  const day = now.getDay()
-  const isWeekend = day === 0 || day === 6
-  const energyLevel = h < 10 ? 'low' : h < 18 ? 'medium' : 'variable'
-  return { timeOfDay, weekday, isWeekend, energyLevel }
+  return { timeOfDay, weekday }
 }
 
-function getContextData(mediaType, mode) {
-  if (mediaType === 'movie') return getMovieContext()
-  if (mediaType === 'series') return getSeriesContext()
-  if (mediaType === 'game') return getGameContext(mode || 'continue')
-  return { filteredItems: [], recentlyCompleted: [], topGenres: [] }
+function getContextData(mediaType, mode, options = {}) {
+  if (mediaType === 'movie') return getMovieContext(mode, options)
+  if (mediaType === 'series') return getSeriesContext(mode, options.episodeLength, options)
+  if (mediaType === 'game') return getGameContext(mode, options)
+  return null
 }
 
-function formatFilteredItems(items) {
-  if (!items?.length) return '-'
-  return items.map((item, i) => {
-    const parts = [`${i + 1}. ${item.title}`, item.status]
-    if (item.progress) parts.push(item.progress)
-    if (item.genres) parts.push(item.genres)
-    if (item.lastTouched) parts.push(item.lastTouched)
-    if (item.gameplayAll != null) parts.push(`${item.gameplayAll}h`)
-    if (item.rating != null) parts.push(typeof item.rating === 'number' && item.rating > 10 ? `${item.rating}%` : `★${item.rating}`)
-    if (item.platforms) parts.push(item.platforms)
-    if (item.hype !== undefined) parts.push(`H${item.hype}`)
-    return parts.join(' ')
-  }).join('\n')
-}
-
-function buildPrompt(params, contextData) {
-  const { location, mood, availableMinutes, mediaType, mode } = params
-  const locationPreset = LOCATION_PRESETS.find((p) => p.id === location) || LOCATION_PRESETS[0]
-  const moodPreset = MOOD_PRESETS.find((p) => p.id === mood) || MOOD_PRESETS[0]
+function buildPromptPayload(mediaType, mode, contextData, options = {}) {
   const time = getTimeContext()
-
-  const modeLabel = mediaType === 'game' && mode ? MODE_LABELS[mode] || mode : mediaType
-  const plat =
-    location === 'bed' ? 'Switch only' : location === 'couch' ? 'Xbox or Switch' : 'any'
-  const lowEnergy = time.energyLevel === 'low' || time.timeOfDay === 'evening'
-  const sessionHint = lowEnergy
-    ? ' Late/low energy: prefer light, short sessions; avoid deep complex games.'
-    : ' Match time to HLTB h + rating; consider session length.'
-
-  let taskLine = ''
-  if (mediaType === 'movie') {
-    const skipEpics = location === 'bed' || availableMinutes < 120
-    taskLine = skipEpics
-      ? '2–3 titles (not watchlist). Bed/short time: no long epics, prefer light or single-session.'
-      : '2–3 movie titles (not on watchlist), match taste. Output titles only.'
-  } else if (mediaType === 'series') {
-    const seriesTasks = {
-      continue: '1–2 series from LIST (currently watching) to continue. Prefer near season end or light for tired. Low energy = less complex. Short reason.',
-      new: '1–2 new series (exclude SEEN and WATCHLIST). Use my finished (with rating), taste, and what I\'m currently watching. Match taste. Short reason.',
-    }
-    taskLine = seriesTasks[mode] || seriesTasks.continue
-  } else if (mediaType === 'game') {
-    const modeTasks = {
-      continue: `1–2 games to continue. P:${plat}.${sessionHint} Short reason.`,
-      shelved: `1–2 shelved. P:${plat}. Re-entry? How long since? HLTB fit.${sessionHint} Brief reason.`,
-      new: `1–2 fresh (Wishlist H4 / Play Next H2 / Backlog H0). P:${plat}.${sessionHint} Short reason.`,
-    }
-    taskLine = modeTasks[mode] || modeTasks.continue
+  const { mode: _m, mediaType: _t, ...rest } = contextData
+  const payload = {
+    timeOfDay: time.timeOfDay,
+    weekday: time.weekday,
+    ...rest,
   }
 
-  const filteredBlob = formatFilteredItems(contextData.filteredItems)
-  const recentBlob = contextData.recentlyCompleted?.length
-    ? contextData.recentlyCompleted.join('\n')
-    : '-'
-  const genresBlob = contextData.topGenres?.length ? contextData.topGenres.join(', ') : '-'
-
-  const locLine =
-    mediaType === 'game'
-      ? `${locationPreset.label} (games P: ${plat})`
-      : locationPreset.label
-  const typeLine =
-    mediaType === 'game' && mode ? `${mediaType} ${modeLabel}` : mediaType === 'series' && mode ? `series ${mode}` : mediaType
-
-  const contextLine =
-    `Time=${time.timeOfDay} Day=${time.weekday}${time.isWeekend ? ' Weekend' : ''} | Mood=${moodPreset.label} Energy=${time.energyLevel} | Avail=${availableMinutes}min | Loc=${locLine} | Type=${typeLine}`
-
-  let excludeBlob = ''
-  const addSeen = (titles, max = 80) =>
-    titles.length > max ? titles.slice(0, max).join(', ') + ` …+${titles.length - max} more` : titles.join(', ')
-  const addWatchlist = (titles, max = 50) =>
-    titles.length > max ? titles.slice(0, max).join(', ') + ` …+${titles.length - max} more` : titles.join(', ')
-  if ((mediaType === 'movie' || mediaType === 'series') && contextData.finishedTitles?.length) {
-    excludeBlob += `SEEN (do not suggest): ${addSeen(contextData.finishedTitles)}\n`
+  if (mediaType === 'game') {
+    payload.sessionHint = options.sessionHint ?? 'any'
+    payload.availableMinutes = options.availableMinutes ?? null
+    if (options.platformFilter?.length) payload.platformFilter = options.platformFilter
   }
-  if ((mediaType === 'movie' || mediaType === 'series') && contextData.watchlistTitles?.length) {
-    excludeBlob += `WATCHLIST (do not suggest): ${addWatchlist(contextData.watchlistTitles)}\n`
+  if (mediaType === 'series' && mode === 'new-recommendation') {
+    payload.episodeLength = options.episodeLength ?? 'any'
   }
 
-  const listLabel = mediaType === 'series' && mode === 'continue' ? 'CURRENTLY WATCHING (pick from here):\n' : mediaType === 'series' ? 'CURRENTLY WATCHING (context):\n' : ''
-  const userContent = `${contextLine}
+  return payload
+}
 
-${excludeBlob}${listLabel}LIST:
-${filteredBlob}
+const MOVIE_WHATS_NEXT_SYSTEM = `You are a personal movie advisor.
 
-TASTE: ${genresBlob}
-RECENT (title + my rating): ${recentBlob}
+You receive one JSON object with:
+- timeOfDay, weekday
+- recentlyCompleted: recently watched movies, optionally with rating
+- genrePreference: array of { name, count }
+- poolTitles: candidate movie titles
 
-DO: ${taskLine}
-${mediaType === 'game' || (mediaType === 'series' && mode === 'continue') ? 'Only from LIST.' : ''}${mediaType === 'movie' || (mediaType === 'series' && mode === 'new') ? ' Exclude SEEN and WATCHLIST.' : ''}`
+Task:
+- Suggest 1–2 movies only from poolTitles.
+- Prefer titles that match the strongest genre preferences.
+- Use recentlyCompleted and optional ratings to stay close to the user's current taste when helpful.
 
-  return {
-    systemContent:
-      'Personal media advisor. English. One JSON object only. Keys: suggestion (string, for games/series) or suggestions (array, for movies), reasoning, message.',
-    userContent,
-  }
+Output:
+- Return exactly one JSON object and nothing else.
+
+JSON shape:
+{
+  "suggestions": [string],
+  "reasoning": string
+}
+
+Rules:
+- Use only titles from poolTitles.
+- Return 1–2 titles.
+- Write reasoning in English, short and UI-friendly.
+- Avoid spoilers.`
+
+const MOVIE_NEW_REC_SYSTEM = `You are a personal movie advisor.
+
+You receive one JSON object with:
+- timeOfDay, weekday
+- recentlyCompleted: recently watched movies, optionally with rating
+- genrePreference: array of { name, count }
+- poolTitles: optional candidate movie titles (may be empty)
+
+Task:
+- Suggest exactly 10 movies that fit the user's taste.
+- Prefer titles from poolTitles when poolTitles is non-empty.
+- Use recentlyCompleted, optional ratings, and genrePreference to infer taste.
+
+Output:
+- Return exactly one JSON object and nothing else.
+
+JSON shape:
+{
+  "suggestions": [string],
+  "reasoning": string
+}
+
+Rules:
+- Return exactly 10 titles in "suggestions".
+- Write reasoning in English, short and UI-friendly.
+- Avoid spoilers.
+- If poolTitles is non-empty, prioritize titles from poolTitles.`
+
+const SERIES_WHATS_NEXT_SYSTEM = `You are a personal series advisor.
+
+You receive one JSON object with:
+- timeOfDay, weekday
+- recentlyCompleted: recently watched series, optionally with rating
+- genrePreference: array of { name, count }
+- poolItems: candidate series objects with title, weight, and optional runtime
+
+Task:
+- Suggest 1–2 series only from poolItems, using the title field.
+- Prefer titles with higher weight when the overall fit is similar.
+- Match the strongest genre preferences.
+- Use recentlyCompleted and optional ratings to stay close to the user's current taste when helpful.
+
+Output:
+- Return exactly one JSON object and nothing else.
+
+JSON shape:
+{
+  "suggestions": [string],
+  "reasoning": string
+}
+
+Rules:
+- Use only titles from poolItems.
+- Return 1–2 titles.
+- Write reasoning in English, short and UI-friendly.
+- Avoid spoilers.`
+
+const SERIES_NEW_REC_SYSTEM = `You are a personal series advisor.
+
+You receive one JSON object with:
+- timeOfDay, weekday
+- recentlyCompleted: series the user finished recently, optionally with rating
+- recentlyWatchingPaused: series the user is currently watching or paused
+- genrePreference: array of { name, count }
+- episodeLength: "20-30" | "45+" | "any"
+
+Task:
+- Suggest exactly 10 series that fit the user's taste.
+- Use recentlyCompleted, recentlyWatchingPaused, genrePreference, and episodeLength to infer fit.
+
+Output:
+- Return exactly one JSON object and nothing else.
+
+JSON shape:
+{
+  "suggestions": [string],
+  "reasoning": string
+}
+
+Rules:
+- Return exactly 10 titles in "suggestions".
+- Write reasoning in English, short and UI-friendly.
+- Avoid spoilers.
+- Respect episodeLength when possible.`
+
+
+const GAME_TASKS = {
+  'whats-next': 'Pick 1–2 titles ONLY from the pool (wishlist released + play next). Consider sessionHint. Short reason.',
+  'new-recommendation': 'Suggest 1–2 new games. Exclude excludeGameIds. Wishlist in result is OK. Consider availableMinutes and platformFilter if given. Short reason.',
+}
+
+function buildSystemPrompt(mediaType, mode) {
+  if (mediaType === 'movie' && mode === 'whats-next') return MOVIE_WHATS_NEXT_SYSTEM
+  if (mediaType === 'movie' && mode === 'new-recommendation') return MOVIE_NEW_REC_SYSTEM
+  if (mediaType === 'series' && mode === 'whats-next') return SERIES_WHATS_NEXT_SYSTEM
+  if (mediaType === 'series' && mode === 'new-recommendation') return SERIES_NEW_REC_SYSTEM
+  const taskLine = mediaType === 'game' ? GAME_TASKS[mode] : 'Suggest 1–2 titles. Short reason.'
+  return `You are a personal media advisor. Reply with a single JSON object only. Keys: suggestion (string, one title) OR suggestions (array of strings), reasoning (string). Use English. ${taskLine}`
 }
 
 function extractFirstJsonObject(str) {
-  const trimmed = str.trim()
+  const trimmed = String(str).trim()
   const start = trimmed.indexOf('{')
   if (start === -1) return trimmed
   let depth = 0
@@ -165,7 +195,7 @@ function extractFirstJsonObject(str) {
   return trimmed.slice(start)
 }
 
-const parseOpenAiResponse = (text) => {
+function parseOpenAiResponse(text) {
   if (!text) return {}
   const toParse = extractFirstJsonObject(text)
   try {
@@ -175,10 +205,11 @@ const parseOpenAiResponse = (text) => {
       parsed.game ??
       parsed.title ??
       parsed.recommendation ??
-      ''
+      (Array.isArray(parsed.suggestions) && parsed.suggestions[0] ? parsed.suggestions[0] : '')
     return {
       ...parsed,
       suggestion: suggestion || parsed.suggestion,
+      suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions : (suggestion ? [suggestion] : []),
     }
   } catch {
     return { message: text.trim() }
@@ -186,9 +217,9 @@ const parseOpenAiResponse = (text) => {
 }
 
 function fallbackFromContext(mediaType, contextData) {
-  const items = contextData.filteredItems || []
-  const first = items[0]
-  const title = first?.title ?? `${mediaType} suggestion`
+  const pool = contextData?.poolItems ?? contextData?.poolTitles ?? []
+  const first = Array.isArray(pool) ? pool[0] : null
+  const title = (typeof first === 'object' && first?.title) ? first.title : (first ?? `${mediaType} suggestion`)
   return {
     message: `AI_API_KEY not configured. Fallback: ${title}`,
     suggestion: title,
@@ -198,17 +229,42 @@ function fallbackFromContext(mediaType, contextData) {
 }
 
 export async function generateSuggestionFromParams(params) {
-  const { mediaType, mode } = params
-  const contextData = getContextData(mediaType, mode)
-  const { systemContent, userContent } = buildPrompt(params, contextData)
-  const aiClient = getAiClient()
+  const {
+    mediaType,
+    mode,
+    platformFilter,
+    sessionHint,
+    availableMinutes,
+    episodeLength,
+    streamingOnly,
+  } = params
 
+  if (!mediaType || !mode) {
+    throw new Error('mediaType and mode are required')
+  }
+
+  const options = {
+    platformFilter: Array.isArray(platformFilter) ? platformFilter : undefined,
+    sessionHint: sessionHint || 'any',
+    availableMinutes: Number.isFinite(Number(availableMinutes)) ? Number(availableMinutes) : undefined,
+    episodeLength: episodeLength || 'any',
+    streamingOnly: Boolean(streamingOnly),
+  }
+
+  const contextData = getContextData(mediaType, mode, options)
+  if (!contextData) throw new Error(`Unknown mediaType: ${mediaType}`)
+
+  const payload = buildPromptPayload(mediaType, mode, contextData, options)
+  const userContent = JSON.stringify(payload, null, 2)
+  const systemContent = buildSystemPrompt(mediaType, mode)
+
+  const aiClient = getAiClient()
   if (!aiClient) {
     return fallbackFromContext(mediaType, contextData)
   }
 
   console.log('[AI] Request – system:', systemContent)
-  console.log('[AI] Request – user:', userContent)
+  console.log('[AI] Request – user (JSON):', userContent)
 
   try {
     const response = await aiClient.chat.completions.create({
@@ -224,7 +280,7 @@ export async function generateSuggestionFromParams(params) {
     console.log('[AI] Response:', text)
     const parsed = parseOpenAiResponse(text)
     const suggestion = parsed.suggestion ?? ''
-    const suggestions = Array.isArray(parsed.suggestions) ? parsed.suggestions : undefined
+    const suggestions = Array.isArray(parsed.suggestions) ? parsed.suggestions : (suggestion ? [suggestion] : [])
 
     return {
       message: parsed.message ?? text,
@@ -242,7 +298,7 @@ export async function generateSuggestionFromParams(params) {
   }
 }
 
-// Legacy: keep for any old callers
+// Legacy: keep for tests / old callers
 const contextSummaryFor = (mediaType, activeTab, items) => {
   const normalized = Array.isArray(items) ? items : []
   const lines = [
@@ -259,7 +315,7 @@ const contextSummaryFor = (mediaType, activeTab, items) => {
 const fallbackSuggestion = ({ mediaType, activeTab, contextItems, prompt, contextSummary }) => {
   const safeItems = Array.isArray(contextItems) ? contextItems : []
   const candidate =
-    safeItems.find(item => item?.status?.toLowerCase()?.includes('backlog') || item?.status?.toLowerCase()?.includes('watchlist')) ??
+    safeItems.find(item => item?.status?.toLowerCase?.()?.includes('backlog') || item?.status?.toLowerCase?.()?.includes('watchlist')) ??
     safeItems[0]
   const title = candidate?.title ?? `${mediaType} suggestion`
   const reason = candidate ? `Similar entries: ${candidate.status ?? 'unknown'}.` : 'Context missing.'

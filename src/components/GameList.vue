@@ -932,6 +932,8 @@ onUnmounted(() => {
     <AiAssistant
       v-if="showAiAssistant"
       :media-type="mediaType"
+      :platform-filter="platformFilter"
+      :available-platforms="availablePlatforms"
       @close="showAiAssistant = false"
     />
   </div>

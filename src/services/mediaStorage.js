@@ -138,3 +138,9 @@ export async function searchTmdb(query, type = 'movie') {
   if (!res.ok) throw new Error(`searchTmdb failed: ${res.status}`)
   return res.json()
 }
+
+export async function getTmdbDetail(id, type = 'movie') {
+  const res = await fetch(`${API_BASE}/tmdb/${id}?type=${type}`)
+  if (!res.ok) throw new Error(`getTmdbDetail failed: ${res.status}`)
+  return res.json()
+}

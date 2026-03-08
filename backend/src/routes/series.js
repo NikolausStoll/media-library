@@ -70,6 +70,7 @@ async function aggregateSeries(series) {
     titleDe:            tmdb?.titleDe ?? null,
     imageUrl:           tmdb?.imageUrl ?? null,
     year:               tmdb?.year ?? null,
+    releaseDateDe:      tmdb?.releaseDateDe ?? null,
     certification:      tmdb?.certification ?? null,
     rating:             tmdb?.rating ?? null,
     runtime,

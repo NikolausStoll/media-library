@@ -3,47 +3,61 @@ import { generateSuggestionFromParams } from '../services/aiService.js'
 
 const router = Router()
 
-const VALID_LOCATIONS = ['bed', 'couch', 'desk']
-const VALID_MOODS = ['relaxed', 'energetic', 'melancholic', 'sociable', 'focused']
 const VALID_MEDIA_TYPES = ['game', 'movie', 'series']
-const VALID_GAME_MODES = ['continue', 'shelved', 'new']
-const VALID_SERIES_MODES = ['continue', 'new']
+const VALID_MODES = ['whats-next', 'new-recommendation']
+const VALID_SESSION_HINTS = ['short', 'long', 'any']
+const VALID_EPISODE_LENGTHS = ['20-30', '45+', 'any']
 const VALID_MINUTES = [30, 60, 120, 180]
+const VALID_PLATFORMS = ['pc', 'xbox', 'switch', '3ds']
 
 router.post('/suggest', async (req, res) => {
-  const { location, mood, availableMinutes, mediaType, mode } = req.body ?? {}
+  const {
+    mediaType,
+    mode,
+    platformFilter,
+    sessionHint,
+    availableMinutes,
+    episodeLength,
+    streamingOnly,
+  } = req.body ?? {}
 
-  if (!location || !VALID_LOCATIONS.includes(location)) {
-    return res.status(400).json({ error: 'location is required (bed, couch, desk)' })
-  }
-  if (!mood || !VALID_MOODS.includes(mood)) {
-    return res.status(400).json({ error: 'mood is required (relaxed, energetic, melancholic, sociable, focused)' })
-  }
-  const mins = Number(availableMinutes)
-  if (!Number.isFinite(mins) || !VALID_MINUTES.includes(mins)) {
-    return res.status(400).json({ error: 'availableMinutes must be 30, 60, 120, or 180' })
-  }
   if (!mediaType || !VALID_MEDIA_TYPES.includes(mediaType)) {
     return res.status(400).json({ error: 'mediaType is required (game, movie, series)' })
   }
-  if (mediaType === 'game' && mode && !VALID_GAME_MODES.includes(mode)) {
-    return res.status(400).json({ error: 'mode must be continue, shelved, or new' })
+  if (!mode || !VALID_MODES.includes(mode)) {
+    return res.status(400).json({ error: 'mode is required (whats-next, new-recommendation)' })
   }
-  if (mediaType === 'series' && mode && !VALID_SERIES_MODES.includes(mode)) {
-    return res.status(400).json({ error: 'mode must be continue or new' })
+
+  const params = { mediaType, mode }
+
+  if (mediaType === 'game') {
+    if (Array.isArray(platformFilter) && platformFilter.length) {
+      const invalid = platformFilter.filter((p) => !VALID_PLATFORMS.includes(p))
+      if (invalid.length) {
+        return res.status(400).json({ error: `Invalid platform(s): ${invalid.join(', ')}` })
+      }
+      params.platformFilter = platformFilter
+    }
+    if (mode === 'whats-next') {
+      params.sessionHint = VALID_SESSION_HINTS.includes(sessionHint) ? sessionHint : 'any'
+    } else {
+      const mins = Number(availableMinutes)
+      if (Number.isFinite(mins) && VALID_MINUTES.includes(mins)) {
+        params.availableMinutes = mins
+      }
+    }
   }
-  if (mediaType !== 'game' && location === 'desk') {
-    return res.status(400).json({ error: 'Desk is only allowed for games' })
+
+  if (mediaType === 'series' && mode === 'new-recommendation') {
+    params.episodeLength = VALID_EPISODE_LENGTHS.includes(episodeLength) ? episodeLength : 'any'
+  }
+
+  if ((mediaType === 'movie' || mediaType === 'series') && mode === 'whats-next') {
+    params.streamingOnly = Boolean(streamingOnly)
   }
 
   try {
-    const suggestion = await generateSuggestionFromParams({
-      location,
-      mood,
-      availableMinutes: mins,
-      mediaType,
-      mode: mediaType === 'game' ? (mode || 'continue') : mediaType === 'series' ? (mode || 'continue') : undefined,
-    })
+    const suggestion = await generateSuggestionFromParams(params)
     res.json(suggestion)
   } catch (err) {
     console.error('Failed to generate AI suggestion:', err)

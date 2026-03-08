@@ -144,6 +144,7 @@ export async function getSeries(id) {
     titleDe:            de.name ?? null,
     imageUrl:           en.poster_path ? `${IMGBASE}${en.poster_path}` : null,
     year:               de.first_air_date?.slice(0, 4) ?? null,
+    releaseDateDe:      de.first_air_date ?? null,
     certification:      certDE,
     rating:             de.vote_average ?? null,
     runtime:            de.episode_run_time?.[0] ?? null,

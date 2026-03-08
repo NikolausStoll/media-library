@@ -712,7 +712,7 @@ function handleGlobalKeydown(e) {
           <span v-else>{{ overlayMovie.title }}</span>
         </div>
         <div class="overlay-subtitle">
-          <span v-if="overlayMovie.year">{{ overlayMovie.year }}</span>
+          <span v-if="overlayMovie.releaseDateDe || overlayMovie.year">{{ formatReleaseDate(overlayMovie.releaseDateDe) || overlayMovie.year }}</span>
           <span v-if="overlayMovie.runtime"> · {{ overlayMovie.runtime }} min</span>
           <span v-if="overlayMovie.certification"> · {{ overlayMovie.certification }}</span>
           <CompletionDateEditor
@@ -866,6 +866,7 @@ function handleGlobalKeydown(e) {
   <AiAssistant
     v-if="showAiAssistant"
     :media-type="mediaType"
+    :existing-external-ids="movieList.map(m => m.externalId)"
     @close="showAiAssistant = false"
     @movie-added="movieList.push($event)"
   />
