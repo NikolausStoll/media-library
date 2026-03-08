@@ -197,6 +197,25 @@ const effectiveAddStatus = computed(() =>
   activeTab.value === 'all' ? 'watchlist' : activeTab.value,
 )
 
+// Swipe to change tabs (mobile)
+const touchStartX = ref(0)
+const touchStartY = ref(0)
+const SWIPE_THRESHOLD = 60
+function onSwipeStart(e) {
+  if (!e.touches?.length || !isMobileLayout.value) return
+  touchStartX.value = e.touches[0].clientX
+  touchStartY.value = e.touches[0].clientY
+}
+function onSwipeEnd(e) {
+  if (!e.changedTouches?.length || !isMobileLayout.value) return
+  const deltaX = e.changedTouches[0].clientX - touchStartX.value
+  const deltaY = e.changedTouches[0].clientY - touchStartY.value
+  if (Math.abs(deltaX) <= Math.abs(deltaY) || Math.abs(deltaX) < SWIPE_THRESHOLD) return
+  const idx = tabs.findIndex(t => t.id === activeTab.value)
+  if (deltaX > 0 && idx > 0) activeTab.value = tabs[idx - 1].id
+  else if (deltaX < 0 && idx >= 0 && idx < tabs.length - 1) activeTab.value = tabs[idx + 1].id
+}
+
 const aiContextItems = computed(() => {
   const seen = new Set()
   const entries = []
@@ -408,6 +427,11 @@ function handleGlobalKeydown(e) {
         <div v-if="loading" class="empty-state">Loading...</div>
 
         <template v-else>
+          <div
+            class="tabs-swipe-wrap"
+            @touchstart.passive="onSwipeStart"
+            @touchend="onSwipeEnd"
+          >
           <div class="tabs">
             <button
               v-for="tab in tabs"
@@ -587,6 +611,7 @@ function handleGlobalKeydown(e) {
             v-if="filteredReleasedMovies.length === 0 && (!filteredNotReleasedMovies.length || activeTab !== 'watchlist')"
             class="empty-state"
           >No movies found</p>
+          </div>
         </template>
       </div>
     </div>

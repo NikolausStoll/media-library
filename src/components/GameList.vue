@@ -330,6 +330,25 @@ const filteredGames = computed(() => {
 
 const filteredIds = computed(() => new Set(filteredGames.value.map(g => String(g.id))))
 
+// Swipe to change tabs (mobile)
+const touchStartX = ref(0)
+const touchStartY = ref(0)
+const SWIPE_THRESHOLD = 60
+function onSwipeStart(e) {
+  if (!e.touches?.length || !isMobileLayout.value) return
+  touchStartX.value = e.touches[0].clientX
+  touchStartY.value = e.touches[0].clientY
+}
+function onSwipeEnd(e) {
+  if (!e.changedTouches?.length || !isMobileLayout.value) return
+  const deltaX = e.changedTouches[0].clientX - touchStartX.value
+  const deltaY = e.changedTouches[0].clientY - touchStartY.value
+  if (Math.abs(deltaX) <= Math.abs(deltaY) || Math.abs(deltaX) < SWIPE_THRESHOLD) return
+  const idx = tabs.findIndex(t => t.id === activeTab.value)
+  if (deltaX > 0 && idx > 0) activeTab.value = tabs[idx - 1].id
+  else if (deltaX < 0 && idx >= 0 && idx < tabs.length - 1) activeTab.value = tabs[idx + 1].id
+}
+
 const statusCounts = computed(() => {
   const c = {}
   tabs.forEach(t => { c[t.id] = gameList.value.filter(g => g.status === t.id).length; })
@@ -662,7 +681,12 @@ onUnmounted(() => {
         <div v-if="loading" class="empty-state">Loading...</div>
 
         <template v-else>
-          <!-- Tabs -->
+          <!-- Tabs + content: swipe left/right on mobile to change tab -->
+          <div
+            class="tabs-swipe-wrap"
+            @touchstart.passive="onSwipeStart"
+            @touchend="onSwipeEnd"
+          >
           <div class="tabs">
             <button
               v-for="tab in tabs"
@@ -769,6 +793,7 @@ onUnmounted(() => {
           </template>
 
           <p v-if="filteredGames.length === 0 && (activeTab !== 'backlog' || playNextGames.length === 0)" class="empty-state">No games found</p>
+          </div>
         </template>
       </div>
     </div>
