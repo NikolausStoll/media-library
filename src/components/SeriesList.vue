@@ -58,6 +58,7 @@ const activeTab = ref('watching')
 const searchQuery = ref('')
 const genreFilter = ref([])
 const providerFilter = ref([])
+const noRatingFilter = ref(false)
 const sortBy = ref('title') // title | year | rating
 const sortDirection = ref('asc')
 
@@ -200,6 +201,9 @@ function applySeriesFilters(list) {
     base = base.filter(s =>
       (s.streamingProviders ?? []).some(p => providerFilter.value.includes(p.id)),
     )
+
+  if (noRatingFilter.value)
+    base = base.filter(s => s.userRating == null)
 
   return applySort(base)
 }
@@ -775,6 +779,14 @@ function handleGlobalKeydown(e) {
 
           <div class="sidebar-section">
             <div class="sidebar-section-label">Filters</div>
+            <div class="filter-options" style="margin-bottom: 8px">
+              <button
+                :class="['filter-btn', { active: noRatingFilter }]"
+                @click="noRatingFilter = !noRatingFilter"
+              >
+                No Rating
+              </button>
+            </div>
             <div v-if="allGenres.length">
               <div class="filter-subsection-label">Genres</div>
               <div class="filter-options">

@@ -368,7 +368,7 @@ watch([resultSuggestions, () => props.mediaType], (val) => {
         </div>
 
         <div v-if="mediaType === 'game' && mode === 'whats-next'" class="ai-field">
-          <label class="ai-label">Platform (optional)</label>
+          <label class="ai-label">Platform</label>
           <div class="ai-option-group">
             <button
               v-for="p in platformOptions"
@@ -381,7 +381,6 @@ watch([resultSuggestions, () => props.mediaType], (val) => {
               {{ p.label }}
             </button>
           </div>
-          <p class="ai-hint">Only games on selected platforms are sent to the AI. None = all.</p>
         </div>
 
         <div v-if="mediaType === 'game'" class="ai-field">

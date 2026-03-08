@@ -30,6 +30,7 @@ const emit = defineEmits([
   'delete-confirm',
   'delete-cancel',
   'update-completion-date',
+  'update-user-rating',
 ])
 
 const overlayTab = ref('options')
@@ -94,6 +95,18 @@ const formatDlcRating = (rating) => (rating == null ? '—' : `${rating}%`)
           >
             {{ option.label }}
           </button>
+        </div>
+
+        <div class="overlay-tags">
+          <div class="overlay-section-label">My Rating</div>
+          <div class="tag-buttons">
+            <button
+              v-for="n in 10"
+              :key="n"
+              :class="['tag-btn', { active: n === (game?.userRating ?? 0) }]"
+              @click="emit('update-user-rating', (game?.userRating ?? 0) === n ? null : n)"
+            >{{ n }}</button>
+          </div>
         </div>
 
         <!-- Tags -->

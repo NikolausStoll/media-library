@@ -10,6 +10,7 @@ defineProps({
   platformFilter: { type: Array, default: () => [] },
   storefrontFilter: { type: Array, default: () => [] },
   tagFilter: { type: Array, default: () => [] },
+  noRatingFilter: { type: Boolean, default: false },
   availablePlatforms: { type: Array, required: true },
   storefronts: { type: Array, required: true },
   filterSectionsOpen: { type: Object, required: true },
@@ -33,6 +34,7 @@ const emit = defineEmits([
   'set-view-mode',
   'set-grid-density',
   'toggle-dark-mode',
+  'toggle-no-rating',
 ])
 
 const configVersionMatch = configText.match(/version:\s*["']([^"']+)["']/)
@@ -100,6 +102,16 @@ const configVersion = configVersionMatch?.[1] ?? 'unbekannt'
         <span class="collapse-arrow">{{ filterSectionsOpen.platformStorefront ? '▲' : '▼' }}</span>
       </div>
       <div v-show="filterSectionsOpen.platformStorefront">
+        <div class="filter-subsection-label">Rating</div>
+        <div class="filter-options">
+          <button
+            :class="['filter-btn', { active: noRatingFilter }]"
+            @click="emit('toggle-no-rating')"
+          >
+            No Rating
+          </button>
+        </div>
+
         <div class="filter-subsection-label">Tags</div>
         <div class="filter-options">
           <button

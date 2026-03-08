@@ -50,6 +50,7 @@ async function aggregateGame(game) {
     gameplayComplete: hltb?.gameplayComplete ?? null,
     gameplayAll: hltb?.gameplayAll ?? null,
     rating: hltb?.rating ?? null,
+    userRating: game.userRating != null ? game.userRating : null,
     gameType: hltb?.gameType ?? 'game',
     dlcs: hltb?.dlcs ?? [],
     releaseDateEu: hltb?.releaseDateEu ?? null,
@@ -148,9 +149,13 @@ router.put('/:id', async (req, res) => {
   if (req.body.status && !VALID.includes(req.body.status))
     return res.status(400).json({ error: `Ungültiger status. Erlaubt: ${VALID.join(', ')}` })
 
+  if (req.body.userRating !== undefined && req.body.userRating != null && (req.body.userRating < 1 || req.body.userRating > 10))
+    return res.status(400).json({ error: 'userRating muss zwischen 1 und 10 liegen' })
+
   const merged = {
     externalId: req.body.externalId ?? existing.externalId,
     status: req.body.status ? mapGameStatusForDb(req.body.status) : existing.status,
+    userRating: req.body.userRating !== undefined ? req.body.userRating : existing.userRating,
   }
 
   let requestedCompletedAt
@@ -169,8 +174,8 @@ router.put('/:id', async (req, res) => {
   )
 
   try {
-    db.prepare('UPDATE games SET externalId=?, status=?, completedAt=?, lastTouched=? WHERE id=?')
-      .run(merged.externalId, merged.status, completedAt, today, id)
+    db.prepare('UPDATE games SET externalId=?, status=?, userRating=?, completedAt=?, lastTouched=? WHERE id=?')
+      .run(merged.externalId, merged.status, merged.userRating, completedAt, today, id)
     res.json(await aggregateGame(getGameWithPlatforms(id)))
   } catch (err) {
     res.status(500).json({ error: err.message })

@@ -65,6 +65,7 @@ const overlaySearchQuery = ref('')
 const searchQuery      = ref('')
 const platformFilter   = ref([])
 const storefrontFilter = ref([])
+const noRatingFilter   = ref(false)
 const sortBy           = ref('custom')
 const sortDirection    = ref('asc')
 
@@ -321,6 +322,9 @@ const filteredGames = computed(() => {
   if (storefrontFilter.value.length)
     base = base.filter(g => g.platforms.some(p => p.storefront && storefrontFilter.value.includes(p.storefront)))
 
+  if (noRatingFilter.value)
+    base = base.filter(g => g.userRating == null)
+
   if (searchQuery.value.trim())
     base = base.filter(g => fuzzyMatch(g.name, searchQuery.value))
 
@@ -489,6 +493,15 @@ async function handleDeleteGame() {
   }
 
   await deleteGame(game.id)
+}
+
+async function setGameUserRating(val) {
+  const game = overlayGame.value
+  if (!game) return
+  const updated = await updateGame(game.id, { userRating: val })
+  const idx = gameList.value.findIndex(g => String(g.id) === String(game.id))
+  if (idx !== -1) gameList.value[idx] = updated
+  overlayGame.value = updated
 }
 
 async function clearGameCache(game) {
@@ -821,6 +834,7 @@ onUnmounted(() => {
           :platformFilter="platformFilter"
           :storefrontFilter="storefrontFilter"
           :tagFilter="tagFilter"
+          :noRatingFilter="noRatingFilter"
           :availablePlatforms="availablePlatforms"
           :storefronts="storefronts"
           :filterSectionsOpen="filterSectionsOpen"
@@ -833,6 +847,7 @@ onUnmounted(() => {
             @open-ai-assistant="showAiAssistant = true"
           @update:searchQuery="searchQuery = $event"
           @toggle-filter="(type, val) => toggleFilter(type === 'platform' ? platformFilter : type === 'storefront' ? storefrontFilter : tagFilter, val)"
+          @toggle-no-rating="noRatingFilter = !noRatingFilter"
           @toggle-filter-section="(sec) => filterSectionsOpen[sec] = !filterSectionsOpen[sec]"
           @sort-name="toggleNameSort"
           @sort-rating="toggleRatingSort"
@@ -888,6 +903,7 @@ onUnmounted(() => {
       @delete-confirm="handleDeleteGame"
       @delete-cancel="deleteConfirm = false"
       @update-completion-date="handleCompletionDateUpdate"
+      @update-user-rating="setGameUserRating"
     />
 
     <!-- Platform Editor Overlay -->
