@@ -7,7 +7,6 @@ const VALID_MEDIA_TYPES = ['game', 'movie', 'series']
 const VALID_MODES = ['whats-next', 'new-recommendation']
 const VALID_SESSION_HINTS = ['short', 'long', 'any']
 const VALID_EPISODE_LENGTHS = ['20-30', '45+', 'any']
-const VALID_MINUTES = [30, 60, 120, 180]
 const VALID_PLATFORMS = ['pc', 'xbox', 'switch', '3ds']
 
 router.post('/suggest', async (req, res) => {
@@ -16,7 +15,6 @@ router.post('/suggest', async (req, res) => {
     mode,
     platformFilter,
     sessionHint,
-    availableMinutes,
     episodeLength,
     streamingOnly,
   } = req.body ?? {}
@@ -38,14 +36,7 @@ router.post('/suggest', async (req, res) => {
       }
       params.platformFilter = platformFilter
     }
-    if (mode === 'whats-next') {
-      params.sessionHint = VALID_SESSION_HINTS.includes(sessionHint) ? sessionHint : 'any'
-    } else {
-      const mins = Number(availableMinutes)
-      if (Number.isFinite(mins) && VALID_MINUTES.includes(mins)) {
-        params.availableMinutes = mins
-      }
-    }
+    params.sessionHint = VALID_SESSION_HINTS.includes(sessionHint) ? sessionHint : 'any'
   }
 
   if (mediaType === 'series' && mode === 'new-recommendation') {

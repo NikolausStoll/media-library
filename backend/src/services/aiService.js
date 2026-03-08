@@ -42,8 +42,6 @@ function buildPromptPayload(mediaType, mode, contextData, options = {}) {
 
   if (mediaType === 'game') {
     payload.sessionHint = options.sessionHint ?? 'any'
-    payload.availableMinutes = options.availableMinutes ?? null
-    if (options.platformFilter?.length) payload.platformFilter = options.platformFilter
   }
   if (mediaType === 'series' && mode === 'new-recommendation') {
     payload.episodeLength = options.episodeLength ?? 'any'
@@ -165,19 +163,69 @@ Rules:
 - Avoid spoilers.
 - Respect episodeLength when possible.`
 
+const GAME_WHATS_NEXT_SYSTEM = `You are a personal game advisor.
 
-const GAME_TASKS = {
-  'whats-next': 'Pick 1–2 titles ONLY from the pool (wishlist released + play next). Consider sessionHint. Short reason.',
-  'new-recommendation': 'Suggest 1–2 new games. Exclude excludeGameIds. Wishlist in result is OK. Consider availableMinutes and platformFilter if given. Short reason.',
+You receive one JSON object with:
+- timeOfDay, weekday
+- recentlyCompleted: recently completed games, optionally with rating
+- poolItems: candidate game objects with title, source (wishlist/playnext), platforms, gameplayMain, gameplayAll, rating
+- sessionHint: "short" | "long" | "any"
+- platformFilter: optional array of platforms (when set, pool is already filtered)
+
+Task:
+- Suggest 1–2 games only from poolItems, using the title field.
+- Consider sessionHint and gameplay times (gameplayMain, gameplayAll) when the fit is similar.
+- Use recentlyCompleted and optional ratings to stay close to the user's current taste when helpful.
+
+Output:
+- Return exactly one JSON object and nothing else.
+
+JSON shape:
+{
+  "suggestions": [string],
+  "reasoning": string
 }
+
+Rules:
+- Use only titles from poolItems.
+- Return 1–2 titles.
+- Write reasoning in English, short and UI-friendly.`
+
+const GAME_NEW_REC_SYSTEM = `You are a personal game advisor.
+
+You receive one JSON object with:
+- timeOfDay, weekday
+- recentlyCompleted: recently completed games, optionally with rating
+- sessionHint: "short" | "long" | "any" – preferred session type
+
+Task:
+- Suggest exactly 10 video game titles that fit the user's taste.
+- Use recentlyCompleted and optional ratings to infer taste.
+- Consider sessionHint: for "short" prefer games with shorter main/extra playtime; for "long" prefer longer games.
+- If platformFilter is set, suggest games that are typically available on those platforms (no strict constraint).
+
+Output:
+- Return exactly one JSON object and nothing else.
+
+JSON shape:
+{
+  "suggestions": [string],
+  "reasoning": string
+}
+
+Rules:
+- Return exactly 10 game titles in "suggestions".
+- Use well-known, findable game names (as they appear on HowLongToBeat / storefronts).
+- Write reasoning in English, short and UI-friendly.`
 
 function buildSystemPrompt(mediaType, mode) {
   if (mediaType === 'movie' && mode === 'whats-next') return MOVIE_WHATS_NEXT_SYSTEM
   if (mediaType === 'movie' && mode === 'new-recommendation') return MOVIE_NEW_REC_SYSTEM
   if (mediaType === 'series' && mode === 'whats-next') return SERIES_WHATS_NEXT_SYSTEM
   if (mediaType === 'series' && mode === 'new-recommendation') return SERIES_NEW_REC_SYSTEM
-  const taskLine = mediaType === 'game' ? GAME_TASKS[mode] : 'Suggest 1–2 titles. Short reason.'
-  return `You are a personal media advisor. Reply with a single JSON object only. Keys: suggestion (string, one title) OR suggestions (array of strings), reasoning (string). Use English. ${taskLine}`
+  if (mediaType === 'game' && mode === 'whats-next') return GAME_WHATS_NEXT_SYSTEM
+  if (mediaType === 'game' && mode === 'new-recommendation') return GAME_NEW_REC_SYSTEM
+  return `You are a personal media advisor. Reply with a single JSON object only. Keys: suggestion (string, one title) OR suggestions (array of strings), reasoning (string). Use English. Suggest 1–2 titles. Short reason.`
 }
 
 function extractFirstJsonObject(str) {
@@ -234,7 +282,6 @@ export async function generateSuggestionFromParams(params) {
     mode,
     platformFilter,
     sessionHint,
-    availableMinutes,
     episodeLength,
     streamingOnly,
   } = params
@@ -246,7 +293,6 @@ export async function generateSuggestionFromParams(params) {
   const options = {
     platformFilter: Array.isArray(platformFilter) ? platformFilter : undefined,
     sessionHint: sessionHint || 'any',
-    availableMinutes: Number.isFinite(Number(availableMinutes)) ? Number(availableMinutes) : undefined,
     episodeLength: episodeLength || 'any',
     streamingOnly: Boolean(streamingOnly),
   }

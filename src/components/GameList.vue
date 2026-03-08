@@ -959,7 +959,9 @@ onUnmounted(() => {
       :media-type="mediaType"
       :platform-filter="platformFilter"
       :available-platforms="availablePlatforms"
+      :existing-external-ids="gameList.map(g => g.externalId)"
       @close="showAiAssistant = false"
+      @game-added="gameList.push($event)"
     />
   </div>
 </template>

@@ -133,3 +133,17 @@ export async function removeFromNext(mediaId, mediaType = 'game') {
     console.error('removeFromNext', err)
   }
 }
+
+/** Search HLTB by query. Returns array of { id, name, imageUrl }. */
+export async function searchHltb(query) {
+  const res = await fetch(`${API_BASE}/hltb/search?q=${encodeURIComponent(String(query).trim())}`)
+  if (!res.ok) throw new Error(`searchHltb failed: ${res.status}`)
+  return res.json()
+}
+
+/** Get HLTB game detail by id. Returns { id, name, imageUrl, gameplayMain, gameplayExtra, gameplayComplete, gameplayAll, rating, ... }. */
+export async function getHltbDetail(id) {
+  const res = await fetch(`${API_BASE}/hltb/${id}`)
+  if (!res.ok) throw new Error(`getHltbDetail failed: ${res.status}`)
+  return res.json()
+}

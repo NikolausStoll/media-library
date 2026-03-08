@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { searchTmdb, getTmdbDetail, addMovie, addSeries } from '../../services/mediaStorage.js'
+import { searchHltb, getHltbDetail, addGame } from '../../services/gameStorage.js'
 
 const MODES = [
   { id: 'whats-next', label: "What's Next" },
@@ -11,13 +12,6 @@ const GAME_SESSION_HINTS = [
   { id: 'short', label: 'Short sessions' },
   { id: 'long', label: 'Long sessions' },
   { id: 'any', label: 'Any' },
-]
-
-const TIME_PRESETS = [
-  { id: 30, label: '30 min' },
-  { id: 60, label: '1h' },
-  { id: 120, label: '2h' },
-  { id: 180, label: '3h+' },
 ]
 
 const EPISODE_LENGTHS = [
@@ -43,12 +37,11 @@ const props = defineProps({
   existingExternalIds: { type: Array, default: () => [] },
 })
 
-const emit = defineEmits(['close', 'movie-added', 'series-added'])
+const emit = defineEmits(['close', 'movie-added', 'series-added', 'game-added'])
 
 const mode = ref('whats-next')
 const gamePlatforms = ref([]) // local selection for AI (can differ from list filter)
 const sessionHint = ref('any')
-const availableMinutes = ref(60)
 const episodeLength = ref('any')
 const streamingOnly = ref(true)
 const providersTooltipVisible = ref(false)
@@ -79,7 +72,7 @@ const isSubmitDisabled = computed(() => loading.value)
 const resultMode = ref(null)
 /** Only show Add to Watchlist when current result was from new-recommendation. Never for What's Next. */
 const showWatchlistButton = computed(() =>
-  (props.mediaType === 'movie' || props.mediaType === 'series') && resultMode.value === 'new-recommendation'
+  resultMode.value === 'new-recommendation'
 )
 /** IDs added in this session so we hide the button immediately. */
 const addedExternalIds = ref(new Set())
@@ -97,10 +90,11 @@ async function submit() {
       mode: mode.value,
     }
     if (props.mediaType === 'game') {
-      const platforms = gamePlatforms.value?.length ? gamePlatforms.value : props.platformFilter
-      if (platforms?.length) body.platformFilter = platforms
-      if (mode.value === 'whats-next') body.sessionHint = sessionHint.value
-      else body.availableMinutes = Number(availableMinutes.value)
+      if (mode.value === 'whats-next') {
+        const platforms = gamePlatforms.value?.length ? gamePlatforms.value : props.platformFilter
+        if (platforms?.length) body.platformFilter = platforms
+      }
+      body.sessionHint = sessionHint.value
     }
     if (props.mediaType === 'series' && mode.value === 'new-recommendation') {
       body.episodeLength = episodeLength.value
@@ -160,26 +154,45 @@ async function addToWatchlist(title, externalId = null) {
   if (!title?.trim() && !externalId) return
   addingTitle.value = title || externalId
   addError.value = ''
-  const type = props.mediaType === 'movie' ? 'movie' : 'series'
   try {
-    let id = externalId
-    if (!id) {
-      const results = await searchTmdb((title || '').trim(), type)
-      const first = results?.[0]
-      if (!first?.id) {
-        addError.value = `No TMDB match for "${title}".`
-        return
+    if (props.mediaType === 'game') {
+      const id = externalId ? String(externalId) : null
+      if (!id) {
+        const results = await searchHltb((title || '').trim())
+        const first = results?.[0]
+        if (!first?.id) {
+          addError.value = `No HLTB match for "${title}".`
+          return
+        }
+        const game = await addGame(String(first.id), 'wishlist', [])
+        emit('game-added', game)
+        addedExternalIds.value = new Set([...addedExternalIds.value, String(first.id)])
+      } else {
+        const game = await addGame(id, 'wishlist', [])
+        emit('game-added', game)
+        addedExternalIds.value = new Set([...addedExternalIds.value, id])
       }
-      id = String(first.id)
-    }
-    if (props.mediaType === 'movie') {
-      const movie = await addMovie({ externalId: String(id), status: 'watchlist', providers: [] })
-      emit('movie-added', movie)
     } else {
-      const series = await addSeries({ externalId: String(id), status: 'watchlist', providers: [] })
-      emit('series-added', series)
+      const type = props.mediaType === 'movie' ? 'movie' : 'series'
+      let id = externalId
+      if (!id) {
+        const results = await searchTmdb((title || '').trim(), type)
+        const first = results?.[0]
+        if (!first?.id) {
+          addError.value = `No TMDB match for "${title}".`
+          return
+        }
+        id = String(first.id)
+      }
+      if (props.mediaType === 'movie') {
+        const movie = await addMovie({ externalId: String(id), status: 'watchlist', providers: [] })
+        emit('movie-added', movie)
+      } else {
+        const series = await addSeries({ externalId: String(id), status: 'watchlist', providers: [] })
+        emit('series-added', series)
+      }
+      addedExternalIds.value = new Set([...addedExternalIds.value, String(id)])
     }
-    addedExternalIds.value = new Set([...addedExternalIds.value, String(id)])
     addingTitle.value = null
   } catch (err) {
     addError.value = err.message ?? 'Failed to add to watchlist.'
@@ -190,7 +203,7 @@ async function addToWatchlist(title, externalId = null) {
 
 async function fetchDetailsForNewRec() {
   const list = resultSuggestions.value
-  if (!list?.length || (props.mediaType !== 'movie' && props.mediaType !== 'series')) {
+  if (!list?.length || (props.mediaType !== 'movie' && props.mediaType !== 'series' && props.mediaType !== 'game')) {
     suggestionDetailsList.value = []
     return
   }
@@ -200,32 +213,54 @@ async function fetchDetailsForNewRec() {
   suggestionDetailsList.value = []
   try {
     const out = []
-    for (const title of list) {
-      if (!title?.trim()) continue
-      try {
-        const results = await searchTmdb(title.trim(), type)
-        const first = results?.[0]
-        if (!first?.id || idsSet.has(String(first.id))) continue
-        const detail = await getTmdbDetail(first.id, type)
-        if (type === 'movie') {
+    if (type === 'game') {
+      for (const title of list) {
+        if (!title?.trim()) continue
+        try {
+          const results = await searchHltb(title.trim())
+          const first = results?.[0]
+          if (!first?.id || idsSet.has(String(first.id))) continue
+          const detail = await getHltbDetail(first.id)
           out.push({
             title: title,
             id: detail.id,
             imageUrl: detail.imageUrl || null,
             rating: detail.rating != null ? detail.rating : null,
-            runtime: detail.runtime != null ? detail.runtime : null,
+            gameplayMain: detail.gameplayMain != null ? detail.gameplayMain : null,
+            gameplayAll: detail.gameplayAll != null ? detail.gameplayAll : null,
           })
-        } else {
-          out.push({
-            title: title,
-            id: detail.id,
-            imageUrl: detail.imageUrl || null,
-            rating: detail.rating != null ? detail.rating : null,
-            seasons: detail.seasons != null ? detail.seasons : null,
-          })
+        } catch {
+          /* skip */
         }
-      } catch {
-        /* skip */
+      }
+    } else {
+      for (const title of list) {
+        if (!title?.trim()) continue
+        try {
+          const results = await searchTmdb(title.trim(), type)
+          const first = results?.[0]
+          if (!first?.id || idsSet.has(String(first.id))) continue
+          const detail = await getTmdbDetail(first.id, type)
+          if (type === 'movie') {
+            out.push({
+              title: title,
+              id: detail.id,
+              imageUrl: detail.imageUrl || null,
+              rating: detail.rating != null ? detail.rating : null,
+              runtime: detail.runtime != null ? detail.runtime : null,
+            })
+          } else {
+            out.push({
+              title: title,
+              id: detail.id,
+              imageUrl: detail.imageUrl || null,
+              rating: detail.rating != null ? detail.rating : null,
+              seasons: detail.seasons != null ? detail.seasons : null,
+            })
+          }
+        } catch {
+          /* skip */
+        }
       }
     }
     suggestionDetailsList.value = out
@@ -236,30 +271,51 @@ async function fetchDetailsForNewRec() {
 
 async function fetchPostersForSuggestions() {
   const list = resultSuggestions.value
-  if (!list?.length || (props.mediaType !== 'movie' && props.mediaType !== 'series')) return
+  if (!list?.length) return
   const type = props.mediaType
   const next = {}
-  for (const title of list) {
-    if (!title?.trim()) continue
-    try {
-      const results = await searchTmdb(title.trim(), type)
-      const first = results?.[0]
-      if (first?.id) next[title] = { id: first.id, imageUrl: first.imageUrl || null }
-    } catch {
-      /* ignore */
+  if (type === 'game') {
+    for (const title of list) {
+      if (!title?.trim()) continue
+      try {
+        const results = await searchHltb(title.trim())
+        const first = results?.[0]
+        if (!first?.id) continue
+        const detail = await getHltbDetail(first.id)
+        next[title] = {
+          id: detail.id,
+          imageUrl: detail.imageUrl || null,
+          rating: detail.rating != null ? detail.rating : null,
+          gameplayMain: detail.gameplayMain != null ? detail.gameplayMain : null,
+          gameplayAll: detail.gameplayAll != null ? detail.gameplayAll : null,
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+  } else {
+    for (const title of list) {
+      if (!title?.trim()) continue
+      try {
+        const results = await searchTmdb(title.trim(), type)
+        const first = results?.[0]
+        if (first?.id) next[title] = { id: first.id, imageUrl: first.imageUrl || null }
+      } catch {
+        /* ignore */
+      }
     }
   }
   suggestionDetails.value = next
 }
 
 const isNewRecWithDetails = computed(() =>
-  mode.value === 'new-recommendation' && (props.mediaType === 'movie' || props.mediaType === 'series')
+  mode.value === 'new-recommendation' && (props.mediaType === 'movie' || props.mediaType === 'series' || props.mediaType === 'game')
 )
 /** Result was produced for this mode → show it. Otherwise show "wrong mode" hint. */
 const resultMatchesMode = computed(() => resultMode.value !== null && resultMode.value === mode.value)
 /** How to render current result: by result mode, not current mode. */
 const showResultAsNewRec = computed(() =>
-  resultMode.value === 'new-recommendation' && (props.mediaType === 'movie' || props.mediaType === 'series')
+  resultMode.value === 'new-recommendation' && (props.mediaType === 'movie' || props.mediaType === 'series' || props.mediaType === 'game')
 )
 const resultModeLabel = computed(() => resultMode.value === 'whats-next' ? "What's Next" : resultMode.value === 'new-recommendation' ? 'New Recommendation' : '')
 const currentModeLabel = computed(() => mode.value === 'whats-next' ? "What's Next" : mode.value === 'new-recommendation' ? 'New Recommendation' : '')
@@ -285,8 +341,8 @@ watch([resultSuggestions, () => props.mediaType], (val) => {
       </header>
 
       <div class="tabs ai-form-tabs">
-        <button :class="['tab', { active: mode === 'whats-next' }]" type="button" @click="mode = 'whats-next'">Next</button>
-        <button :class="['tab', { active: mode === 'new-recommendation' }]" type="button" @click="mode = 'new-recommendation'">New</button>
+        <button :class="['tab', { active: mode === 'whats-next' }]" type="button" @click="mode = 'whats-next'">What's Next</button>
+        <button :class="['tab', { active: mode === 'new-recommendation' }]" type="button" @click="mode = 'new-recommendation'">Something New</button>
       </div>
 
       <div class="ai-form">
@@ -311,7 +367,7 @@ watch([resultSuggestions, () => props.mediaType], (val) => {
           </transition>
         </div>
 
-        <div v-if="mediaType === 'game'" class="ai-field">
+        <div v-if="mediaType === 'game' && mode === 'whats-next'" class="ai-field">
           <label class="ai-label">Platform (optional)</label>
           <div class="ai-option-group">
             <button
@@ -328,7 +384,7 @@ watch([resultSuggestions, () => props.mediaType], (val) => {
           <p class="ai-hint">Only games on selected platforms are sent to the AI. None = all.</p>
         </div>
 
-        <div v-if="mediaType === 'game' && mode === 'whats-next'" class="ai-field">
+        <div v-if="mediaType === 'game'" class="ai-field">
           <label class="ai-label">Session</label>
           <div class="ai-option-group">
             <button
@@ -338,22 +394,6 @@ watch([resultSuggestions, () => props.mediaType], (val) => {
               class="ai-option-btn"
               :class="{ active: sessionHint === opt.id }"
               @click="sessionHint = opt.id"
-            >
-              {{ opt.label }}
-            </button>
-          </div>
-        </div>
-
-        <div v-if="mediaType === 'game' && mode === 'new-recommendation'" class="ai-field">
-          <label class="ai-label">Available time</label>
-          <div class="ai-option-group">
-            <button
-              v-for="opt in TIME_PRESETS"
-              :key="opt.id"
-              type="button"
-              class="ai-option-btn"
-              :class="{ active: availableMinutes === opt.id }"
-              @click="availableMinutes = opt.id"
             >
               {{ opt.label }}
             </button>
@@ -393,7 +433,7 @@ watch([resultSuggestions, () => props.mediaType], (val) => {
         <template v-else-if="showResultAsNewRec">
           <div v-if="detailsLoading" class="ai-details-loading-wrap">
             <span class="ai-details-loading-spinner"></span>
-            <p class="ai-details-loading">Loading TMDB details…</p>
+            <p class="ai-details-loading">{{ mediaType === 'game' ? 'Loading HLTB details…' : 'Loading TMDB details…' }}</p>
           </div>
           <ul v-else-if="suggestionDetailsList.length" class="ai-result-list ai-result-list-details">
             <li v-for="(item, i) in suggestionDetailsList" :key="item.id || i" class="ai-result-list-item">
@@ -408,6 +448,7 @@ watch([resultSuggestions, () => props.mediaType], (val) => {
                 <span v-if="item.rating != null" class="ai-result-detail">★ {{ Number(item.rating).toFixed(1) }}</span>
                 <span v-if="mediaType === 'movie' && item.runtime != null" class="ai-result-detail">{{ item.runtime }} min</span>
                 <span v-if="mediaType === 'series' && item.seasons != null" class="ai-result-detail">{{ item.seasons }} season{{ item.seasons !== 1 ? 's' : '' }}</span>
+                <span v-if="mediaType === 'game' && (item.gameplayMain != null || item.gameplayAll != null)" class="ai-result-detail">{{ item.gameplayMain != null ? item.gameplayMain + ' h' : '' }}{{ item.gameplayMain != null && item.gameplayAll != null ? ' / ' : '' }}{{ item.gameplayAll != null ? item.gameplayAll + ' h' : '' }}</span>
               </div>
               <button
                 v-if="!addedExternalIds.has(String(item.id))"
@@ -416,7 +457,7 @@ watch([resultSuggestions, () => props.mediaType], (val) => {
                 :disabled="addingTitle !== null"
                 @click="addToWatchlist(item.title, item.id)"
               >
-                {{ addingTitle === item.title ? '…' : 'Add to watchlist' }}
+                {{ addingTitle === item.title ? '…' : (mediaType === 'game' ? 'Add to wishlist' : 'Add to watchlist') }}
               </button>
             </li>
           </ul>
@@ -431,7 +472,13 @@ watch([resultSuggestions, () => props.mediaType], (val) => {
                 :alt="s"
                 class="ai-result-poster"
               />
-              <span class="ai-result-title">{{ s }}</span>
+              <div class="ai-result-meta">
+                <span class="ai-result-title">{{ s }}</span>
+                <template v-if="mediaType === 'game' && suggestionDetails[s]">
+                  <span v-if="suggestionDetails[s].rating != null" class="ai-result-detail">★ {{ Number(suggestionDetails[s].rating).toFixed(1) }}</span>
+                  <span v-if="suggestionDetails[s].gameplayMain != null || suggestionDetails[s].gameplayAll != null" class="ai-result-detail">{{ suggestionDetails[s].gameplayMain != null ? suggestionDetails[s].gameplayMain + ' h' : '' }}{{ suggestionDetails[s].gameplayMain != null && suggestionDetails[s].gameplayAll != null ? ' / ' : '' }}{{ suggestionDetails[s].gameplayAll != null ? suggestionDetails[s].gameplayAll + ' h' : '' }}</span>
+                </template>
+              </div>
               <button
                 v-if="showWatchlistButton"
                 type="button"
@@ -439,7 +486,7 @@ watch([resultSuggestions, () => props.mediaType], (val) => {
                 :disabled="addingTitle !== null"
                 @click="addToWatchlist(s)"
               >
-                {{ addingTitle === s ? '…' : 'Add to watchlist' }}
+                {{ addingTitle === s ? '…' : (mediaType === 'game' ? 'Add to wishlist' : 'Add to watchlist') }}
               </button>
             </li>
           </ul>
@@ -451,8 +498,12 @@ watch([resultSuggestions, () => props.mediaType], (val) => {
                 :alt="resultSuggestions[0]"
                 class="ai-result-poster"
               />
-              <div>
+              <div class="ai-result-meta">
                 <p class="ai-result-suggestion">{{ resultSuggestions[0] }}</p>
+                <template v-if="mediaType === 'game' && suggestionDetails[resultSuggestions[0]]">
+                  <span v-if="suggestionDetails[resultSuggestions[0]].rating != null" class="ai-result-detail">★ {{ Number(suggestionDetails[resultSuggestions[0]].rating).toFixed(1) }}</span>
+                  <span v-if="suggestionDetails[resultSuggestions[0]].gameplayMain != null || suggestionDetails[resultSuggestions[0]].gameplayAll != null" class="ai-result-detail">{{ suggestionDetails[resultSuggestions[0]].gameplayMain != null ? suggestionDetails[resultSuggestions[0]].gameplayMain + ' h' : '' }}{{ suggestionDetails[resultSuggestions[0]].gameplayMain != null && suggestionDetails[resultSuggestions[0]].gameplayAll != null ? ' / ' : '' }}{{ suggestionDetails[resultSuggestions[0]].gameplayAll != null ? suggestionDetails[resultSuggestions[0]].gameplayAll + ' h' : '' }}</span>
+                </template>
                 <button
                   v-if="showWatchlistButton"
                   type="button"
@@ -460,7 +511,7 @@ watch([resultSuggestions, () => props.mediaType], (val) => {
                   :disabled="addingTitle !== null"
                   @click="addToWatchlist(resultSuggestions[0])"
                 >
-                  {{ addingTitle === resultSuggestions[0] ? '…' : 'Add to watchlist' }}
+                  {{ addingTitle === resultSuggestions[0] ? '…' : (mediaType === 'game' ? 'Add to wishlist' : 'Add to watchlist') }}
                 </button>
               </div>
             </div>

@@ -221,7 +221,7 @@ function platformStr(platforms) {
 }
 
 export function getGameContext(mode, options = {}) {
-  const { platformFilter = [], sessionHint = 'any', availableMinutes } = options
+  const { platformFilter = [], sessionHint = 'any' } = options
   const today = TODAY_ISO
 
   const completedRows = db.prepare(`
@@ -263,6 +263,7 @@ export function getGameContext(mode, options = {}) {
     let poolGames = pool.map((g) => {
       const h = getHltbRow(g.externalId)
       const platforms = gamePlatforms(g.id)
+      const platformList = platforms.map((p) => p.platform)
       const platformStrVal = platformStr(platforms)
       return {
         id: g.id,
@@ -270,7 +271,7 @@ export function getGameContext(mode, options = {}) {
         title: h?.name || g.externalId,
         source: g.source,
         platforms: platformStrVal,
-        platformList: platforms.map((p) => p.platform),
+        platformList,
         gameplayMain: h?.gameplayMain ?? null,
         gameplayAll: h?.gameplayAll ?? null,
         rating: h?.rating ?? null,
@@ -283,60 +284,32 @@ export function getGameContext(mode, options = {}) {
       )
     }
 
-    const recentlyCompleted = completedRows.slice(0, 5).map((r) => {
-      const rating = r.rating != null ? (r.rating > 10 ? `${r.rating}%` : `★${r.rating}`) : ''
-      return `${r.name || r.externalId}${rating ? ` ${rating}` : ''}`
-    })
+    // Payload to AI: no platforms, platformList, rating; recentlyCompleted = names only
+    const poolItemsForPayload = poolGames.map(({ id, externalId, title, source, gameplayMain, gameplayAll }) => ({
+      id,
+      externalId,
+      title,
+      source,
+      gameplayMain,
+      gameplayAll,
+    }))
+    const recentlyCompleted = completedRows.slice(0, 5).map((r) => r.name || r.externalId)
 
     return {
       mode: 'whats-next',
-      poolItems: poolGames,
+      poolItems: poolItemsForPayload,
       recentlyCompleted,
-      excludeGameIds: [],
       sessionHint,
-      platformFilter: platformFilter || [],
     }
   }
 
-  // new-recommendation: pool = wishlist, backlog, started, shelved (no completed/retired)
-  const recentlyCompleted = completedRows.slice(0, 10).map((r) => {
-    const rating = r.rating != null ? (r.rating > 10 ? `${r.rating}%` : `★${r.rating}`) : ''
-    return `${r.name || r.externalId}${rating ? ` ${rating}` : ''}`
-  })
-
-  let candidateRows = db.prepare(`
-    SELECT g.id, g.externalId, g.status
-    FROM games g
-    LEFT JOIN hltbcache h ON h.id = g.externalId
-    WHERE g.status IN ('wishlist', 'backlog', 'started', 'shelved')
-  `).all()
-
-  let poolGames = candidateRows.map((g) => {
-    const h = getHltbRow(g.externalId)
-    const platforms = gamePlatforms(g.id)
-    return {
-      ...g,
-      title: h?.name || g.externalId,
-      platforms: platformStr(platforms),
-      platformList: platforms.map((p) => p.platform),
-      gameplayMain: h?.gameplayMain ?? null,
-      gameplayAll: h?.gameplayAll ?? null,
-      rating: h?.rating ?? null,
-    }
-  })
-
-  if (platformFilter?.length) {
-    poolGames = poolGames.filter((g) =>
-      g.platformList.some((p) => platformFilter.includes(p))
-    )
-  }
+  // new-recommendation: no pool – AI suggests 10 games by taste; frontend will fetch HLTB and filter by backlog
+  const recentlyCompleted = completedRows.slice(0, 10).map((r) => r.name || r.externalId)
 
   return {
     mode: 'new-recommendation',
-    poolItems: poolGames,
+    poolItems: [],
     recentlyCompleted,
-    excludeGameIds: completedIds,
-    availableMinutes: availableMinutes ?? null,
-    platformFilter: platformFilter || [],
+    sessionHint,
   }
 }
