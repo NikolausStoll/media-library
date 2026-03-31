@@ -487,3 +487,33 @@ STATIC_DIR=../dist
   - `2` – Apple (`apple.webp`)
   - `531` – Paramount (`paramount.webp`)
 - Add new providers by dropping a `.webp` into `public/streamingProviders/` and referencing the same numeric ID in `SeriesList.vue` for filtering.
+
+---
+
+## Cursor Cloud specific instructions
+
+### Services overview
+
+| Service | Start command | Port | Notes |
+|---------|--------------|------|-------|
+| Frontend (Vite) | `npm run dev:frontend` (from root) | 5173 | Proxies `/api` to backend |
+| Backend (Express) | `npm run dev:backend` (from root) | 8098 | SQLite auto-creates on first run |
+| Both together | `npm run dev` (from root) | 5173 + 8098 | Uses `concurrently` |
+
+### Port configuration gotcha
+
+The Vite dev server proxy in `vite.config.js` targets `http://localhost:8098`, but `.env.example` defaults to `PORT=3000`. The `.env` file (at workspace root) **must** set `PORT=8098` for the proxy to work. The `.env` is loaded by `dotenv/config` from the CWD where `nodemon` runs (the workspace root), not from `backend/`.
+
+### Running tests
+
+- `npm test -- --run` from the root runs all 50 Vitest frontend tests (single pass).
+- `backend/tests/ai.test.js` uses Node's built-in `node:test` and is incompatible with Vitest; its failure in the Vitest run is expected and harmless. Run it separately with `node --test backend/tests/ai.test.js` if needed.
+
+### Building
+
+- `npm run build` produces `dist/` (Vite SPA build). No lint command is separately configured; the build step is the primary check.
+
+### External APIs
+
+- `TMDB_API_KEY` is optional for local dev; the backend warns but does not crash. Movie/series metadata will be missing without it.
+- `AI_API_KEY` is optional; enables the AI recommendation feature.
