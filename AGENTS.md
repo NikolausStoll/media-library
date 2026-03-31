@@ -487,3 +487,30 @@ STATIC_DIR=../dist
   - `2` – Apple (`apple.webp`)
   - `531` – Paramount (`paramount.webp`)
 - Add new providers by dropping a `.webp` into `public/streamingProviders/` and referencing the same numeric ID in `SeriesList.vue` for filtering.
+
+---
+
+## Cursor Cloud specific instructions
+
+### Services overview
+
+| Service | Command | Port | Notes |
+|---|---|---|---|
+| Vite frontend | `npm run dev:frontend` (root) | 5173 | Proxies `/api` to backend at `localhost:8098` |
+| Express backend | `npm run dev:backend` (root) or `cd backend && npm run dev` | 8098 (via `PORT` env) | SQLite is embedded, no separate DB process needed |
+| Both together | `npm run dev` (root, uses `concurrently`) | 5173 + 8098 | |
+
+### Gotchas
+
+- **Vite proxy target is port 8098**, not the backend default of 3000. When starting the backend for dev, set `PORT=8098` (or create `backend/.env` with `PORT=8098`). The `backend/.env` file is gitignored; create it if missing:
+  ```
+  PORT=8098
+  TMDB_API_KEY=
+  FRONTEND_URL=http://localhost:5173
+  DB_PATH=../backend.db
+  STATIC_DIR=../dist
+  ```
+- **`backend/tests/ai.test.js`** uses Node's built-in `node:test` runner, not Vitest. Running `npx vitest run` from root will report it as a failed suite — this is expected. All 50+ frontend Vitest tests pass normally.
+- **TMDB_API_KEY** is optional for basic dev. Without it the backend still starts, but movie/series search/metadata calls will fail. Set it in `backend/.env` if needed.
+- **SQLite DB** (`backend.db`) is auto-created on first backend startup at `DB_PATH` (default `../backend.db` relative to `backend/`). It is gitignored.
+- Standard dev commands are documented in AGENTS.md under "Development Commands".
