@@ -487,3 +487,43 @@ STATIC_DIR=../dist
   - `2` – Apple (`apple.webp`)
   - `531` – Paramount (`paramount.webp`)
 - Add new providers by dropping a `.webp` into `public/streamingProviders/` and referencing the same numeric ID in `SeriesList.vue` for filtering.
+
+---
+
+## Cursor Cloud specific instructions
+
+### Services overview
+
+| Service | Port | How to start |
+|---------|------|-------------|
+| Frontend (Vite) | 5173 | `npm run dev` (from root, starts both) |
+| Backend (Express) | 8098 | included in `npm run dev` via `concurrently` |
+
+Both start together with `npm run dev` from the project root.
+
+### Critical: Vite proxy port
+
+The Vite dev server (`vite.config.js`) proxies `/api` to `http://localhost:8098`. The backend **must** run on port 8098 in development. This is configured via `PORT=8098` in the root `.env` file. The AGENTS.md docs and README mention port 3000 as the default, but the Vite proxy target is 8098.
+
+### .env file location
+
+When running `npm run dev` from the root, `dotenv/config` in the backend reads `.env` from the **current working directory** (`/workspace`), not from `backend/`. Place `.env` at the repo root with at minimum:
+
+```
+PORT=8098
+FRONTEND_URL=http://localhost:5173
+DB_PATH=backend.db
+STATIC_DIR=dist
+```
+
+`TMDB_API_KEY` is optional for basic Games functionality (HLTB works without it). Movies and Series search/metadata require a valid TMDB key.
+
+### Testing
+
+- `npx vitest --run` runs all 50 frontend component tests (from root).
+- `backend/tests/ai.test.js` uses Node's `node:test` runner and is **not** a Vitest test; Vitest will fail to bundle it (this is expected). Run it separately with `node backend/tests/ai.test.js` if needed.
+- See `Development Commands` and `Testing Conventions` sections above for full details.
+
+### Build
+
+`npm run build` (from root) produces `dist/` which the backend can serve via `STATIC_DIR`.
