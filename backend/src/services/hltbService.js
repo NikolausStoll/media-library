@@ -11,6 +11,8 @@ const HEADERS = {
 }
 
 let authToken = null
+let hpKey = null
+let hpVal = null
 let tokenFetchedAt = 0
 const TOKEN_TTL = 30 * 60 * 1000
 const PAGE_SIZE = 20
@@ -43,9 +45,11 @@ async function getAuthToken(force = false) {
   if (!force && authToken && now - tokenFetchedAt < TOKEN_TTL) return authToken
 
   console.log('Auth Token abrufen...')
-  const res = await fetch(`${BASE_URL}/api/finder/init?t=${Date.now()}`, { headers: HEADERS })
+  const res = await fetch(`${BASE_URL}/api/find/init?t=${Date.now()}`, { headers: HEADERS })
   const json = await res.json()
   authToken = json.token
+  hpKey = json.hpKey ?? null
+  hpVal = json.hpVal ?? null
   tokenFetchedAt = Date.now()
   console.log('Auth Token erhalten:', authToken)
   return authToken
@@ -81,7 +85,7 @@ export async function searchGames(query) {
 async function searchPage(query, page, isRetry = false) {
   const token = await getAuthToken(isRetry)
 
-  const body = JSON.stringify({
+  const payload = {
     searchType: 'games',
     searchTerms: query.trim().split(/\s+/),
     searchPage: page,
@@ -104,12 +108,20 @@ async function searchPage(query, page, isRetry = false) {
       randomizer: 0,
     },
     useCache: true,
-  })
+  }
 
-  const res = await fetch(`${BASE_URL}/api/finder`, {
+  if (hpKey) payload[hpKey] = hpVal
+
+  const reqHeaders = { ...HEADERS, 'x-auth-token': token }
+  if (hpKey) {
+    reqHeaders['x-hp-key'] = hpKey
+    reqHeaders['x-hp-val'] = hpVal
+  }
+
+  const res = await fetch(`${BASE_URL}/api/find`, {
     method: 'POST',
-    headers: { ...HEADERS, 'x-auth-token': token },
-    body,
+    headers: reqHeaders,
+    body: JSON.stringify(payload),
   })
 
   if (res.status === 403) {
