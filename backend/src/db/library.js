@@ -278,6 +278,31 @@ try {
 ensureColumn('books', 'completedAt TEXT')
 ensureColumn('books', 'lastTouched TEXT')
 
+// Migrate `next` table: add 'book' to mediaType CHECK constraint.
+// SQLite cannot ALTER CHECK constraints, so we rebuild the table.
+try {
+  const tableInfo = db.prepare(
+    "SELECT sql FROM sqlite_master WHERE type='table' AND name='next'"
+  ).get()
+  if (tableInfo?.sql && !tableInfo.sql.includes("'book'")) {
+    db.pragma('foreign_keys = OFF')
+    db.transaction(() => {
+      db.exec(`
+        CREATE TABLE next_new (
+          id        INTEGER PRIMARY KEY AUTOINCREMENT,
+          mediaId   INTEGER NOT NULL,
+          mediaType TEXT NOT NULL CHECK(mediaType IN ('game','movie','series','book')),
+          UNIQUE(mediaId, mediaType)
+        )
+      `)
+      db.exec('INSERT INTO next_new (id, mediaId, mediaType) SELECT id, mediaId, mediaType FROM next')
+      db.exec('DROP TABLE next')
+      db.exec('ALTER TABLE next_new RENAME TO next')
+    })()
+    db.pragma('foreign_keys = ON')
+  }
+} catch {}
+
 export function getBookWithFormats(id) {
   const book = db.prepare('SELECT * FROM books WHERE id = ?').get(id)
   if (!book) return null
