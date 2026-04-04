@@ -4,15 +4,17 @@ import cors from 'cors'
 import path from 'path'
 import { existsSync } from 'fs'
 import { fileURLToPath } from 'url'
-import gamesRouter   from './routes/games.js'
-import moviesRouter  from './routes/movies.js'
-import seriesRouter  from './routes/series.js'
-import hltbRouter    from './routes/hltb.js'
-import tmdbRouter    from './routes/tmdb.js'
-import nextRouter    from './routes/next.js'
-import sortRouter    from './routes/sortOrder.js'
-import adminRouter   from './routes/admin.js'
-import aiRouter      from './routes/ai.js'
+import gamesRouter        from './routes/games.js'
+import moviesRouter       from './routes/movies.js'
+import seriesRouter       from './routes/series.js'
+import booksRouter        from './routes/books.js'
+import hltbRouter         from './routes/hltb.js'
+import tmdbRouter         from './routes/tmdb.js'
+import googleBooksRouter  from './routes/googlebooks.js'
+import nextRouter         from './routes/next.js'
+import sortRouter         from './routes/sortOrder.js'
+import adminRouter        from './routes/admin.js'
+import aiRouter           from './routes/ai.js'
 
 const app = express()
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -33,8 +35,10 @@ const apiRouter = Router()
 apiRouter.use('/games', gamesRouter)
 apiRouter.use('/movies', moviesRouter)
 apiRouter.use('/series', seriesRouter)
+apiRouter.use('/books', booksRouter)
 apiRouter.use('/hltb', hltbRouter)
 apiRouter.use('/tmdb', tmdbRouter)
+apiRouter.use('/googlebooks', googleBooksRouter)
 apiRouter.use('/next', nextRouter)
 apiRouter.use('/sort-order', sortRouter)
 apiRouter.use('/admin', adminRouter)

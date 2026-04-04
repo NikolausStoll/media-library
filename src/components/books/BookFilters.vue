@@ -1,18 +1,15 @@
-<!-- src/components/games/GameFilters.vue -->
+<!-- src/components/books/BookFilters.vue -->
 <script setup>
 import configText from '../../../media-library/config.yaml?raw'
 
 defineProps({
-  mediaType: { type: String, default: 'game' },
+  mediaType: { type: String, default: 'book' },
   activeTab: { type: String, required: true },
   sortBy: { type: String, required: true },
   sortDirection: { type: String, required: true },
-  platformFilter: { type: Array, default: () => [] },
-  storefrontFilter: { type: Array, default: () => [] },
-  tagFilter: { type: Array, default: () => [] },
+  formatFilter: { type: Array, default: () => [] },
   noRatingFilter: { type: Boolean, default: false },
-  availablePlatforms: { type: Array, required: true },
-  storefronts: { type: Array, required: true },
+  availableFormats: { type: Array, required: true },
   filterSectionsOpen: { type: Object, required: true },
   viewMode: { type: String, required: true },
   gridDensity: { type: String, default: 'normal' },
@@ -23,14 +20,12 @@ defineProps({
 const emit = defineEmits([
   'switch-media',
   'open-search-overlay',
-  'open-ai-assistant',
   'update:searchQuery',
   'toggle-filter',
   'toggle-filter-section',
-  'sort-name',
+  'sort-title',
   'sort-rating',
-  'sort-playtime',
-  'set-sort-custom',
+  'sort-pages',
   'set-view-mode',
   'set-grid-density',
   'toggle-dark-mode',
@@ -67,7 +62,7 @@ const configVersion = configVersionMatch?.[1] ?? 'unbekannt'
           <button v-if="searchQuery" class="search-clear-btn" @click="emit('update:searchQuery', '')">✕</button>
         </div>
       </div>
-      <button class="search-open-btn" @click="emit('open-search-overlay')">Add Games</button>
+      <button class="search-open-btn" @click="emit('open-search-overlay')">Add Books</button>
     </div>
 
     <!-- Sort -->
@@ -80,29 +75,28 @@ const configVersion = configVersionMatch?.[1] ?? 'unbekannt'
         <span class="collapse-arrow">{{ filterSectionsOpen.sort ? '▲' : '▼' }}</span>
       </div>
       <div v-show="filterSectionsOpen.sort" class="filter-options filter-options-single">
-        <button v-if="activeTab === 'started'" :class="['filter-btn', { active: sortBy === 'custom' }]" @click="emit('set-sort-custom')">Custom Order</button>
-        <button :class="['filter-btn', { active: sortBy === 'name' }]" @click="emit('sort-name')">
-          Name <span v-if="sortBy === 'name'" class="sort-dir">{{ sortDirection === 'asc' ? 'A→Z' : 'Z→A' }}</span>
+        <button :class="['filter-btn', { active: sortBy === 'title' }]" @click="emit('sort-title')">
+          Title <span v-if="sortBy === 'title'" class="sort-dir">{{ sortDirection === 'asc' ? 'A→Z' : 'Z→A' }}</span>
         </button>
         <button :class="['filter-btn', { active: sortBy === 'rating' }]" @click="emit('sort-rating')">
           Rating <span v-if="sortBy === 'rating'" class="sort-dir">{{ sortDirection === 'desc' ? '↓' : '↑' }}</span>
         </button>
-        <button :class="['filter-btn', { active: sortBy === 'playtime' }]" @click="emit('sort-playtime')">
-          Playtime <span v-if="sortBy === 'playtime'" class="sort-dir">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
+        <button :class="['filter-btn', { active: sortBy === 'pages' }]" @click="emit('sort-pages')">
+          Pages <span v-if="sortBy === 'pages'" class="sort-dir">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
         </button>
       </div>
     </div>
 
-    <!-- Platform / Storefront / Tags -->
+    <!-- Format Filter -->
     <div class="sidebar-section">
       <div
         class="sidebar-section-label collapsible"
-        @click="emit('toggle-filter-section', 'platformStorefront')"
+        @click="emit('toggle-filter-section', 'formatFilter')"
       >
         Filters
-        <span class="collapse-arrow">{{ filterSectionsOpen.platformStorefront ? '▲' : '▼' }}</span>
+        <span class="collapse-arrow">{{ filterSectionsOpen.formatFilter ? '▲' : '▼' }}</span>
       </div>
-      <div v-show="filterSectionsOpen.platformStorefront">
+      <div v-show="filterSectionsOpen.formatFilter">
         <div class="filter-subsection-label">Rating</div>
         <div class="filter-options">
           <button
@@ -113,56 +107,22 @@ const configVersion = configVersionMatch?.[1] ?? 'unbekannt'
           </button>
         </div>
 
-        <div class="filter-subsection-label">Tags</div>
+        <div class="filter-subsection-label">Format</div>
         <div class="filter-options">
           <button
-            v-for="tag in ['physical', '100%']"
-            :key="tag"
-            :class="['filter-btn', { active: tagFilter.includes(tag) }]"
-            @click="emit('toggle-filter', 'tag', tag)"
+            v-for="fmt in availableFormats"
+            :key="fmt.id"
+            :class="['filter-btn', { active: formatFilter.includes(fmt.id) }]"
+            @click="emit('toggle-filter', 'format', fmt.id)"
           >
-            {{ tag.charAt(0).toUpperCase() + tag.slice(1) }}
-          </button>
-        </div>
-
-        <div class="filter-subsection-label">Platform</div>
-        <div class="filter-options">
-          <button
-            v-for="plat in availablePlatforms"
-            :key="plat.id"
-            :class="['filter-btn', { active: platformFilter.includes(plat.id) }]"
-            @click="emit('toggle-filter', 'platform', plat.id)"
-          >
-            {{ plat.label }}
-          </button>
-          <button
-            :class="['filter-btn', { active: platformFilter.includes('none') }]"
-            @click="emit('toggle-filter', 'platform', 'none')"
-          >
-            No Platform
-          </button>
-        </div>
-
-        <div class="filter-subsection-label" style="margin-top: 8px">Storefront</div>
-        <div class="filter-options">
-          <button
-            v-for="store in storefronts"
-            :key="store.id"
-            :class="['filter-btn', { active: storefrontFilter.includes(store.id) }]"
-            @click="emit('toggle-filter', 'storefront', store.id)"
-          >
-            {{ store.label }}
+            {{ fmt.label }}
           </button>
         </div>
       </div>
     </div>
 
-    <!-- AI Assistant + View & Theme -->
+    <!-- View & Theme -->
     <div class="sidebar-footer">
-      <div class="sidebar-section-label">AI Assistant</div>
-      <button class="ai-assistant-btn" type="button" @click="emit('open-ai-assistant')">
-        Recommendation
-      </button>
       <div class="sidebar-section-label" style="margin-top: 12px">VIEW</div>
       <div class="view-toggle">
         <button :class="['view-btn', { active: viewMode === 'grid' }]" @click="emit('set-view-mode', 'grid')">Grid</button>
@@ -180,4 +140,3 @@ const configVersion = configVersionMatch?.[1] ?? 'unbekannt'
     </div>
   </div>
 </template>
-

@@ -58,8 +58,45 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS next (
     id        INTEGER PRIMARY KEY AUTOINCREMENT,
     mediaId   INTEGER NOT NULL,
-    mediaType TEXT NOT NULL CHECK(mediaType IN ('game','movie','series')),
+    mediaType TEXT NOT NULL CHECK(mediaType IN ('game','movie','series','book')),
     UNIQUE(mediaId, mediaType)
+  );
+
+  CREATE TABLE IF NOT EXISTS books (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    externalId  TEXT NOT NULL UNIQUE,
+    status      TEXT NOT NULL CHECK(status IN ('wishlist','backlog','started','completed','shelved')),
+    userRating  INTEGER CHECK(userRating BETWEEN 1 AND 10),
+    completedAt TEXT,
+    lastTouched TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS bookformats (
+    id     INTEGER PRIMARY KEY AUTOINCREMENT,
+    bookId INTEGER NOT NULL,
+    format TEXT NOT NULL CHECK(format IN ('hardcover','kindle')),
+    UNIQUE(bookId, format),
+    FOREIGN KEY (bookId) REFERENCES books(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS googlebookscache (
+    id          TEXT PRIMARY KEY,
+    title       TEXT,
+    authors     TEXT,
+    description TEXT,
+    imageUrl    TEXT,
+    pageCount   INTEGER,
+    publishedDate TEXT,
+    categories  TEXT,
+    rating      REAL,
+    ratingsCount INTEGER,
+    seriesName  TEXT,
+    seriesPosition TEXT,
+    publisher   TEXT,
+    isbn        TEXT,
+    language    TEXT,
+    linkUrl     TEXT,
+    updatedAt   INTEGER
   );
 
   CREATE TABLE IF NOT EXISTS movies (
@@ -194,6 +231,59 @@ db.prepare('UPDATE series SET completedAt = COALESCE(completedAt, ?), lastTouche
   .run(today, today, 'finished')
 db.prepare('UPDATE series SET lastTouched = COALESCE(lastTouched, ?)').run(today)
 db.prepare('UPDATE episodeprogress SET lastTouched = COALESCE(lastTouched, ?)').run(today)
+
+try {
+  db.exec(`CREATE TABLE IF NOT EXISTS books (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    externalId  TEXT NOT NULL UNIQUE,
+    status      TEXT NOT NULL CHECK(status IN ('wishlist','backlog','started','completed','shelved')),
+    userRating  INTEGER CHECK(userRating BETWEEN 1 AND 10),
+    completedAt TEXT,
+    lastTouched TEXT
+  )`)
+} catch {}
+
+try {
+  db.exec(`CREATE TABLE IF NOT EXISTS bookformats (
+    id     INTEGER PRIMARY KEY AUTOINCREMENT,
+    bookId INTEGER NOT NULL,
+    format TEXT NOT NULL CHECK(format IN ('hardcover','kindle')),
+    UNIQUE(bookId, format),
+    FOREIGN KEY (bookId) REFERENCES books(id) ON DELETE CASCADE
+  )`)
+} catch {}
+
+try {
+  db.exec(`CREATE TABLE IF NOT EXISTS googlebookscache (
+    id          TEXT PRIMARY KEY,
+    title       TEXT,
+    authors     TEXT,
+    description TEXT,
+    imageUrl    TEXT,
+    pageCount   INTEGER,
+    publishedDate TEXT,
+    categories  TEXT,
+    rating      REAL,
+    ratingsCount INTEGER,
+    seriesName  TEXT,
+    seriesPosition TEXT,
+    publisher   TEXT,
+    isbn        TEXT,
+    language    TEXT,
+    linkUrl     TEXT,
+    updatedAt   INTEGER
+  )`)
+} catch {}
+
+ensureColumn('books', 'completedAt TEXT')
+ensureColumn('books', 'lastTouched TEXT')
+
+export function getBookWithFormats(id) {
+  const book = db.prepare('SELECT * FROM books WHERE id = ?').get(id)
+  if (!book) return null
+  const formats = db.prepare('SELECT id, format FROM bookformats WHERE bookId = ?').all(id)
+  return { ...book, formats }
+}
 
 export function getGameWithPlatforms(id) {
   const game = db.prepare('SELECT * FROM games WHERE id = ?').get(id)

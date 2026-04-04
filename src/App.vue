@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import GameList from './components/GameList.vue'
+import BookList from './components/BookList.vue'
 import MovieList from './components/MovieList.vue'
 import SeriesList from './components/SeriesList.vue'
 
@@ -19,6 +20,11 @@ function switchMedia(value) {
     <main class="tab-content">
       <GameList
         v-if="mediaType === 'game'"
+        :media-type="mediaType"
+        @switch-media="switchMedia"
+      />
+      <BookList
+        v-else-if="mediaType === 'book'"
         :media-type="mediaType"
         @switch-media="switchMedia"
       />

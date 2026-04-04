@@ -86,6 +86,12 @@ body.light-mode {
   --accent-rgb: 245 197 24;
 }
 
+.theme-book {
+  --accent: #10b981;        /* Emerald green */
+  --accent-light: #34d399;
+  --accent-rgb: 16 185 129;
+}
+
 /* ── Layout ── */
 .app-layout {
   display: flex;
@@ -247,6 +253,12 @@ body.light-mode {
   background: rgb(14 165 233 / 0.15);
   border-color: #0ea5e9;
   color: #0ea5e9;
+}
+
+.media-switcher-btn.active[data-media="book"] {
+  background: rgb(16 185 129 / 0.15);
+  border-color: #10b981;
+  color: #10b981;
 }
 
 .media-switcher-btn.active[data-media="movie"] {
@@ -1826,6 +1838,37 @@ body.light-mode {
   top: 3px;
   right: 3px;
   transform: none;
+}
+
+/* ── Book-specific Styles ── */
+.book-series-badge {
+  font-size: 9px;
+  font-weight: 600;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 2px;
+  padding: 0 4px;
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.card-cover-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface3);
+  color: var(--text-dim);
+  font-size: 28px;
+  font-weight: 700;
+  aspect-ratio: 2/3;
+}
+
+.theme-book .card-rating {
+  color: #10b981;
 }
 
 /* ── End List View ── */
