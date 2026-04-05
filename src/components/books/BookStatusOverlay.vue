@@ -137,8 +137,8 @@ function truncateDescription(text, maxLen = 300) {
                 <span class="metric-value">{{ book.pageCount }}</span>
               </div>
               <div v-if="book?.rating" class="metric-box">
-                <span class="metric-label">Google Rating</span>
-                <span class="metric-value">{{ book.rating }}★ ({{ book.ratingsCount ?? 0 }})</span>
+                <span class="metric-label">Rating</span>
+                <span class="metric-value">{{ Number(book.rating).toFixed(1) }}★ ({{ book.ratingsCount ?? 0 }})</span>
               </div>
               <div v-if="book?.publisher" class="metric-box">
                 <span class="metric-label">Publisher</span>

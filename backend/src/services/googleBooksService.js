@@ -1,4 +1,5 @@
 import fetch from 'node-fetch'
+import { getRatingByIsbn } from './openLibraryService.js'
 
 const API_BASE = 'https://www.googleapis.com/books/v1'
 const PAGE_SIZE = 20
@@ -96,5 +97,19 @@ export async function getBook(id) {
   const res = await fetch(url)
   if (!res.ok) throw new Error(`Google Books fetch failed: HTTP ${res.status}`)
   const item = await res.json()
-  return mapVolume(item)
+  const book = mapVolume(item)
+
+  if (book.isbn) {
+    try {
+      const olRating = await getRatingByIsbn(book.isbn)
+      if (olRating) {
+        book.olRating = olRating.average
+        book.olRatingsCount = olRating.count
+      }
+    } catch (err) {
+      console.error(`Open Library rating fetch failed for ISBN ${book.isbn}:`, err.message)
+    }
+  }
+
+  return book
 }

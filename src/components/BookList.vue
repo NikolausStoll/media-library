@@ -540,7 +540,7 @@ onUnmounted(() => {
                     <span v-if="book.seriesName" class="book-series-badge">{{ book.seriesName }}{{ book.seriesPosition ? ` #${book.seriesPosition}` : '' }}</span>
                     <span v-else-if="book.authors?.length" class="card-time">{{ book.authors[0] }}</span>
                   </div>
-                  <span v-if="book.rating != null" class="card-rating">{{ book.rating }}★</span>
+                  <span v-if="book.rating != null" class="card-rating">{{ Number(book.rating).toFixed(1) }}★</span>
                 </div>
               </div>
             </div>

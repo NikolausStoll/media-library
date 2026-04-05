@@ -135,10 +135,10 @@ router.post('/import', (req, res) => {
 
       // Google Books Cache
       const insertGBooks = db.prepare(`
-        INSERT INTO googlebookscache (id, title, authors, description, imageUrl, pageCount, publishedDate, categories, rating, ratingsCount, seriesName, seriesPosition, publisher, isbn, language, linkUrl, updatedAt)
-        VALUES (@id, @title, @authors, @description, @imageUrl, @pageCount, @publishedDate, @categories, @rating, @ratingsCount, @seriesName, @seriesPosition, @publisher, @isbn, @language, @linkUrl, @updatedAt)
+        INSERT INTO googlebookscache (id, title, authors, description, imageUrl, pageCount, publishedDate, categories, rating, ratingsCount, olRating, olRatingsCount, seriesName, seriesPosition, publisher, isbn, language, linkUrl, updatedAt)
+        VALUES (@id, @title, @authors, @description, @imageUrl, @pageCount, @publishedDate, @categories, @rating, @ratingsCount, @olRating, @olRatingsCount, @seriesName, @seriesPosition, @publisher, @isbn, @language, @linkUrl, @updatedAt)
       `)
-      for (const c of data.googlebookscache ?? []) insertGBooks.run(c)
+      for (const c of data.googlebookscache ?? []) insertGBooks.run({ ...c, olRating: c.olRating ?? null, olRatingsCount: c.olRatingsCount ?? null })
     })()
 
     res.json({

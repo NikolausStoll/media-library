@@ -17,6 +17,8 @@ export function getFromCache(id) {
     categories:     JSON.parse(row.categories ?? '[]'),
     rating:         row.rating,
     ratingsCount:   row.ratingsCount,
+    olRating:       row.olRating ?? null,
+    olRatingsCount: row.olRatingsCount ?? null,
     seriesName:     row.seriesName,
     seriesPosition: row.seriesPosition,
     publisher:      row.publisher,
@@ -29,13 +31,14 @@ export function getFromCache(id) {
 export function saveToCache(book) {
   db.prepare(`
     INSERT INTO googlebookscache
-      (id, title, authors, description, imageUrl, pageCount, publishedDate, categories, rating, ratingsCount, seriesName, seriesPosition, publisher, isbn, language, linkUrl, updatedAt)
+      (id, title, authors, description, imageUrl, pageCount, publishedDate, categories, rating, ratingsCount, olRating, olRatingsCount, seriesName, seriesPosition, publisher, isbn, language, linkUrl, updatedAt)
     VALUES
-      (@id, @title, @authors, @description, @imageUrl, @pageCount, @publishedDate, @categories, @rating, @ratingsCount, @seriesName, @seriesPosition, @publisher, @isbn, @language, @linkUrl, @updatedAt)
+      (@id, @title, @authors, @description, @imageUrl, @pageCount, @publishedDate, @categories, @rating, @ratingsCount, @olRating, @olRatingsCount, @seriesName, @seriesPosition, @publisher, @isbn, @language, @linkUrl, @updatedAt)
     ON CONFLICT(id) DO UPDATE SET
       title=excluded.title, authors=excluded.authors, description=excluded.description,
       imageUrl=excluded.imageUrl, pageCount=excluded.pageCount, publishedDate=excluded.publishedDate,
       categories=excluded.categories, rating=excluded.rating, ratingsCount=excluded.ratingsCount,
+      olRating=excluded.olRating, olRatingsCount=excluded.olRatingsCount,
       seriesName=excluded.seriesName, seriesPosition=excluded.seriesPosition,
       publisher=excluded.publisher, isbn=excluded.isbn, language=excluded.language,
       linkUrl=excluded.linkUrl, updatedAt=excluded.updatedAt
@@ -43,6 +46,8 @@ export function saveToCache(book) {
     ...book,
     authors: JSON.stringify(book.authors ?? []),
     categories: JSON.stringify(book.categories ?? []),
+    olRating: book.olRating ?? null,
+    olRatingsCount: book.olRatingsCount ?? null,
     updatedAt: Date.now(),
   })
 }

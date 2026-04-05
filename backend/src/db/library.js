@@ -90,6 +90,8 @@ db.exec(`
     categories  TEXT,
     rating      REAL,
     ratingsCount INTEGER,
+    olRating    REAL,
+    olRatingsCount INTEGER,
     seriesName  TEXT,
     seriesPosition TEXT,
     publisher   TEXT,
@@ -265,6 +267,8 @@ try {
     categories  TEXT,
     rating      REAL,
     ratingsCount INTEGER,
+    olRating    REAL,
+    olRatingsCount INTEGER,
     seriesName  TEXT,
     seriesPosition TEXT,
     publisher   TEXT,
@@ -275,6 +279,8 @@ try {
   )`)
 } catch {}
 
+ensureColumn('googlebookscache', 'olRating REAL')
+ensureColumn('googlebookscache', 'olRatingsCount INTEGER')
 ensureColumn('books', 'completedAt TEXT')
 ensureColumn('books', 'lastTouched TEXT')
 
