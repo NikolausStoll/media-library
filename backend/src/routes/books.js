@@ -22,6 +22,18 @@ function resolveCompletedAt(existing, requested, status, today) {
   return existing
 }
 
+function pickRating(gbooks) {
+  if (!gbooks) return null
+  const ol = (gbooks.olRatingsCount ?? 0) > 0
+    ? { rating: gbooks.olRating, count: gbooks.olRatingsCount }
+    : null
+  const gb = (gbooks.ratingsCount ?? 0) > 0
+    ? { rating: gbooks.rating, count: gbooks.ratingsCount }
+    : null
+  if (ol && gb) return ol.count >= gb.count ? ol : gb
+  return ol ?? gb
+}
+
 async function aggregateBook(book) {
   let gbooks = getFromCache(book.externalId)
 
@@ -45,8 +57,8 @@ async function aggregateBook(book) {
     pageCount: gbooks?.pageCount ?? null,
     publishedDate: gbooks?.publishedDate ?? null,
     categories: gbooks?.categories ?? [],
-    rating: gbooks?.olRating ?? gbooks?.rating ?? null,
-    ratingsCount: gbooks?.olRatingsCount ?? gbooks?.ratingsCount ?? null,
+    rating: pickRating(gbooks)?.rating ?? null,
+    ratingsCount: pickRating(gbooks)?.count ?? null,
     seriesName: gbooks?.seriesName ?? null,
     seriesPosition: gbooks?.seriesPosition ?? null,
     publisher: gbooks?.publisher ?? null,
