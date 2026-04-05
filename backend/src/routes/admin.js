@@ -23,9 +23,13 @@ router.get('/export', (req, res) => {
       movies:         db.prepare('SELECT * FROM movies').all(),
       series:         db.prepare('SELECT * FROM series').all(),
       mediaproviders: db.prepare('SELECT * FROM mediaproviders').all(),
+      // Books
+      books:          db.prepare('SELECT * FROM books').all(),
+      bookformats:    db.prepare('SELECT * FROM bookformats').all(),
       // Caches
       hltbcache:      db.prepare('SELECT * FROM hltbcache').all(),
       tmdbcache:      db.prepare('SELECT * FROM tmdbcache').all(),
+      googlebookscache: db.prepare('SELECT * FROM googlebookscache').all(),
     }
     res.setHeader('Content-Type', 'application/json')
     res.setHeader('Content-Disposition', `attachment; filename="medialibrary-backup-${Date.now()}.json"`)
@@ -50,8 +54,11 @@ router.post('/import', (req, res) => {
       db.prepare('DELETE FROM mediaproviders').run()
       db.prepare('DELETE FROM movies').run()
       db.prepare('DELETE FROM series').run()
+      db.prepare('DELETE FROM bookformats').run()
+      db.prepare('DELETE FROM books').run()
       db.prepare('DELETE FROM hltbcache').run()
       db.prepare('DELETE FROM tmdbcache').run()
+      db.prepare('DELETE FROM googlebookscache').run()
 
       // Games
       const insertGame = db.prepare('INSERT INTO games (id, externalId, status, userRating) VALUES (@id, @externalId, @status, @userRating)')
@@ -85,6 +92,14 @@ router.post('/import', (req, res) => {
       const insertProvider = db.prepare('INSERT INTO mediaproviders (id, mediaId, mediaType, provider) VALUES (@id, @mediaId, @mediaType, @provider)')
       for (const p of data.mediaproviders ?? []) insertProvider.run(p)
 
+      // Books
+      const insertBook = db.prepare('INSERT INTO books (id, externalId, status, userRating) VALUES (@id, @externalId, @status, @userRating)')
+      for (const b of data.books ?? []) insertBook.run(b)
+
+      // Book Formats
+      const insertBookFormat = db.prepare('INSERT INTO bookformats (id, bookId, format) VALUES (@id, @bookId, @format)')
+      for (const f of data.bookformats ?? []) insertBookFormat.run(f)
+
       // HLTB Cache
       const insertHltb = db.prepare(`
         INSERT INTO hltbcache (
@@ -117,6 +132,13 @@ router.post('/import', (req, res) => {
           videos: c.videos ?? '[]',
         })
       }
+
+      // Google Books Cache
+      const insertGBooks = db.prepare(`
+        INSERT INTO googlebookscache (id, title, authors, description, imageUrl, pageCount, publishedDate, categories, rating, ratingsCount, olRating, olRatingsCount, seriesName, seriesPosition, publisher, isbn, language, linkUrl, updatedAt)
+        VALUES (@id, @title, @authors, @description, @imageUrl, @pageCount, @publishedDate, @categories, @rating, @ratingsCount, @olRating, @olRatingsCount, @seriesName, @seriesPosition, @publisher, @isbn, @language, @linkUrl, @updatedAt)
+      `)
+      for (const c of data.googlebookscache ?? []) insertGBooks.run({ ...c, olRating: c.olRating ?? null, olRatingsCount: c.olRatingsCount ?? null })
     })()
 
     res.json({
@@ -130,8 +152,11 @@ router.post('/import', (req, res) => {
         movies:         data.movies?.length ?? 0,
         series:         data.series?.length ?? 0,
         mediaproviders: data.mediaproviders?.length ?? 0,
+        books:          data.books?.length ?? 0,
+        bookformats:    data.bookformats?.length ?? 0,
         hltbcache:      data.hltbcache?.length ?? 0,
         tmdbcache:      data.tmdbcache?.length ?? 0,
+        googlebookscache: data.googlebookscache?.length ?? 0,
       }
     })
   } catch (err) {

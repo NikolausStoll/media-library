@@ -58,8 +58,47 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS next (
     id        INTEGER PRIMARY KEY AUTOINCREMENT,
     mediaId   INTEGER NOT NULL,
-    mediaType TEXT NOT NULL CHECK(mediaType IN ('game','movie','series')),
+    mediaType TEXT NOT NULL CHECK(mediaType IN ('game','movie','series','book')),
     UNIQUE(mediaId, mediaType)
+  );
+
+  CREATE TABLE IF NOT EXISTS books (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    externalId  TEXT NOT NULL UNIQUE,
+    status      TEXT NOT NULL CHECK(status IN ('wishlist','backlog','started','completed','shelved')),
+    userRating  INTEGER CHECK(userRating BETWEEN 1 AND 10),
+    completedAt TEXT,
+    lastTouched TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS bookformats (
+    id     INTEGER PRIMARY KEY AUTOINCREMENT,
+    bookId INTEGER NOT NULL,
+    format TEXT NOT NULL CHECK(format IN ('hardcover','kindle')),
+    UNIQUE(bookId, format),
+    FOREIGN KEY (bookId) REFERENCES books(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS googlebookscache (
+    id          TEXT PRIMARY KEY,
+    title       TEXT,
+    authors     TEXT,
+    description TEXT,
+    imageUrl    TEXT,
+    pageCount   INTEGER,
+    publishedDate TEXT,
+    categories  TEXT,
+    rating      REAL,
+    ratingsCount INTEGER,
+    olRating    REAL,
+    olRatingsCount INTEGER,
+    seriesName  TEXT,
+    seriesPosition TEXT,
+    publisher   TEXT,
+    isbn        TEXT,
+    language    TEXT,
+    linkUrl     TEXT,
+    updatedAt   INTEGER
   );
 
   CREATE TABLE IF NOT EXISTS movies (
@@ -194,6 +233,88 @@ db.prepare('UPDATE series SET completedAt = COALESCE(completedAt, ?), lastTouche
   .run(today, today, 'finished')
 db.prepare('UPDATE series SET lastTouched = COALESCE(lastTouched, ?)').run(today)
 db.prepare('UPDATE episodeprogress SET lastTouched = COALESCE(lastTouched, ?)').run(today)
+
+try {
+  db.exec(`CREATE TABLE IF NOT EXISTS books (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    externalId  TEXT NOT NULL UNIQUE,
+    status      TEXT NOT NULL CHECK(status IN ('wishlist','backlog','started','completed','shelved')),
+    userRating  INTEGER CHECK(userRating BETWEEN 1 AND 10),
+    completedAt TEXT,
+    lastTouched TEXT
+  )`)
+} catch {}
+
+try {
+  db.exec(`CREATE TABLE IF NOT EXISTS bookformats (
+    id     INTEGER PRIMARY KEY AUTOINCREMENT,
+    bookId INTEGER NOT NULL,
+    format TEXT NOT NULL CHECK(format IN ('hardcover','kindle')),
+    UNIQUE(bookId, format),
+    FOREIGN KEY (bookId) REFERENCES books(id) ON DELETE CASCADE
+  )`)
+} catch {}
+
+try {
+  db.exec(`CREATE TABLE IF NOT EXISTS googlebookscache (
+    id          TEXT PRIMARY KEY,
+    title       TEXT,
+    authors     TEXT,
+    description TEXT,
+    imageUrl    TEXT,
+    pageCount   INTEGER,
+    publishedDate TEXT,
+    categories  TEXT,
+    rating      REAL,
+    ratingsCount INTEGER,
+    olRating    REAL,
+    olRatingsCount INTEGER,
+    seriesName  TEXT,
+    seriesPosition TEXT,
+    publisher   TEXT,
+    isbn        TEXT,
+    language    TEXT,
+    linkUrl     TEXT,
+    updatedAt   INTEGER
+  )`)
+} catch {}
+
+ensureColumn('googlebookscache', 'olRating REAL')
+ensureColumn('googlebookscache', 'olRatingsCount INTEGER')
+ensureColumn('books', 'completedAt TEXT')
+ensureColumn('books', 'lastTouched TEXT')
+
+// Migrate `next` table: add 'book' to mediaType CHECK constraint.
+// SQLite cannot ALTER CHECK constraints, so we rebuild the table.
+try {
+  const tableInfo = db.prepare(
+    "SELECT sql FROM sqlite_master WHERE type='table' AND name='next'"
+  ).get()
+  if (tableInfo?.sql && !tableInfo.sql.includes("'book'")) {
+    db.pragma('foreign_keys = OFF')
+    db.transaction(() => {
+      db.exec(`
+        CREATE TABLE next_new (
+          id        INTEGER PRIMARY KEY AUTOINCREMENT,
+          mediaId   INTEGER NOT NULL,
+          mediaType TEXT NOT NULL CHECK(mediaType IN ('game','movie','series','book')),
+          UNIQUE(mediaId, mediaType)
+        )
+      `)
+      db.exec('INSERT INTO next_new (id, mediaId, mediaType) SELECT id, mediaId, mediaType FROM next')
+      db.exec('DROP TABLE next')
+      db.exec('ALTER TABLE next_new RENAME TO next')
+    })()
+    db.pragma('foreign_keys = ON')
+  }
+} catch {}
+
+export function getBookWithFormats(id) {
+  const book = db.prepare('SELECT * FROM books WHERE id = ?').get(id)
+  if (!book) return null
+  const formats = db.prepare('SELECT id, format FROM bookformats WHERE bookId = ?').all(id)
+  return { ...book, formats }
+}
 
 export function getGameWithPlatforms(id) {
   const game = db.prepare('SELECT * FROM games WHERE id = ?').get(id)

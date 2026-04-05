@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { db } from '../db/library.js'
 
 const router = Router()
-const VALID_TYPES = ['game', 'movie', 'series']
+const VALID_TYPES = ['game', 'movie', 'series', 'book']
 
 // GET /api/next?type=game|movie|series
 router.get('/', (req, res) => {
