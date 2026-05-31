@@ -118,6 +118,7 @@ const providerDefinitions = [
   { id: 30, name: 'Wow', logo: '/streamingProviders/wow.webp' },
   { id: 2, name: 'Apple', logo: '/streamingProviders/apple.webp' },
   { id: 531, name: 'Paramount', logo: '/streamingProviders/paramount.webp' },
+  { id: 1899, name: 'HBO Max', logo: '/streamingProviders/hbomax.webp' },
 ]
 
 

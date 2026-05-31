@@ -1,9 +1,4 @@
-.provider-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(2, 1fr);
-  gap: 12px;
-}
+
 
 .provider-btn {
   width: 64px;
@@ -339,15 +334,16 @@ body.light-mode {
 
 .provider-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(2, 1fr);
   gap: 8px;
   margin-top: 6px;
 }
 
 .provider-logo-btn {
-  width: 54px;
-  height: 54px;
-  border-radius: 14px;
+  width: 50px;
+  height: 50px;
+  border-radius: 8px;
   border: 2px solid transparent;
   background: transparent;
   display: flex;
@@ -363,10 +359,10 @@ body.light-mode {
 }
 
 .provider-logo-btn img {
-  width: 50px;
-  height: 50px;
+  width: 46px;
+  height: 46px;
   object-fit: contain;
-  border-radius: 12px;
+  border-radius: 6px;
 }
 
 
