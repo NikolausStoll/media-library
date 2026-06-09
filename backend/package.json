@@ -1,6 +1,6 @@
 {
   "name": "backend-api",
-  "version": "1.10.0",
+  "version": "1.10.1",
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
@@ -8,7 +8,7 @@
     "test": "node ./tests/ai.test.js"
   },
   "dependencies": {
-    "better-sqlite3": "^9.4.3",
+    "better-sqlite3": "^12.10.0",
     "cheerio": "^1.0.0-rc.12",
     "cors": "^2.8.5",
     "dotenv": "^16.4.1",

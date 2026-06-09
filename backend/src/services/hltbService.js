@@ -2,10 +2,13 @@ import fetch from 'node-fetch'
 import * as cheerio from 'cheerio'
 
 const BASE_URL = 'https://howlongtobeat.com'
+// HLTB rotates obfuscated search paths; try current first, then recent fallbacks.
+const SEARCH_API_CANDIDATES = ['/api/bleed', '/api/find', '/api/finder']
 
 const HEADERS = {
-  'Referer': 'https://howlongtobeat.com',
+  'Referer': 'https://howlongtobeat.com/',
   'Origin': 'https://howlongtobeat.com',
+  'Accept': 'application/json',
   'Content-Type': 'application/json',
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0',
 }
@@ -14,6 +17,7 @@ let authToken = null
 let hpKey = null
 let hpVal = null
 let tokenFetchedAt = 0
+let searchApiBase = null
 const TOKEN_TTL = 30 * 60 * 1000
 const PAGE_SIZE = 20
 const MAX_PAGES = 2
@@ -40,17 +44,47 @@ function mapDlcEntry(entry) {
   }
 }
 
+async function parseJsonResponse(res, label) {
+  const text = await res.text()
+  try {
+    return JSON.parse(text)
+  } catch {
+    const snippet = text.trimStart().slice(0, 40)
+    throw new Error(`HLTB ${label}: ungültige Antwort (HTTP ${res.status}): ${snippet}`)
+  }
+}
+
+async function resolveSearchApi(force = false) {
+  if (!force && searchApiBase) return searchApiBase
+
+  const candidates = force
+    ? SEARCH_API_CANDIDATES
+    : [searchApiBase, ...SEARCH_API_CANDIDATES].filter(Boolean)
+
+  for (const base of [...new Set(candidates)]) {
+    const res = await fetch(`${BASE_URL}${base}/init?t=${Date.now()}`, { headers: HEADERS })
+    if (!res.ok) continue
+
+    const json = await parseJsonResponse(res, `${base}/init`)
+    if (!json?.token) continue
+
+    searchApiBase = base
+    authToken = json.token
+    hpKey = json.hpKey ?? null
+    hpVal = json.hpVal ?? null
+    tokenFetchedAt = Date.now()
+    return base
+  }
+
+  throw new Error('HLTB search API nicht erreichbar (kein gültiger /init-Endpunkt)')
+}
+
 async function getAuthToken(force = false) {
   const now = Date.now()
-  if (!force && authToken && now - tokenFetchedAt < TOKEN_TTL) return authToken
+  if (!force && authToken && searchApiBase && now - tokenFetchedAt < TOKEN_TTL) return authToken
 
   console.log('Auth Token abrufen...')
-  const res = await fetch(`${BASE_URL}/api/find/init?t=${Date.now()}`, { headers: HEADERS })
-  const json = await res.json()
-  authToken = json.token
-  hpKey = json.hpKey ?? null
-  hpVal = json.hpVal ?? null
-  tokenFetchedAt = Date.now()
+  await resolveSearchApi(force)
   console.log('Auth Token erhalten:', authToken)
   return authToken
 }
@@ -118,7 +152,8 @@ async function searchPage(query, page, isRetry = false) {
     reqHeaders['x-hp-val'] = hpVal
   }
 
-  const res = await fetch(`${BASE_URL}/api/find`, {
+  const apiBase = searchApiBase ?? await resolveSearchApi()
+  const res = await fetch(`${BASE_URL}${apiBase}`, {
     method: 'POST',
     headers: reqHeaders,
     body: JSON.stringify(payload),
@@ -127,12 +162,14 @@ async function searchPage(query, page, isRetry = false) {
   if (res.status === 403) {
     if (isRetry) throw new Error('Search fehlgeschlagen: 403 auch nach Token-Refresh')
     console.log('403 – Token erneuern und retry...')
+    searchApiBase = null
+    authToken = null
     return searchPage(query, page, true)
   }
 
   if (!res.ok) throw new Error(`Search fehlgeschlagen: HTTP ${res.status}`)
 
-  const json = await res.json()
+  const json = await parseJsonResponse(res, apiBase)
   return (json.data ?? []).map((g) => ({
     id: String(g.game_id),
     name: g.game_name,
