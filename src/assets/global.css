@@ -1766,6 +1766,7 @@ body.light-mode {
   .sidebar-toggle-external {
     width: 35px;
     transition: right 0.3s ease, transform 0.3s ease;
+    top: 75%;
   }
 
   /* Wenn Sidebar offen: Toggle ist bei 300px (links der Sidebar) */
