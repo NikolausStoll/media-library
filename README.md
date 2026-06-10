@@ -41,7 +41,7 @@ The app is built around everyday backlog decisions: what is waiting, what is in 
 - HLTB data is cached for games. Cached fields include names, cover images, playtime buckets, ratings, DLCs, game type, and EU release date.
 - TMDB metadata is fetched in German and English. German data is used for certifications, release dates, and streaming providers; English data is used for consistent genre names and display titles unless German is the original language.
 - TMDB movie/series metadata defaults to a 7 day TTL. Episode data is cached separately for 30 days.
-- Books persist their own editable metadata. Title search can load Open Library works and filtered ISBN-bearing editions by language/format, ISBN scanning is used as fast manual-entry assistance, `/api/books/prepare` can prepare an editable draft from ISBN/Open Library plus optional LLM normalization, and local cover files are stored as WebP original/thumbnail pairs.
+- Books persist their own editable metadata. Title search can load Open Library works and filtered ISBN-bearing editions by language/format, ISBN scanning is used as fast manual-entry assistance, `/api/books/prepare` can prepare an editable draft from ISBN/Open Library plus optional LLM normalization, and local cover files are stored as WebP originals with thumbnails for larger images.
 - Cache entries can be invalidated from item overlays or admin routes.
 
 ### AI Recommendations

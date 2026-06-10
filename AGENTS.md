@@ -12,7 +12,7 @@ This is the source of truth for AI assistants working in this repository. Keep i
 - Local dev frontend: Vite on `localhost:5173`.
 - Local dev backend: `npm run dev:backend`, should use `PORT=8098` because `vite.config.js` proxies `/api` to `http://localhost:8098`.
 - Container/Home Assistant backend: defaults to `PORT=8099`, `DB_PATH=/data/backend.db`, `STATIC_DIR=/app/public`.
-- Current package/add-on version: `1.12.0`.
+- Current package/add-on version: `1.12.1`.
 
 ## High-Level Features
 
@@ -243,7 +243,7 @@ DELETE /api/books/:id
 - `GET /api/books/editions` loads ISBN-bearing editions for one Open Library work. It paginates Open Library editions up to a bounded scan limit, filters by language and `hardcover`/`paperback`/`ebook`, treats German `Taschenbuch` as paperback and `gebunden` variants as hardcover, then uses the chosen edition ISBN to run `/api/books/prepare`.
 - `POST /api/books/prepare` fetches Open Library data by ISBN and optionally uses OpenAI structured JSON output to normalize an editable draft. It never saves automatically.
 - `coverUrl` fetches an HTTP(S) image. `coverFile` accepts a base64 Data URL from the frontend.
-- Covers are converted to WebP original and thumbnail files, preserving aspect ratio.
+- Covers are converted to WebP, preserving aspect ratio. Images larger than `IMAGE_MAX_DIMENSION_THUMB` get separate original and thumbnail files; smaller images reuse the same WebP file for `coverPath` and `coverThumbPath`.
 
 ### Movies: `/api/movies`
 
@@ -381,7 +381,7 @@ Main file: `src/components/BookList.vue`.
 - Started count includes `started` plus `shelved`.
 - Backlog tab has Read Next section above normal backlog items.
 - Formats are `hardcover`, `paperback`, `ebook`, `audiobook`, and `other`.
-- Local files and cover URLs both save a WebP original plus thumbnail under `/uploads/books/`.
+- Local files and cover URLs save WebP covers under `/uploads/books/`; larger images get separate original and thumbnail files, while images already at or below thumbnail size reuse one file for both paths.
 - Book cards use thumbnails; the book detail overlay prefers the original cover.
 - Add overlay accepts manual title/ISBN entry, can search Open Library by title, can load filtered edition candidates for a selected work, and uses `src/components/books/BarcodeScanner.vue` for mobile ISBN scanning.
 - Google Books has been removed from the Book flow. Do not reintroduce an `externalId` requirement for books.

@@ -61,7 +61,7 @@ Default: `gpt-4o-mini`
 
 ### Book cover image options
 
-Book covers imported from a URL or local file upload are stored locally as WebP files without changing the aspect ratio. The app stores both an original image and a thumbnail.
+Book covers imported from a URL or local file upload are stored locally as WebP files without changing the aspect ratio. The app stores an original image and, for images larger than the thumbnail maximum dimension, a separate thumbnail. Smaller images reuse the same WebP file for both paths.
 
 - `IMAGE_QUALITY`: WebP quality for the original image. Default: `80`
 - `IMAGE_MAX_DIMENSION`: maximum width or height for the original image. Default: `2400`

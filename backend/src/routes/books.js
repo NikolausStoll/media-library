@@ -84,6 +84,8 @@ async function saveCoverFromBuffer(bytes, contentType = '') {
   const id = randomUUID()
   const originalFilename = `${id}.webp`
   const thumbFilename = `${id}-thumb.webp`
+  const metadata = await sharp(bytes).metadata()
+  const maxSourceDimension = Math.max(metadata.width ?? 0, metadata.height ?? 0)
 
   await sharp(bytes)
     .rotate()
@@ -95,6 +97,13 @@ async function saveCoverFromBuffer(bytes, contentType = '') {
     })
     .webp({ quality: IMAGE_QUALITY })
     .toFile(join(bookUploadsDir, originalFilename))
+
+  if (maxSourceDimension > 0 && maxSourceDimension <= IMAGE_MAX_DIMENSION_THUMB) {
+    return {
+      coverPath: `/uploads/books/${originalFilename}`,
+      coverThumbPath: `/uploads/books/${originalFilename}`,
+    }
+  }
 
   await sharp(bytes)
     .rotate()
