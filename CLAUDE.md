@@ -1,4 +1,3 @@
-# CLAUDE.md - Project Context for AI Assistants
+# CLAUDE.md
 
-Source of truth: [AGENTS.md](./AGENTS.md).  
-If something conflicts, AGENTS.md wins.
+Use [AGENTS.md](./AGENTS.md) as the source of truth for this repository.

@@ -1,33 +1,6 @@
-# Home Assistant Add-on: Media Library
+# Media Library Add-on Documentation
 
-Track your games, movies, and TV series with a beautiful web interface directly in your Home Assistant!
-
-## About
-
-Media Library is a fullstack application for managing your media backlog across games, movies, and TV series. It features:
-
-- **Game Tracking**: Integration with HowLongToBeat for playtime estimates
-- **Movie & Series Tracking**: TMDB integration for metadata and streaming providers
-- **Status Management**: Wishlist, Backlog, Started, Watching, Paused, Finished, Dropped
-- **Play Next Queue**: Up to 6 entries for your next picks
-- **Fuzzy Search**: Quick filtering by title, platform, genre
-- **Episode Tracking**: Per-episode progress for TV series
-- **Responsive Design**: Works great on desktop and mobile
-
-## Installation
-
-1. Add this repository to your Home Assistant Add-on Store:
-   ```
-   https://github.com/NikolausStoll/media-library
-   ```
-
-2. Install the "Media Library" add-on
-
-3. Configure the add-on (see Configuration section)
-
-4. Start the add-on
-
-5. Access the web interface via the "Open Web UI" button
+This page documents the Home Assistant add-on runtime configuration. The add-on runs the prebuilt `ghcr.io/nikolausstoll/media-library` image and serves the app through Home Assistant Ingress.
 
 ## Configuration
 
@@ -36,50 +9,109 @@ port: 8099
 db_path: /data/backend.db
 static_dir: /app/public
 TMDB_API_KEY: ""
+AI_API_KEY: ""
+AI_MODEL: "gpt-4o-mini"
 ```
 
-### Option: `port`
+### `port`
 
-The port on which the Media Library web interface will listen inside the container. Supervisor always forwards the Ingress port (8099) no matter which port you choose.
+Internal HTTP port used by the Node/Express backend.
 
-**Default**: `8099`
+Default: `8099`
 
-### Option: `db_path`
+Home Assistant Ingress is configured for port `8099`. Keep the default unless you also know how your direct port mapping should behave.
 
-Where to store the SQLite database inside the container. This path is mounted from `/data/backend.db` on Home Assistant so your library persists across restarts.
+### `db_path`
 
-**Default**: `/data/backend.db`
+SQLite database path inside the add-on container.
 
-### Option: `static_dir`
+Default: `/data/backend.db`
 
-Directory that the backend uses to serve the built frontend. Do not change unless you build the frontend yourself in a different location.
+The `/data` location is the persistent add-on data area. Keeping the default preserves the library across add-on restarts and upgrades.
 
-**Default**: `/app/public`
+### `static_dir`
 
-### Option: `TMDB_API_KEY`
+Directory containing the built frontend served by Express.
 
-Password field used to fetch metadata, including runtime, streaming providers, and episode data for movies and series. Leave it empty if you want to skip TMDB lookups; the add-on still works for games.
+Default: `/app/public`
 
-### Option: `AI_API_KEY`
+The prebuilt image places the Vite build here. Change this only for a custom image/layout.
 
-Password field that enables the AI recommendation assistant. When left empty, the backend falls back to library-based suggestions without contacting OpenAI.
+### `TMDB_API_KEY`
 
-## Usage
+Optional password field for TMDB metadata.
 
-After starting the add-on, click on "Open Web UI" to access the Media Library interface.
+When configured, movies and series can fetch covers, DE/EN titles, German certifications, German streaming providers, genres, runtimes, videos, release dates, and episode lists. Without it, the add-on still starts, but movie/series metadata lookups can fail or remain incomplete.
 
-### Getting Started
+### `AI_API_KEY`
 
-1. **Add Media**: Click the "+" button to add games, movies, or series
-2. **Track Progress**: Update status, playtime, or episode progress
-3. **Organize**: Use the Play Next queue to plan what to play/watch next
-4. **Search & Filter**: Use the search bar and filters to find your media
+Optional password field for AI recommendations.
 
-## Database
+When empty, the app remains fully usable and the recommendation endpoint returns a deterministic fallback from the local library context.
 
-The database is stored in `/data/backend.db`; this folder is mounted to `/config/media-library/data` on Home Assistant to keep your library safe.
+### `AI_MODEL`
 
-## Support
+Model name passed to the OpenAI SDK for recommendation requests.
 
-For issues or feature requests, please visit:
-https://github.com/NikolausStoll/media-library/issues
+Default: `gpt-4o-mini`
+
+Current implementation note: `config.yaml` exposes this option, and the backend honors `process.env.AI_MODEL`, but `docker/entrypoint.js` does not yet read `AI_MODEL` from `/data/options.json`. In the stock add-on, recommendations therefore use the backend default unless the environment variable is supplied by a custom runtime.
+
+## Runtime Behavior
+
+- The add-on reads Home Assistant options from `/data/options.json` in `docker/entrypoint.js`.
+- The entrypoint exports `PORT`, `DB_PATH`, `STATIC_DIR`, `TMDB_API_KEY`, and `AI_API_KEY` before starting `node backend/src/index.js`.
+- The backend serves all API routes under `/api`.
+- The frontend uses relative `/api` calls, so no browser-side API URL needs to be configured.
+- Static assets are served from `static_dir` when `index.html` exists there.
+- The SQLite database is created automatically if it does not exist.
+- `TMDB_API_KEY` is optional at startup; the backend logs a warning when it is missing.
+
+## Persistent Data
+
+The important persistent file is:
+
+```text
+/data/backend.db
+```
+
+This database stores library items, statuses, ratings, completion dates, providers, platforms, formats, Next queues, episode progress, and metadata caches.
+
+## Metadata Caches
+
+- HowLongToBeat game data is cached in SQLite.
+- TMDB movie/series metadata uses a 7 day default TTL.
+- TMDB episode details are cached separately for 30 days.
+- Google Books/Open Library metadata is cached in SQLite.
+- Item overlays and the admin page can clear relevant caches.
+
+## Admin Page
+
+The backend exposes the admin dashboard at:
+
+```text
+/api/admin
+```
+
+Available admin functions include JSON export/import of user-owned library data, bulk game import by external IDs, and cache clearing.
+
+Import replaces existing user-owned library rows and clears rebuildable metadata caches. Create a backup before importing.
+
+## Direct Port
+
+The add-on exposes:
+
+```yaml
+8099/tcp: 8099
+```
+
+Ingress is the normal access path. Direct port access is available when Home Assistant exposes the mapped port.
+
+## Image And Repository
+
+- Add-on slug: `media-library`
+- Add-on image: `ghcr.io/nikolausstoll/media-library`
+- Repository manifest: root `repository.yaml`
+- Add-on metadata: `media-library/config.yaml`
+
+If the image is private, Home Assistant needs GitHub Container Registry credentials with permission to pull it.

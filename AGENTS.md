@@ -1,519 +1,482 @@
-# AGENTS.md - Project Context for AI Assistants
+# AGENTS.md - Media Library Working Notes
 
-## Project Overview
+This is the source of truth for AI assistants working in this repository. Keep it technical, current, and specific to implementation work. `CLAUDE.md` intentionally only points here.
 
-**media-library** - A fullstack web application to manage a personal media library (Games, Movies, Series).
-Built with Vue 3 (Composition API) + Vite on the frontend, and an Express.js backend on Node.js with SQLite.
-Phase 5 adds full Episode Tracking for Series (per-episode + season bulk toggle).
+## Project Snapshot
 
----
+`media-library` is a fullstack personal media library for games, books, movies, and TV series.
 
-## Tech Stack
+- Frontend: Vue 3, Composition API, Vite, plain CSS, no Pinia/Vuex.
+- Backend: Node.js, Express, SQLite via `better-sqlite3`.
+- API base: relative `/api` paths only.
+- Local dev frontend: Vite on `localhost:5173`.
+- Local dev backend: `npm run dev:backend`, should use `PORT=8098` because `vite.config.js` proxies `/api` to `http://localhost:8098`.
+- Container/Home Assistant backend: defaults to `PORT=8099`, `DB_PATH=/data/backend.db`, `STATIC_DIR=/app/public`.
+- Current package/add-on version: `1.10.1`.
 
-### Frontend
-- **Framework:** Vue 3 with `<script setup>` (Composition API)
-- **Build Tool:** Vite + PWA Plugin
-- **Language:** JavaScript (.vue, .js)
-- **Drag & Drop:** `vue-draggable` (vuedraggable) - Games only
-- **Styling:** Plain CSS (dark mode default)
-- **State:** Local `ref()` / `computed()` - no Pinia/Vuex
+## High-Level Features
 
-- **Runtime:** Node.js with Express.js
-- **Database:** SQLite via `better-sqlite3`
-- **API Base:** Relative `/api` paths (no client-side URL overrides)
-- **Port:** Frontend `npm run dev` (Vite) opens on `localhost:5173`; backend Express listens on `PORT` (default `3000`). Production/dev containers (HA/add-on or `run-local.sh`) forward `8099` via the same `PORT` + `STATIC_DIR` wiring.
-- **External APIs:** TMDB (movies/series metadata, DE/EN, providers), HLTB (game playtimes)
-- **Cache TTL:** TMDB metadata: 7 days | Episode details: 30 days | HLTB: 7 days
+- Games: HowLongToBeat metadata, platforms, storefronts, tags, playtime buckets, ratings, DLC/game type, EU release date, manual Started ordering.
+- Books: Google Books metadata, Open Library rating fields, formats, covers, authors, page counts, series info, barcode scanner.
+- Movies: TMDB metadata, DE/EN data handling, German release/certification/provider data, videos/trailers, watchlist queue.
+- Series: TMDB metadata plus episode list cache, per-episode watched progress, progress summary, season bulk toggles.
+- Shared: separate Next queues per media type, user ratings, completion dates, `lastTouched`, search/filter/sort, grid/list/density settings, dark mode.
+- AI assistant: available for games, movies, and series; supports `whats-next` and `new-recommendation`; falls back locally when `AI_API_KEY` is missing.
+- Admin page: JSON export/import of user-owned library state, HLTB/TMDB cache clearing, bulk game import.
 
-### Testing
-- **Test Runner:** Vitest
-- **Component Testing:** `@vue/test-utils` + JSDOM
-- **Setup File:** `tests/setup.ts`
-- **Config:** `vitest.config.ts`
+## Important Commands
 
----
-
-## Project Structure
-
+```bash
+npm install
+npm run dev              # frontend + backend via concurrently
+npm run dev:frontend     # Vite only, port 5173
+npm run dev:backend      # Express only, use PORT=8098 in .env for Vite proxy
+npm run build            # Vite production build to dist/
+npm start                # Express backend, serves STATIC_DIR when present
+npm test                 # Vitest watch mode
+npm test -- --run        # Vitest single run
+npm run test:ui          # Vitest UI
 ```
+
+Backend-only script:
+
+```bash
+cd backend
+npm start
+npm run dev
+npm test                 # node ./tests/ai.test.js, not Vitest
+```
+
+Docker:
+
+```bash
+docker build -t media-library .
+docker run -p 8099:8099 --env-file .env -v "$(pwd)/data:/data" media-library
+./run-local.sh
+```
+
+## Environment
+
+Frontend has no build-time API URL configuration. It calls `/api`.
+
+Root `.env.example` currently shows:
+
+```env
+PORT=3000
+FRONTEND_URL=http://localhost:5173
+TMDB_API_KEY=MY_TMDB_API_KEY
+AI_API_KEY=MY_OPEN_AI_API_KEY
+AI_MODEL=gpt-4o-mini
+DB_PATH=backend.db
+STATIC_DIR=/app/public
+```
+
+For local Vite development, set:
+
+```env
+PORT=8098
+STATIC_DIR=dist
+```
+
+because `vite.config.js` proxies `/api` to `localhost:8098`.
+
+Container defaults are set in `Dockerfile`:
+
+```env
+PORT=8099
+DB_PATH=/data/backend.db
+STATIC_DIR=/app/public
+NODE_ENV=production
+```
+
+Home Assistant options are read from `/data/options.json` by `docker/entrypoint.js`, not by a `run.sh` script. `config.yaml` exposes `AI_MODEL`, and the backend honors `process.env.AI_MODEL`, but the current entrypoint does not read/export the `AI_MODEL` option from `/data/options.json`.
+
+## Repository Structure
+
+```text
 /
 ├── src/
-│   ├── App.vue                         # Main tab navigation (Games / Movies / Series)
-│   ├── main.js
-│   ├── style.css
+│   ├── App.vue
 │   ├── components/
 │   │   ├── GameList.vue
+│   │   ├── BookList.vue
 │   │   ├── MovieList.vue
 │   │   ├── SeriesList.vue
+│   │   ├── books/
 │   │   ├── games/
-│   │   │   ├── GameCard.vue
-│   │   │   ├── GameFilters.vue
-│   │   │   ├── GameSearchOverlay.vue
-│   │   │   └── StatusOverlay.vue
 │   │   └── shared/
-│   │       └── MediaCard.vue
 │   ├── services/
-│   │   ├── gameStorage.js              # Game API + HLTB helpers
-│   │   └── mediaStorage.js             # Movies + Series + Episodes
-│   ├── assets/
-│   │   └── global.css
-│   └── data/
-│       └── platformLogos.js
+│   │   ├── gameStorage.js
+│   │   ├── bookStorage.js
+│   │   └── mediaStorage.js
+│   └── utils/
+├── backend/src/
+│   ├── db/library.js
+│   ├── routes/
+│   │   ├── games.js
+│   │   ├── books.js
+│   │   ├── movies.js
+│   │   ├── series.js
+│   │   ├── hltb.js
+│   │   ├── googlebooks.js
+│   │   ├── tmdb.js
+│   │   ├── next.js
+│   │   ├── sortOrder.js
+│   │   ├── ai.js
+│   │   └── admin.js
+│   └── services/
 ├── public/
-│   ├── streamingProviders/
-│   ├── platforms/
-│   └── storefronts/
 ├── tests/
-│   ├── helpers.ts
-│   ├── GameList.render.test.ts
-│   ├── Filters.test.ts
-│   ├── GameBadges.test.ts
-│   ├── GameList.drag.test.ts
-│   ├── Overlay.test.ts
-│   ├── backend.mock.test.ts
-│   └── setup.ts
-├── backend/
-│   ├── package.json
-│   └── src/
-│       ├── index.js
-│       ├── config/
-│       │   └── providers.js
-│       ├── db/
-│       │   └── library.js
-│       ├── services/
-│       │   ├── tmdbService.js
-│       │   ├── tmdbCache.js
-│       │   ├── hltbService.js
-│       │   └── hltbCache.js
-│       └── routes/
-│           ├── games.js
-│           ├── movies.js
-│           ├── series.js
-│           ├── hltb.js
-│           ├── tmdb.js
-│           ├── next.js
-│           ├── sortOrder.js
-│           └── admin.js
-├── docker/
-│   └── entrypoint.js
-├── media-library/                      # Everything needed for HA add-on
+├── docker/entrypoint.js
+├── media-library/
 │   ├── config.yaml
-│   ├── run.sh
-│   └── README.md                       # HA add-on docs
-├── data/
-├── dist/                               # Built SPA
-├── README.md
-├── AGENTS.md
-├── CLAUDE.md
-├── package.json
-├── package-lock.json
+│   ├── README.md
+│   ├── DOCS.md
+│   └── icon.png
 ├── Dockerfile
 ├── repository.yaml
 └── run-local.sh
 ```
 
----
+## Database Schema Notes
 
-## Database Schema (`backend/src/db/library.js`)
+Defined in `backend/src/db/library.js`. SQLite creates/migrates tables at startup.
+
+### Games
 
 ```sql
--- GAMES
-games(id, externalId, status, userRating)
-  status: 'backlog' | 'wishlist' | 'started' | 'completed' | 'dropped' | 'shelved'
-  -- dropped is stored as 'retired' inside the database, but the API surfaces 'dropped'
+games(id, externalId, status, userRating, completedAt, lastTouched)
+  status CHECK: backlog, wishlist, started, completed, retired, shelved
+
 gameplatforms(id, gameId, platform, storefront)
-  platform: 'pc' | 'xbox' | 'switch' | '3ds'
-  storefront: 'steam' | 'epic' | 'gog' | 'battlenet' | 'uplay' | 'ea' | 'xbox'
-gametags(id, gameId, tag)  -- UNIQUE(gameId, tag)
-sortorder(id, gameId, position)  -- for drag & drop
+  platform CHECK: pc, xbox, switch, 3ds
+  storefront CHECK: steam, epic, gog, battlenet, uplay, ea, xbox
 
--- MOVIES
-movies(id, externalId, status, userRating)
-  status: 'watchlist' | 'watching' | 'finished'
-
--- SERIES
-series(id, externalId, status, userRating)
-  status: 'watchlist' | 'watching' | 'finished' | 'dropped' | 'paused'
-
--- SHARED
-mediaproviders(id, mediaId, mediaType, provider)  -- UNIQUE(mediaId, mediaType, provider)
-  mediaType: 'movie' | 'series'
-
--- NEXT QUEUE
-next(id, mediaId, mediaType)  -- UNIQUE(mediaId, mediaType)
-  mediaType: 'game' | 'movie' | 'series'
-
--- EPISODE TRACKING (Phase 5)
-episodeprogress(id, seriesId, season, episode, watchedAt)
-  -- UNIQUE(seriesId, season, episode), CASCADE delete on series
-
--- CACHE TABLES
-hltbcache(id, name, imageUrl, gameplayMain, gameplayExtra, gameplayComplete, gameplayAll,
-          rating, dlcs, updatedAt)
-
-tmdbcache(id, mediaType, titleEn, titleDe, imageUrl, year, certification, rating,
-          runtime, seasons, episodes, genres, streamingProviders, linkUrl, originalLang, updatedAt)
-
-tmdbcacheepisodes(seriesId, season, episode, titleEn, airDate, runtime, updatedAt)
-  -- PRIMARY KEY(seriesId, season, episode) | TTL: 30 days
+gametags(id, gameId, tag)
+sortorder(id, gameId, position)
+hltbcache(id, name, imageUrl, gameplayMain, gameplayExtra, gameplayComplete,
+          gameplayAll, rating, dlcs, gameType, releaseDateEu, updatedAt)
 ```
 
----
+Game API status `dropped` maps to DB status `retired`.
+
+### Books
+
+```sql
+books(id, externalId, status, userRating, completedAt, lastTouched)
+  status CHECK: wishlist, backlog, started, completed, shelved
+
+bookformats(id, bookId, format)
+  format CHECK: hardcover, kindle
+
+googlebookscache(id, title, authors, description, imageUrl, pageCount,
+                 publishedDate, categories, rating, ratingsCount,
+                 olRating, olRatingsCount, seriesName, seriesPosition,
+                 publisher, isbn, language, linkUrl, updatedAt)
+```
+
+### Movies And Series
+
+```sql
+movies(id, externalId, status, userRating, completedAt, lastTouched)
+  status CHECK: watchlist, watching, finished
+
+series(id, externalId, status, userRating, completedAt, lastTouched)
+  status CHECK: watchlist, watching, finished, dropped, paused
+
+mediaproviders(id, mediaId, mediaType, provider)
+  mediaType CHECK: movie, series
+
+tmdbcache(id, mediaType, titleEn, titleDe, imageUrl, year, certification,
+          rating, runtime, seasons, episodes, genres, streamingProviders,
+          linkUrl, releaseDateDe, originalLang, updatedAt, videos, ttlMs)
+
+tmdbcacheepisodes(seriesId, season, episode, titleEn, airDate, runtime, updatedAt)
+episodeprogress(id, seriesId, season, episode, watchedAt, lastTouched)
+```
+
+### Shared
+
+```sql
+next(id, mediaId, mediaType)
+  mediaType CHECK: game, movie, series, book
+  UNIQUE(mediaId, mediaType)
+```
 
 ## API Endpoints
 
-### Games (`/api/games`)
-```
-GET    /api/games                     -> load all games (w/ platforms, tags, HLTB data)
-GET    /api/games/:id                 -> single game
-POST   /api/games                     -> { externalId, status, platforms[] }
-PUT    /api/games/:id                 -> { status?, userRating? }
-PUT    /api/games/:id/platforms       -> replace platform list
-PUT    /api/games/:id/tags            -> replace tags (`['physical','100%']`)
+### Games: `/api/games`
+
+```text
+GET    /api/games
+GET    /api/games/:id
+POST   /api/games                    { externalId, status, platforms[] }
+PUT    /api/games/:id                { status?, userRating?, completedAt? }
+PUT    /api/games/:id/platforms      { platforms[] }
+PUT    /api/games/:id/tags           { tags[] }
+DELETE /api/games/:id/cache
 DELETE /api/games/:id
-DELETE /api/games/:id/cache           -> drop cached HLTB entry
-```
-- `status` must be one of `backlog`, `wishlist`, `started`, `completed`, `dropped`, `shelved`.
-- Tags are limited to the curated set `['physical','100%']`.
-
-### Sort Order (`/api/sort-order`)
-```
-GET    /api/sort-order               -> load drag order
-PUT    /api/sort-order               -> persist ordered list
 ```
 
-### HLTB (`/api/hltb`)
-```
-GET    /api/hltb/search?q=...         -> HowLongToBeat search + cache
-GET    /api/hltb/:id                   -> cached/detail data for a specific HLTB entry
-DELETE /api/hltb/cache/:id            -> clear HLTB cache for this ID
+- Valid API statuses: `backlog`, `wishlist`, `started`, `completed`, `dropped`, `shelved`.
+- Valid tags: `physical`, `100%`.
+- `completedAt` must be `YYYY-MM-DD`, `null`, `""`, or omitted.
+
+### Books: `/api/books`
+
+```text
+GET    /api/books
+GET    /api/books/:id
+POST   /api/books                    { externalId, status, formats[] }
+PUT    /api/books/:id                { externalId?, status?, userRating?, completedAt? }
+PUT    /api/books/:id/formats        { formats[] }
+DELETE /api/books/:id/cache
+DELETE /api/books/:id
 ```
 
-### Movies (`/api/movies`)
-```
+- Valid statuses: `wishlist`, `backlog`, `started`, `completed`, `shelved`.
+- Valid formats: `hardcover`, `kindle`.
+
+### Movies: `/api/movies`
+
+```text
 GET    /api/movies
-GET    /api/movies/:id
-POST   /api/movies                    -> { externalId, status, providers[] }
-PUT    /api/movies/:id                -> { status?, userRating? }
-PUT    /api/movies/:id/providers      -> replace providers
-DELETE /api/movies/:id/cache          -> purge cached TMDB data
+POST   /api/movies                   { externalId, status, providers[] }
+PUT    /api/movies/:id               { status?, userRating?, completedAt? }
+PUT    /api/movies/:id/providers     body is providers array
+DELETE /api/movies/:id/cache
 DELETE /api/movies/:id
 ```
+
 - Valid statuses: `watchlist`, `watching`, `finished`.
 
-### Series (`/api/series`) + Episode Tracking (Phase 5)
-```
+### Series: `/api/series`
+
+```text
 GET    /api/series
-GET    /api/series/:id
-POST   /api/series                          -> { externalId, status, providers[] }
-PUT    /api/series/:id                      -> { status?, userRating? }
-PUT    /api/series/:id/providers            -> replace providers
-DELETE /api/series/:id/cache                -> drop cached TMDB data
+GET    /api/series/progress-summary
+POST   /api/series                   { externalId, status, providers[] }
+PUT    /api/series/:id               { status?, userRating?, completedAt? }
+PUT    /api/series/:id/providers     body is providers array
+DELETE /api/series/:id/cache
 DELETE /api/series/:id
-GET    /api/series/progress-summary         -> watched counts used for cards
 
--- Episode Tracking (NEW)
-GET    /api/series/:id/episodes             -> all episodes (cached from TMDB, EN titles)
-GET    /api/series/:id/progress             -> [{ season, episode, watchedAt }]
-POST   /api/series/:id/progress/toggle      -> { season, episode } -> toggle watched
-PUT    /api/series/:id/progress/season/:s   -> { episodes[], watched } -> bulk season toggle
-DELETE /api/series/:id/cache                -> purge episode cache for this series
+GET    /api/series/:id/episodes
+GET    /api/series/:id/progress
+POST   /api/series/:id/progress/toggle       { season, episode }
+PUT    /api/series/:id/progress/season/:s    { episodes[], watched }
 ```
+
 - Valid statuses: `watchlist`, `watching`, `paused`, `finished`, `dropped`.
+- Route order matters in `series.js`: `/progress-summary` must stay before generic `/:id` style routes, and episode/progress routes must not be shadowed.
 
-### Shared
-#### TMDB (`/api/tmdb`)
-```
+### Metadata
+
+```text
+GET    /api/hltb/search?q=...
+GET    /api/hltb/:id
+DELETE /api/hltb/cache/:id
+
+GET    /api/googlebooks/search?q=...
+GET    /api/googlebooks/:id
+DELETE /api/googlebooks/cache/:id
+
 GET    /api/tmdb/search?q=...&type=movie|series
-GET    /api/tmdb/:id?type=movie|series     -> cached metadata
-DELETE /api/tmdb/cache/:id?type=movie|series -> invalidate cache
+GET    /api/tmdb/:id?type=movie|series
+DELETE /api/tmdb/cache/:id?type=movie|series
 ```
 
-#### Next Queue (`/api/next`)
-```
-GET    /api/next?type=game|movie|series    -> queue entries (omit `type` for all)
-PUT    /api/next                            -> { mediaId, mediaType }[] (max 6 per type)
-DELETE /api/next/:mediaId?type=...         -> remove one entry
-```
+### Next Queue: `/api/next`
 
-#### Admin (`/api/admin`)
-```
-GET    /api/admin                         -> HTML admin dashboard
-GET    /api/admin/export                  -> download JSON backup
-POST   /api/admin/import                  -> replace DB from JSON backup
-POST   /api/admin/import-games            -> bulk import HLTB IDs (platform/storefront/status)
+```text
+GET    /api/next?type=game|movie|series|book
+PUT    /api/next                    [{ mediaId, mediaType }]
+DELETE /api/next/:mediaId?type=...
 ```
 
----
+- Valid media types: `game`, `movie`, `series`, `book`.
+- Max 6 entries per media type.
+- PUT replaces only the media types present in the submitted array.
 
-## Key Data Structures
+### Sort Order: `/api/sort-order`
 
-### Game Object
+```text
+GET    /api/sort-order
+PUT    /api/sort-order
+```
+
+Used for manual game ordering on the Started tab.
+
+### AI: `/api/ai`
+
+```text
+POST /api/ai/suggest
+```
+
+Request:
+
 ```js
 {
-  id: string,
-  externalId: string,          // HLTB ID
-  status: 'backlog' | 'wishlist' | 'started' | 'completed' | 'dropped' | 'shelved',
-  // 'dropped' rows are persisted as 'retired' in SQLite (the mapper handles conversion)
-  userRating: number | null,   // 1-10
-  platforms: [{ platform: 'pc', storefront: 'steam' }],
-  tags: ['rpg', 'metroidvania'],
-  // HLTB enriched:
-  name: string,
-  imageUrl: string | null,
-  gameplayMain/Extra/Complete/All: number | null
+  mediaType: 'game' | 'movie' | 'series',
+  mode: 'whats-next' | 'new-recommendation',
+  platformFilter?: ['pc' | 'xbox' | 'switch' | '3ds'],
+  sessionHint?: 'short' | 'long' | 'any',
+  episodeLength?: '20-30' | '45+' | 'any',
+  streamingOnly?: boolean
 }
 ```
 
-### Movie / Series Object
-```js
-{
-  id: string,
-  externalId: string,          // TMDB ID
-  status: string,
-  userRating: number | null,   // 1-10
-  providers: ['netflix'],
-  // TMDB enriched:
-  titleEn: string, titleDe: string,
-  imageUrl: string | null,
-  year: string, certification: string,
-  rating: number,              // TMDB community score
-  runtime: number,             // minutes (per episode for series)
-  genres: string[],
-  streamingProviders: [{ id, name, logo }],  // DE flatrate from TMDB
-  linkUrl: string,             // TMDB page link
-  // Series only:
-  seasonCount: number, episodeCount: number
-}
+AI currently does not support books.
+
+### Admin: `/api/admin`
+
+```text
+GET  /api/admin
+GET  /api/admin/export
+POST /api/admin/import
+POST /api/admin/import-games
+POST /api/admin/clear-hltb-cache
+POST /api/admin/clear-tmdb-cache
 ```
 
-### Episode Object (from TMDB cache)
-```js
-{ season: 1, episode: 3, titleEn: 'The Title', airDate: '2024-01-15', runtime: 22 }
-```
+Admin export/import covers user-owned library state: games, books, movies, series, Next, providers, formats, platforms, tags, sort order, completion dates, and `episodeprogress`. It intentionally excludes rebuildable caches: `hltbcache`, `tmdbcache`, `tmdbcacheepisodes`, and `googlebookscache`.
 
----
+## Frontend State And Business Rules
 
-## SeriesList.vue - Key Reactive State (Phase 5)
+### App Navigation
 
-| Ref | Type | Default | Description |
-|-----|------|---------|-------------|
-| `seriesList` | `Series[]` | `[]` | All series |
-| `nextList` | `string[]` | `[]` | IDs in Watch Next queue |
-| `overlayItem` | `Series\|null` | `null` | Currently open detail overlay |
-| `overlayTab` | `string` | `'details'` | Active overlay tab: 'details' or 'episodes' |
-| `episodeList` | `Episode[]` | `[]` | All episodes for current series |
-| `episodeProgress` | `Set<string>` | `new Set()` | Set of 'season-episode' keys e.g. '1-3' |
-| `episodesLoading` | `boolean` | `false` | Loading state for episode fetch |
-| `episodesGrouped` | `computed` | - | Episodes grouped by season |
-| `activeTab` | `string` | `'watchlist'` | Active status tab |
-| `genreFilter` | `string[]` | `[]` | Active genre chips |
-| `sortBy` | `string` | `'title'` | Sort key: title/year/rating |
+`src/App.vue` persists the selected media type in `localStorage` under `mediaType`.
 
----
+Valid UI media values:
 
-## GamesList.vue - Key Reactive State
+- `game`
+- `book`
+- `movie`
+- `series`
 
-| Ref | Type | Default | Description |
-|-----|------|---------|-------------|
-| `gameList` | `Game[]` | `[]` | All games |
-| `startedOrder` | `string[]` | `[]` | Manual drag order for started tab |
-| `playNextList` | `string[]` | `[]` | Array of game IDs in "Play Next" |
-| `activeTab` | `string` | `'started'` | Current tab |
-| `overlayGame` | `Game\|null` | `null` | Game shown in overlay |
-| `showOverlay` | `boolean` | `false` | Detail overlay visibility |
-| `deleteConfirm` | `boolean` | `false` | Delete confirmation state |
-| `showSearchOverlay` | `boolean` | `false` | HLTB search overlay |
-| `searchQuery` | `string` | `''` | Fuzzy search |
-| `platformFilter` | `string[]` | `[]` | Active platform filters |
-| `storefrontFilter` | `string[]` | `[]` | Active storefront filters |
-| `sortBy` | `string` | `'name'` | Sort: name/rating/playtime/custom |
-| `sortDirection` | `string` | `'asc'` | Sort direction |
+### Games
 
----
+Main file: `src/components/GameList.vue`.
 
-## Important Business Logic
+- Default tab: `started`.
+- Tabs: `wishlist`, `backlog`, `started`, `completed`, `all`; dropped/shelved are status options but not primary tabs.
+- Started count includes `started` plus `shelved`.
+- Backlog tab has Play Next section above normal backlog items.
+- Started tab supports drag-and-drop custom sort through `vuedraggable` and `/api/sort-order`.
+- Switching to Started with custom order uses `sortBy = 'custom'`.
+- Moving a Play Next game out of `backlog` removes it from `/api/next?type=game`.
+- Platform editor replaces the whole platform list.
+- Tag editor uses only `physical` and `100%`.
 
-### Episode Tracking (Phase 5)
-- Episodes and progress are loaded in parallel when an overlay is opened (`Promise.all`)
-- Progress is stored as a `Set<string>` with keys `'season-episode'` (e.g. `'2-5'`)
-- Season bulk toggle: if all episodes watched -> unwatch all; otherwise -> watch all
-- `episodeProgress` is always replaced with a new `Set` (not mutated) to trigger reactivity
-- Season headers are `position: sticky` to stay visible while scrolling the episode list
-- Episode cache TTL is 30 days (longer than metadata, episodes rarely change)
+### Books
 
-### Tabs & Status
-- Games tabs: `backlog`, `wishlist`, `started`, `completed`, `dropped`
-  - `started` tab count includes both `status: 'started'` AND `status: 'shelved'` games
-  - Switching to `started` tab auto-sets `sortBy = 'custom'`
-- Series tabs: `watchlist`, `watching`, `paused`, `finished`, `dropped`
-- Movies tabs: `watchlist`, `watching`, `finished`
+Main file: `src/components/BookList.vue`.
 
-### Next Queue
-- Max 6 slots per media type
-- Cross-media: Games (`/api/next?type=game`), Movies, Series tracked separately
-- Auto-remove: when status changes away from `backlog` (games) or `watchlist` (movies/series)
+- Default tab: `backlog`.
+- Tabs: `wishlist`, `backlog`, `started`, `completed`, `all`.
+- Started count includes `started` plus `shelved`.
+- Backlog tab has Read Next section above normal backlog items.
+- Formats are currently `hardcover` and `kindle`.
+- Search overlay uses Google Books. Barcode scanner is in `src/components/books/BarcodeScanner.vue`.
+- Moving a Read Next book out of `backlog` removes it from `/api/next?type=book`.
 
-### TMDB Data Strategy
-- All metadata fetched in DE + EN in parallel
-- `titleEn`: original title if not German-language content, otherwise EN translation
-- `titleDe`: always the German localized title
-- `certification` and `streamingProviders`: always from DE region
-- `genres`: always from EN response (consistent naming)
+### Movies
 
-### Drag & Drop (Games - Started Tab)
-- Only available on `started` tab
-- Uses `startedOrder: string[]` for manual sort order
-- Games not in `startedOrder` are appended at end
-- `saveSortOrder()` called after every `dragend` event
+Main file: `src/components/MovieList.vue`.
 
-### ESC Key Handling
-- SeriesList.vue: `@keydown` on root div (tabindex="-1")
-  1. If `showSearchOverlay` -> `closeSearchOverlay()`
-  2. Else if `showOverlay` -> `closeOverlay()`
-- GamesList.vue: global `keydown` on `document`
-  1. If `showSearchOverlay` -> `closeSearchOverlay()`
-  2. Else if `showOverlay` -> `showOverlay = false`
-  3. Else if `showPlatformEditor` -> `showPlatformEditor = false`
+- Default tab: `watchlist`.
+- Tabs: `watchlist`, `watching`, `finished`, `all`.
+- Watchlist tab has Watch Next section above normal watchlist items.
+- Future releases are split into a separate not-yet-released section on watchlist.
+- Provider filter uses TMDB provider IDs and local provider logos.
+- Moving a Watch Next movie out of `watchlist` removes it from `/api/next?type=movie`.
+- AI assistant is available from the sidebar.
 
----
+### Series
 
-## Development Commands
+Main file: `src/components/SeriesList.vue`.
 
-```bash
-# Frontend dev server (from root)
-npm run dev
+- Default tab: `watching`.
+- Tabs: `watchlist`, `watching`, `finished`, `dropped`, `all`.
+- Watching count includes `watching` plus `paused`.
+- Paused series are shown separately when on Watching.
+- Watchlist tab has Watch Next section above normal watchlist items.
+- Provider filter uses the same TMDB provider definitions as movies.
+- Episode overlay loads episodes and progress, then stores watched state as a `Set` of keys like `season-episode`.
+- Always replace `episodeProgress.value` with a new `Set`; do not mutate and leave it in place.
+- Season bulk toggle watches all episodes when any are unwatched, otherwise unwatches the season.
+- AI assistant is available from the sidebar.
 
-# Backend (from backend/ folder)
-cd backend
-npm run dev        # nodemon with hot reload
-npm start          # production mode
+### Completion Dates
 
-# Run tests (from root)
-npm run test
-npm run test:ui    # visual UI
+Shared component: `src/components/shared/CompletionDateEditor.vue`.
 
-# Build frontend
-npm run build
-```
+- Display format is DD.MM.YYYY.
+- API format is ISO `YYYY-MM-DD`.
+- Finished/completed items get `completedAt` automatically if missing.
+- User edits may set a date or clear it.
 
----
+## Provider Definitions
+
+Movies and series currently define these provider filter buttons:
+
+| ID | Provider | Logo |
+| --- | --- | --- |
+| 8 | Netflix | `/streamingProviders/netflix.webp` |
+| 337 | Disney | `/streamingProviders/disney.webp` |
+| 9 | Prime | `/streamingProviders/prime.webp` |
+| 30 | Wow | `/streamingProviders/wow.webp` |
+| 2 | Apple | `/streamingProviders/apple.webp` |
+| 531 | Paramount | `/streamingProviders/paramount.webp` |
+| 1899 | HBO Max | `/streamingProviders/hbomax.webp` |
+
+Add a provider by placing the logo in `public/streamingProviders/` and updating both `MovieList.vue` and `SeriesList.vue` if it should appear in both filters.
 
 ## Testing Conventions
 
-- All tests use `vi.mock()` at the top of each file for `gameStorage.js`, `games.js`, `platformLogos.js`
-- `global.fetch` is always mocked: `vi.fn().mockResolvedValue({ ok: true, json: async () => [] })`
-- Shared fixtures and `mountApp()` helper live in `tests/helpers.ts`
-- Always call `await flushPromises()` + `await nextTick()` after mount and interactions
-- `document.body.innerHTML = ''` + `vi.clearAllMocks()` in every `afterEach`
-- ESC-Key events must be dispatched on `document` directly:
-  `document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`
+- Test runner: Vitest with JSDOM.
+- Setup file: `tests/setup.ts`.
+- Shared helpers/fixtures: `tests/helpers.ts`.
+- Use `await flushPromises()` and `await nextTick()` after mounts and interactions.
+- Tests usually mock `global.fetch`.
+- Clean up with `document.body.innerHTML = ''` and `vi.clearAllMocks()` in `afterEach`.
+- Prefer CSS selectors over text queries for app-specific controls.
+- ESC behavior in older game tests dispatches on `document`; check component-specific handlers before adding new tests.
+- `vuedraggable` is tested by emitting `end` directly in JSDOM.
+- `backend/tests/ai.test.js` is Node `node:test`, not a Vitest suite.
 
-### Important Test-Specific Selectors
-- `.search-input` - Search/filter input field
-- `.add-game-input` - Input for adding games (external ID)
-- `.add-game-btn` - Button to add a game
-- `.play-next-section` - Play Next area in Backlog tab
-- `.status-btn` - Status change buttons in overlay
-- `.delete-trigger-btn` - Initial delete button in overlay
-- `.delete-confirm-btn` - Confirmation button for delete
+Useful selectors that already exist in tests:
 
-### Test Patterns
-- **Default Tab**: `activeTab = 'started'` (GamesList) / `activeTab = 'watchlist'` (SeriesList)
-- Most game tests need to explicitly switch to `'backlog'` tab to see ZELDA (status: backlog)
-- Always check `expect(element.exists()).toBe(true)` before interacting
-- Use CSS class selectors over text-based queries
+- `.search-input`
+- `.add-game-input`
+- `.add-game-btn`
+- `.play-next-section`
+- `.status-btn`
+- `.delete-trigger-btn`
+- `.delete-confirm-btn`
 
----
+## Implementation Gotchas
 
-## Environment Variables
-### Frontend
-- The SPA assumes `/api` as the base path; no extra env entries are required.
+- Do not introduce a client-side API base environment variable unless the app architecture changes; services use relative `/api`.
+- Keep Vite dev proxy target and local backend port in sync. The current target is `localhost:8098`.
+- `media-library/run.sh` no longer exists. Home Assistant/runtime option wiring is in `docker/entrypoint.js`.
+- Admin backup is not a byte-for-byte database dump. It preserves user-owned state and intentionally omits rebuildable metadata caches.
+- `POST /api/admin/import` wipes and rebuilds the imported tables. Back up before using it.
+- SQLite CHECK constraints enforce status/platform/storefront/format values.
+- `mediaproviders.streamingProviders`, `tmdbcache.genres`, `tmdbcache.videos`, and Google Books arrays are stored as JSON strings and parsed before returning API objects.
+- TMDB metadata service uses German and English data together; avoid simplifying it to one locale.
+- Series runtime may be computed from episode runtimes when TMDB series runtime is missing.
+- `AI_MODEL` defaults to `gpt-4o-mini`; `AI_API_KEY` is optional and missing keys should not break app startup.
+- The HA `AI_MODEL` option is currently not wired through `docker/entrypoint.js`; do not document it as effective in stock add-on runtime unless the entrypoint is updated.
+- `TMDB_API_KEY` is optional for startup but required for useful movie/series metadata.
+- Watch/Read/Play Next auto-removal should happen when leaving backlog/watchlist states.
+- For Vue reactivity, replace Sets/arrays when needed rather than mutating silently.
+- Preserve unrelated dirty worktree changes. At the time these docs were updated, `.github/workflows/docker-release.yml` and `.github/workflows/tag-on-config.yml` were already deleted in the worktree.
 
-### Backend (backend/.env)
-```
-PORT=3000
-TMDB_API_KEY=your_tmdb_key_here
-AI_API_KEY=your_ai_key_here
-FRONTEND_URL=http://localhost:5173
-DB_PATH=../backend.db
-STATIC_DIR=../dist
-```
-- `AI_API_KEY` aktiviert die KI-Empfehlung; lasse es leer, wenn du keine OpenAI-Verbindung möchtest.
-- `completedAt` (YYYY-MM-DD) wird beim Wechsel in Finished/Completed gesetzt und bleibt erhalten.
-- `lastTouched` wird bei jeder Änderung aktualisiert (Ratings, Status, Tags, Provider) – auch `episodeprogress` speichert einen Stempel.
-- `DB_PATH` points to the SQLite file (default `../backend.db`, containerized installs persist at `/data/backend.db`).
-- `STATIC_DIR` is where the built SPA lives (`dist/` by default, the add-on/container serves it from `/app/public` via this path).
+## Documentation Boundaries
 
----
-
-## Deployment Notes
-- `run-local.sh` builds `media-library` via Docker, then runs it on `:8099` with volumes `./data:/data` and environment from `.env` (`PORT`, `TMDB_API_KEY`, `DB_PATH`, `STATIC_DIR`, ...). The script enforces `--env-file .env` for consistency with HA add-on values.
-- The Home Assistant add-on (`media-library/`) exports `/app/public` as `STATIC_DIR`, `/data/backend.db` as persistent storage and requires `INGRESS=8099` plus credentials (GitHub PAT for `ghcr.io` and `TMDB_API_KEY` secret); `media-library/run.sh` simply exports the option values and execs `node backend/src/index.js`.
-
----
-
-## Service Responsibilities
-- `src/services/gameStorage.js`: central hub for game CRUD, sort-order, Next queue, HLTB cache invalidation, and platform/tag updates.
-- `src/services/mediaStorage.js`: orchestrates movies/series CRUD, provider updates, episode/season progress endpoints, and TMDB search helper calls.
-- `backend/src/services/hltbService.js` + `hltbCache.js`: fetch/form a cache of HowLongToBeat metadata (name, runtimes, dlc) used to enrich `games`.
-- `backend/src/services/tmdbService.js`, `tmdbCache.js`: fetches TMDB metadata (DE/EN) plus episode lists, caching both TMDB responses and per-season episode data (30d TTL).
-
----
-## Known Patterns & Gotchas
-
-- `vue-draggable` is mocked implicitly via JSDOM - emit `'end'` directly to test drag callbacks
-- `getPlatformLogo` always returns `null` in tests (mocked)
-- `addGame(externalId, status, platforms)` - 3 parameters
-- After `deleteGame`, remove from `gameList` locally (no full reload)
-- After `updateGame` (status change), `showOverlay = false` and `overlayGame = null`
-- Episode progress `Set` must be replaced (not mutated) to trigger Vue reactivity:
-  `episodeProgress.value = new Set(episodeProgress.value)`
-- Route order in `series.js` matters: specific routes (`/progress/toggle`, `/progress/season/:s`)
-  must come BEFORE generic `/:id/progress` to avoid Express mismatching `:id = 'progress'`
-- TMDB `streamingProviders` and `genres` are stored as JSON strings in SQLite,
-  parsed to arrays in the aggregation function before sending to frontend
-- `POST /api/admin/import` wipes and rebuilds every table, so back up before hitting the endpoint.
-- `POST /api/admin/import-games` validates `status`, `platform`, and PC `storefront` values (`VALID_GAME_STATUSES`, `VALID_GAME_PLATFORMS`, `VALID_PC_STOREFRONTS`) and reports inserted/skipped IDs.
-
----
-
-## Provider Definitions
-- `src/components/SeriesList.vue` maps TMDB provider IDs to logos in `public/streamingProviders/*.webp`.
-  - `8` – Netflix (`netflix.webp`)
-  - `337` – Disney (`disney.webp`)
-  - `9` – Prime (`prime.webp`)
-  - `30` – Wow (`wow.webp`)
-  - `2` – Apple (`apple.webp`)
-  - `531` – Paramount (`paramount.webp`)
-- Add new providers by dropping a `.webp` into `public/streamingProviders/` and referencing the same numeric ID in `SeriesList.vue` for filtering.
-
----
-
-## Cursor Cloud specific instructions
-
-### Services overview
-
-| Service | Start command | Port | Notes |
-|---------|--------------|------|-------|
-| Frontend (Vite) | `npm run dev:frontend` (from root) | 5173 | Proxies `/api` to backend |
-| Backend (Express) | `npm run dev:backend` (from root) | 8098 | SQLite auto-creates on first run |
-| Both together | `npm run dev` (from root) | 5173 + 8098 | Uses `concurrently` |
-
-### Port configuration gotcha
-
-The Vite dev server proxy in `vite.config.js` targets `http://localhost:8098`, but `.env.example` defaults to `PORT=3000`. The `.env` file (at workspace root) **must** set `PORT=8098` for the proxy to work. The `.env` is loaded by `dotenv/config` from the CWD where `nodemon` runs (the workspace root), not from `backend/`.
-
-### Running tests
-
-- `npm test -- --run` from the root runs all 50 Vitest frontend tests (single pass).
-- `backend/tests/ai.test.js` uses Node's built-in `node:test` and is incompatible with Vitest; its failure in the Vitest run is expected and harmless. Run it separately with `node --test backend/tests/ai.test.js` if needed.
-
-### Building
-
-- `npm run build` produces `dist/` (Vite SPA build). No lint command is separately configured; the build step is the primary check.
-
-### External APIs
-
-- `TMDB_API_KEY` is optional for local dev; the backend warns but does not crash. Movie/series metadata will be missing without it.
-- `AI_API_KEY` is optional; enables the AI recommendation feature.
+- Root `README.md`: user-facing features, business logic, local repo usage, Docker, tests, API overview.
+- `media-library/README.md`: Home Assistant add-on page, feature-focused only.
+- `media-library/DOCS.md`: Home Assistant technical configuration/runtime details only; no local deployment instructions.
+- `CLAUDE.md`: pointer to this file only.
+- `AGENTS.md`: detailed assistant operating context, schemas, endpoints, gotchas, and test notes.

@@ -1,13 +1,26 @@
-## Media Library (prebuilt) Home Assistant Add-on
+# Home Assistant Add-on: Media Library
 
-1. Add this repository under **Supervisor › Add-on Store › Repositories** (URL: `https://github.com/NikolausStoll/media-library`).
-2. Install **Media Library** (the entry with `media-library` slug).
-3. Configure options (port, database path, static directory) if you need custom paths.
-4. Start the add-on and open it via the Ingress button (`OPEN WEB UI`).
+Media Library brings a personal games, books, movies, and series backlog directly into Home Assistant.
 
-### Notes
+## Features
 
-- `repository.yaml` at the repo root is the manifest that Supervisor reads; it points at this `config.yaml`.
-- The add-on uses a prebuilt Docker image, so HA only needs to pull and run the container (no build on HA). Provide GHCR credentials (GitHub user + PAT with `read:packages`) so Supervisor can download `ghcr.io/nikolausstoll/media-library:latest`.
-- Data is persisted in `/data/backend.db`, so mount a volume to keep your library between restarts.
-- `run.sh` exports the configured `port`, `db_path`, `static_dir`, `TMDB_API_KEY`, and optionally `AI_API_KEY` to the environment before launching `node backend/src/index.js`. Leave the keys blank if you want to skip the respective integrations.
+- Track games, books, movies, and TV series from one responsive web interface.
+- Organize every media type by meaningful statuses like wishlist, backlog/watchlist, started/watching, paused/shelved, finished/completed, and dropped.
+- Keep separate Play Next, Read Next, and Watch Next queues with up to 6 planned items per media type.
+- Enrich games with HowLongToBeat covers, ratings, playtime estimates, DLC/game type information, and release dates.
+- Enrich books with Google Books/Open Library metadata, covers, authors, page counts, ratings, series info, and format tracking.
+- Add books via search or barcode scanning.
+- Enrich movies and series with TMDB covers, genres, runtimes, certifications, release dates, trailers, and German streaming-provider availability.
+- Track TV progress episode by episode, including season-level bulk watched/unwatched controls.
+- Filter and sort by title, rating, year, playtime, pages, platform, storefront, format, genre, provider, and unrated items.
+- Switch between grid/list layouts, density options, mobile-friendly swipe navigation, and dark mode.
+- Edit ratings, completion dates, platforms, formats, tags, and providers from item overlays.
+- Use optional AI recommendations for games, movies, and series. When no AI key is configured, the app still works with local fallback suggestions.
+- Use the built-in admin page to export/import user-owned library data, bulk-import games, and clear metadata caches.
+
+## External Metadata
+
+- Games: HowLongToBeat
+- Books: Google Books plus Open Library rating data
+- Movies and series: TMDB, including German streaming-provider data
+- Optional recommendations: OpenAI API key through the configured OpenAI SDK

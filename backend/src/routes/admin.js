@@ -7,6 +7,8 @@ const VALID_PC_STOREFRONTS = ['steam', 'epic', 'gog', 'battlenet', 'uplay', 'ea'
 
 const router = Router()
 
+const withDefaults = (row, defaults) => ({ ...defaults, ...row })
+
 // ─── EXPORT ───────────────────────────────────────────────────────────────────
 router.get('/export', (req, res) => {
   try {
@@ -23,13 +25,10 @@ router.get('/export', (req, res) => {
       movies:         db.prepare('SELECT * FROM movies').all(),
       series:         db.prepare('SELECT * FROM series').all(),
       mediaproviders: db.prepare('SELECT * FROM mediaproviders').all(),
+      episodeprogress: db.prepare('SELECT * FROM episodeprogress').all(),
       // Books
       books:          db.prepare('SELECT * FROM books').all(),
       bookformats:    db.prepare('SELECT * FROM bookformats').all(),
-      // Caches
-      hltbcache:      db.prepare('SELECT * FROM hltbcache').all(),
-      tmdbcache:      db.prepare('SELECT * FROM tmdbcache').all(),
-      googlebookscache: db.prepare('SELECT * FROM googlebookscache').all(),
     }
     res.setHeader('Content-Type', 'application/json')
     res.setHeader('Content-Disposition', `attachment; filename="medialibrary-backup-${Date.now()}.json"`)
@@ -50,23 +49,29 @@ router.post('/import', (req, res) => {
       db.prepare('DELETE FROM sortorder').run()
       db.prepare('DELETE FROM gametags').run()
       db.prepare('DELETE FROM gameplatforms').run()
-      db.prepare('DELETE FROM games').run()
+      db.prepare('DELETE FROM episodeprogress').run()
       db.prepare('DELETE FROM mediaproviders').run()
+      db.prepare('DELETE FROM games').run()
       db.prepare('DELETE FROM movies').run()
       db.prepare('DELETE FROM series').run()
       db.prepare('DELETE FROM bookformats').run()
       db.prepare('DELETE FROM books').run()
       db.prepare('DELETE FROM hltbcache').run()
       db.prepare('DELETE FROM tmdbcache').run()
+      db.prepare('DELETE FROM tmdbcacheepisodes').run()
       db.prepare('DELETE FROM googlebookscache').run()
 
       // Games
-      const insertGame = db.prepare('INSERT INTO games (id, externalId, status, userRating) VALUES (@id, @externalId, @status, @userRating)')
-      for (const g of data.games ?? []) insertGame.run(g)
+      const insertGame = db.prepare('INSERT INTO games (id, externalId, status, userRating, completedAt, lastTouched) VALUES (@id, @externalId, @status, @userRating, @completedAt, @lastTouched)')
+      for (const g of data.games ?? []) {
+        insertGame.run(withDefaults(g, { userRating: null, completedAt: null, lastTouched: null }))
+      }
 
       // Game Platforms
       const insertPlatform = db.prepare('INSERT INTO gameplatforms (id, gameId, platform, storefront) VALUES (@id, @gameId, @platform, @storefront)')
-      for (const p of data.gameplatforms ?? []) insertPlatform.run(p)
+      for (const p of data.gameplatforms ?? []) {
+        insertPlatform.run(withDefaults(p, { storefront: null }))
+      }
 
       // Game Tags
       const insertTag = db.prepare('INSERT INTO gametags (id, gameId, tag) VALUES (@id, @gameId, @tag)')
@@ -76,69 +81,44 @@ router.post('/import', (req, res) => {
       const insertSort = db.prepare('INSERT INTO sortorder (id, gameId, position) VALUES (@id, @gameId, @position)')
       for (const s of data.sortorder ?? []) insertSort.run(s)
 
-      // Next (game + movie + series)
-      const insertNext = db.prepare('INSERT INTO next (id, mediaId, mediaType) VALUES (@id, @mediaId, @mediaType)')
-      for (const n of data.next ?? []) insertNext.run(n)
-
       // Movies
-      const insertMovie = db.prepare('INSERT INTO movies (id, externalId, status, userRating) VALUES (@id, @externalId, @status, @userRating)')
-      for (const m of data.movies ?? []) insertMovie.run(m)
+      const insertMovie = db.prepare('INSERT INTO movies (id, externalId, status, userRating, completedAt, lastTouched) VALUES (@id, @externalId, @status, @userRating, @completedAt, @lastTouched)')
+      for (const m of data.movies ?? []) {
+        insertMovie.run(withDefaults(m, { userRating: null, completedAt: null, lastTouched: null }))
+      }
 
       // Series
-      const insertSeries = db.prepare('INSERT INTO series (id, externalId, status, userRating) VALUES (@id, @externalId, @status, @userRating)')
-      for (const s of data.series ?? []) insertSeries.run(s)
+      const insertSeries = db.prepare('INSERT INTO series (id, externalId, status, userRating, completedAt, lastTouched) VALUES (@id, @externalId, @status, @userRating, @completedAt, @lastTouched)')
+      for (const s of data.series ?? []) {
+        insertSeries.run(withDefaults(s, { userRating: null, completedAt: null, lastTouched: null }))
+      }
 
       // Media Providers
       const insertProvider = db.prepare('INSERT INTO mediaproviders (id, mediaId, mediaType, provider) VALUES (@id, @mediaId, @mediaType, @provider)')
       for (const p of data.mediaproviders ?? []) insertProvider.run(p)
 
+      // Episode Progress
+      const insertEpisodeProgress = db.prepare(`
+        INSERT INTO episodeprogress (id, seriesId, season, episode, watchedAt, lastTouched)
+        VALUES (@id, @seriesId, @season, @episode, @watchedAt, @lastTouched)
+      `)
+      for (const ep of data.episodeprogress ?? []) {
+        insertEpisodeProgress.run(withDefaults(ep, { watchedAt: null, lastTouched: null }))
+      }
+
       // Books
-      const insertBook = db.prepare('INSERT INTO books (id, externalId, status, userRating) VALUES (@id, @externalId, @status, @userRating)')
-      for (const b of data.books ?? []) insertBook.run(b)
+      const insertBook = db.prepare('INSERT INTO books (id, externalId, status, userRating, completedAt, lastTouched) VALUES (@id, @externalId, @status, @userRating, @completedAt, @lastTouched)')
+      for (const b of data.books ?? []) {
+        insertBook.run(withDefaults(b, { userRating: null, completedAt: null, lastTouched: null }))
+      }
 
       // Book Formats
       const insertBookFormat = db.prepare('INSERT INTO bookformats (id, bookId, format) VALUES (@id, @bookId, @format)')
       for (const f of data.bookformats ?? []) insertBookFormat.run(f)
 
-      // HLTB Cache
-      const insertHltb = db.prepare(`
-        INSERT INTO hltbcache (
-          id, name, imageUrl, gameplayMain, gameplayExtra, gameplayComplete, gameplayAll,
-          rating, dlcs, gameType, releaseDateEu, updatedAt
-        )
-        VALUES (
-          @id, @name, @imageUrl, @gameplayMain, @gameplayExtra, @gameplayComplete, @gameplayAll,
-          @rating, @dlcs, @gameType, @releaseDateEu, @updatedAt
-        )
-      `)
-      for (const c of data.hltbcache ?? []) {
-        insertHltb.run({
-          ...c,
-          gameType: c.gameType ?? 'game',
-          releaseDateEu: c.releaseDateEu ?? null,
-        })
-      }
-
-      // TMDB Cache
-      const insertTmdb = db.prepare(`
-        INSERT INTO tmdbcache (id, mediaType, titleEn, titleDe, imageUrl, year, certification, rating, runtime, seasons, episodes, genres, streamingProviders, linkUrl, releaseDateDe, originalLang, videos, updatedAt)
-        VALUES (@id, @mediaType, @titleEn, @titleDe, @imageUrl, @year, @certification, @rating, @runtime, @seasons, @episodes, @genres, @streamingProviders, @linkUrl, @releaseDateDe, @originalLang, @videos, @updatedAt)
-      `)
-      for (const c of data.tmdbcache ?? []) {
-        insertTmdb.run({
-          ...c,
-          releaseDateDe: c.releaseDateDe ?? null,
-          streamingProviders: c.streamingProviders ?? '[]',
-          videos: c.videos ?? '[]',
-        })
-      }
-
-      // Google Books Cache
-      const insertGBooks = db.prepare(`
-        INSERT INTO googlebookscache (id, title, authors, description, imageUrl, pageCount, publishedDate, categories, rating, ratingsCount, olRating, olRatingsCount, seriesName, seriesPosition, publisher, isbn, language, linkUrl, updatedAt)
-        VALUES (@id, @title, @authors, @description, @imageUrl, @pageCount, @publishedDate, @categories, @rating, @ratingsCount, @olRating, @olRatingsCount, @seriesName, @seriesPosition, @publisher, @isbn, @language, @linkUrl, @updatedAt)
-      `)
-      for (const c of data.googlebookscache ?? []) insertGBooks.run({ ...c, olRating: c.olRating ?? null, olRatingsCount: c.olRatingsCount ?? null })
+      // Next (game + movie + series + book)
+      const insertNext = db.prepare('INSERT INTO next (id, mediaId, mediaType) VALUES (@id, @mediaId, @mediaType)')
+      for (const n of data.next ?? []) insertNext.run(n)
     })()
 
     res.json({
@@ -152,11 +132,9 @@ router.post('/import', (req, res) => {
         movies:         data.movies?.length ?? 0,
         series:         data.series?.length ?? 0,
         mediaproviders: data.mediaproviders?.length ?? 0,
+        episodeprogress: data.episodeprogress?.length ?? 0,
         books:          data.books?.length ?? 0,
         bookformats:    data.bookformats?.length ?? 0,
-        hltbcache:      data.hltbcache?.length ?? 0,
-        tmdbcache:      data.tmdbcache?.length ?? 0,
-        googlebookscache: data.googlebookscache?.length ?? 0,
       }
     })
   } catch (err) {
@@ -305,7 +283,7 @@ router.get('/', (req, res) => {
 
   <div class="card">
     <h2>Export</h2>
-    <p>Exportiert alle Tabellen (Games, Movies, Series, Providers, Next, Caches) als JSON-Datei.</p>
+    <p>Exportiert alle selbst gepflegten Library-Daten als JSON-Datei. Caches werden nicht gesichert, da sie bei Bedarf neu geladen werden.</p>
     <button onclick="exportDb()">Backup herunterladen</button>
     <div id="exportStatus" class="status"></div>
   </div>
@@ -415,10 +393,11 @@ router.get('/', (req, res) => {
             movies:         pendingImport.movies?.length ?? 0,
             series:         pendingImport.series?.length ?? 0,
             mediaproviders: pendingImport.mediaproviders?.length ?? 0,
+            episodeprogress: pendingImport.episodeprogress?.length ?? 0,
+            books:          pendingImport.books?.length ?? 0,
+            bookformats:    pendingImport.bookformats?.length ?? 0,
             next:           pendingImport.next?.length ?? 0,
             sortorder:      pendingImport.sortorder?.length ?? 0,
-            hltbcache:      pendingImport.hltbcache?.length ?? 0,
-            tmdbcache:      pendingImport.tmdbcache?.length ?? 0,
           }
           document.getElementById('preview').textContent = JSON.stringify(preview, null, 2)
           document.getElementById('preview').style.display = 'block'
