@@ -1,5 +1,6 @@
 <!-- src/components/books/BookFilters.vue -->
 <script setup>
+import MediaSwitcher from '../shared/MediaSwitcher.vue'
 import configText from '../../../media-library/config.yaml?raw'
 
 defineProps({
@@ -38,12 +39,7 @@ const configVersion = configVersionMatch?.[1] ?? 'unbekannt'
 
 <template>
   <div class="sidebar-content">
-    <div class="media-switcher">
-      <button type="button" :class="['media-switcher-btn', { active: mediaType === 'game' }]" data-media="game" @click="emit('switch-media', 'game')">Games</button>
-      <button type="button" :class="['media-switcher-btn', { active: mediaType === 'book' }]" data-media="book" @click="emit('switch-media', 'book')">Books</button>
-      <button type="button" :class="['media-switcher-btn', { active: mediaType === 'movie' }]" data-media="movie" @click="emit('switch-media', 'movie')">Movies</button>
-      <button type="button" :class="['media-switcher-btn', { active: mediaType === 'series' }]" data-media="series" @click="emit('switch-media', 'series')">Series</button>
-    </div>
+    <MediaSwitcher :media-type="mediaType" @switch-media="emit('switch-media', $event)" />
 
     <!-- Search -->
     <div class="sidebar-section">

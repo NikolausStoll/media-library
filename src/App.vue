@@ -4,6 +4,7 @@ import GameList from './components/GameList.vue'
 import BookList from './components/BookList.vue'
 import MovieList from './components/MovieList.vue'
 import SeriesList from './components/SeriesList.vue'
+import MediaSwitcher from './components/shared/MediaSwitcher.vue'
 
 const STORAGE_KEY = 'mediaType'
 const mediaType = ref(localStorage.getItem(STORAGE_KEY) ?? 'game')
@@ -39,6 +40,11 @@ function switchMedia(value) {
         @switch-media="switchMedia"
       />
     </main>
+    <MediaSwitcher
+      :media-type="mediaType"
+      variant="bottom"
+      @switch-media="switchMedia"
+    />
   </div>
 </template>
 

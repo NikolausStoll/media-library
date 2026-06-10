@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import AiAssistant from './shared/AiAssistant.vue'
 import CompletionDateEditor from './shared/CompletionDateEditor.vue'
+import MediaSwitcher from './shared/MediaSwitcher.vue'
 import MediaCard from './shared/MediaCard.vue'
 import { formatReleaseDate } from '../utils/releaseDate.js'
 import configText from '../../media-library/config.yaml?raw'
@@ -738,12 +739,7 @@ function handleGlobalKeydown(e) {
 
     <aside :class="['sidebar', { collapsed: !sidebarOpen }]">
       <div v-show="sidebarOpen" class="sidebar-content">
-        <div class="media-switcher">
-          <button type="button" :class="['media-switcher-btn', { active: mediaType === 'game' }]" data-media="game" @click="emit('switch-media', 'game')">Games</button>
-          <button type="button" :class="['media-switcher-btn', { active: mediaType === 'book' }]" data-media="book" @click="emit('switch-media', 'book')">Books</button>
-          <button type="button" :class="['media-switcher-btn', { active: mediaType === 'movie' }]" data-media="movie" @click="emit('switch-media', 'movie')">Movies</button>
-          <button type="button" :class="['media-switcher-btn', { active: mediaType === 'series' }]" data-media="series" @click="emit('switch-media', 'series')">Series</button>
-        </div>
+        <MediaSwitcher :media-type="mediaType" @switch-media="emit('switch-media', $event)" />
         <div class="sidebar-section">
           <div class="sidebar-section-label">Search</div>
           <div class="search-row">
