@@ -8,8 +8,8 @@ Media Library brings a personal games, books, movies, and series backlog directl
 - Organize every media type by meaningful statuses like wishlist, backlog/watchlist, started/watching, paused/shelved, finished/completed, and dropped.
 - Keep separate Play Next, Read Next, and Watch Next queues with up to 6 planned items per media type.
 - Enrich games with HowLongToBeat covers, ratings, playtime estimates, DLC/game type information, and release dates.
-- Enrich books with Google Books/Open Library metadata, covers, authors, page counts, ratings, series info, and format tracking.
-- Add books via search or barcode scanning.
+- Maintain books with editable local metadata, language filtering, series info, ISBN/publisher/page data, format tracking, and optional ISBN-based draft preparation.
+- Add books manually, by title search with edition filtering, by typing or scanning an ISBN, optionally preparing fields with Open Library/LLM assistance, and with local/URL cover images stored as WebP originals and thumbnails.
 - Enrich movies and series with TMDB covers, genres, runtimes, certifications, release dates, trailers, and German streaming-provider availability.
 - Track TV progress episode by episode, including season-level bulk watched/unwatched controls.
 - Filter and sort by title, rating, year, playtime, pages, platform, storefront, format, genre, provider, and unrated items.
@@ -21,6 +21,6 @@ Media Library brings a personal games, books, movies, and series backlog directl
 ## External Metadata
 
 - Games: HowLongToBeat
-- Books: Google Books plus Open Library rating data
+- Books: local-first data with title/edition search and barcode-assisted ISBN entry
 - Movies and series: TMDB, including German streaming-provider data
 - Optional recommendations: OpenAI API key through the configured OpenAI SDK

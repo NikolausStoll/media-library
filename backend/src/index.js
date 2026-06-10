@@ -2,7 +2,7 @@ import 'dotenv/config'
 import express, { Router } from 'express'
 import cors from 'cors'
 import path from 'path'
-import { existsSync } from 'fs'
+import { existsSync, mkdirSync } from 'fs'
 import { fileURLToPath } from 'url'
 import gamesRouter        from './routes/games.js'
 import moviesRouter       from './routes/movies.js'
@@ -10,7 +10,6 @@ import seriesRouter       from './routes/series.js'
 import booksRouter        from './routes/books.js'
 import hltbRouter         from './routes/hltb.js'
 import tmdbRouter         from './routes/tmdb.js'
-import googleBooksRouter  from './routes/googlebooks.js'
 import nextRouter         from './routes/next.js'
 import sortRouter         from './routes/sortOrder.js'
 import adminRouter        from './routes/admin.js'
@@ -23,9 +22,12 @@ const STATIC_DIR =
   process.env.STATIC_DIR ??
   (existsSync(path.join(__dirname, '../../dist')) ? path.join(__dirname, '../../dist') : path.join(__dirname, '../../public'))
 const hasStatic = STATIC_DIR && existsSync(path.join(STATIC_DIR, 'index.html'))
+const dbPath = process.env.DB_PATH ?? path.join(__dirname, '../backend.db')
+const uploadsRoot = process.env.UPLOAD_DIR ?? path.join(path.dirname(dbPath), 'uploads')
+mkdirSync(uploadsRoot, { recursive: true })
 
 app.use(cors({ origin: process.env.FRONTEND_URL ?? 'http://localhost:5173' }))
-app.use(express.json({ limit: '10mb' }))
+app.use(express.json({ limit: '14mb' }))
 
 if (!process.env.TMDB_API_KEY) {
   console.warn('TMDB_API_KEY nicht gesetzt; TMDB-Anfragen schlagen möglicherweise fehl.')
@@ -38,7 +40,6 @@ apiRouter.use('/series', seriesRouter)
 apiRouter.use('/books', booksRouter)
 apiRouter.use('/hltb', hltbRouter)
 apiRouter.use('/tmdb', tmdbRouter)
-apiRouter.use('/googlebooks', googleBooksRouter)
 apiRouter.use('/next', nextRouter)
 apiRouter.use('/sort-order', sortRouter)
 apiRouter.use('/admin', adminRouter)
@@ -54,6 +55,7 @@ apiRouter.get('/config', (req, res) => {
 })
 
 app.use('/api', apiRouter)
+app.use('/uploads', express.static(uploadsRoot))
 
 if (hasStatic) {
   app.use(express.static(STATIC_DIR))

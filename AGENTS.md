@@ -12,12 +12,12 @@ This is the source of truth for AI assistants working in this repository. Keep i
 - Local dev frontend: Vite on `localhost:5173`.
 - Local dev backend: `npm run dev:backend`, should use `PORT=8098` because `vite.config.js` proxies `/api` to `http://localhost:8098`.
 - Container/Home Assistant backend: defaults to `PORT=8099`, `DB_PATH=/data/backend.db`, `STATIC_DIR=/app/public`.
-- Current package/add-on version: `1.11.0`.
+- Current package/add-on version: `1.12.0`.
 
 ## High-Level Features
 
 - Games: HowLongToBeat metadata, platforms, storefronts, tags, playtime buckets, ratings, DLC/game type, EU release date, manual Started ordering.
-- Books: Google Books metadata, Open Library rating fields, formats, covers, authors, page counts, series info, barcode scanner.
+- Books: local-first editable metadata, barcode-assisted ISBN entry, optional Open Library/LLM draft preparation, language filtering, formats, local WebP cover originals/thumbnails, authors, page counts, publisher/ISBN, and series info.
 - Movies: TMDB metadata, DE/EN data handling, German release/certification/provider data, videos/trailers, watchlist queue.
 - Series: TMDB metadata plus episode list cache, per-episode watched progress, progress summary, season bulk toggles.
 - Shared: separate Next queues per media type, user ratings, completion dates, `lastTouched`, search/filter/sort, grid/list/density settings, dark mode.
@@ -69,6 +69,10 @@ AI_API_KEY=MY_OPEN_AI_API_KEY
 AI_MODEL=gpt-4o-mini
 DB_PATH=backend.db
 STATIC_DIR=/app/public
+IMAGE_QUALITY=80
+IMAGE_MAX_DIMENSION=2400
+IMAGE_QUALITY_THUMB=80
+IMAGE_MAX_DIMENSION_THUMB=600
 ```
 
 For local Vite development, set:
@@ -89,7 +93,7 @@ STATIC_DIR=/app/public
 NODE_ENV=production
 ```
 
-Home Assistant options are read from `/data/options.json` by `docker/entrypoint.js`, not by a `run.sh` script. `config.yaml` exposes `AI_MODEL`, and the backend honors `process.env.AI_MODEL`, but the current entrypoint does not read/export the `AI_MODEL` option from `/data/options.json`.
+Home Assistant options are read from `/data/options.json` by `docker/entrypoint.js`, not by a `run.sh` script. `config.yaml` exposes `AI_MODEL`, and the entrypoint exports it to the backend.
 
 ## Repository Structure
 
@@ -118,7 +122,6 @@ Home Assistant options are read from `/data/options.json` by `docker/entrypoint.
 │   │   ├── movies.js
 │   │   ├── series.js
 │   │   ├── hltb.js
-│   │   ├── googlebooks.js
 │   │   ├── tmdb.js
 │   │   ├── next.js
 │   │   ├── sortOrder.js
@@ -163,16 +166,14 @@ Game API status `dropped` maps to DB status `retired`.
 ### Books
 
 ```sql
-books(id, externalId, status, userRating, completedAt, lastTouched)
+books(id, title, authors, description, imageUrl, coverPath,
+      coverThumbPath, pageCount, publishedDate, seriesName, seriesPosition,
+      publisher, isbn, language, sourceName, sourceUrl, status, userRating,
+      completedAt, lastTouched)
   status CHECK: wishlist, backlog, started, completed, shelved
 
 bookformats(id, bookId, format)
-  format CHECK: hardcover, kindle
-
-googlebookscache(id, title, authors, description, imageUrl, pageCount,
-                 publishedDate, categories, rating, ratingsCount,
-                 olRating, olRatingsCount, seriesName, seriesPosition,
-                 publisher, isbn, language, linkUrl, updatedAt)
+  format CHECK: hardcover, paperback, ebook, audiobook, other
 ```
 
 ### Movies And Series
@@ -226,16 +227,23 @@ DELETE /api/games/:id
 
 ```text
 GET    /api/books
+GET    /api/books/search?q=...&language?=de|en&sort?=new
+GET    /api/books/editions?workKey=...&language?=de|en&format?=hardcover|paperback|ebook&sort?=new
 GET    /api/books/:id
-POST   /api/books                    { externalId, status, formats[] }
-PUT    /api/books/:id                { externalId?, status?, userRating?, completedAt? }
+POST   /api/books/prepare            { isbn, languageHint? }
+POST   /api/books                    { title, status, formats[], coverUrl?, coverFile? }
+PUT    /api/books/:id                { title?, status?, userRating?, completedAt?, coverUrl?, coverFile? }
 PUT    /api/books/:id/formats        { formats[] }
-DELETE /api/books/:id/cache
 DELETE /api/books/:id
 ```
 
 - Valid statuses: `wishlist`, `backlog`, `started`, `completed`, `shelved`.
-- Valid formats: `hardcover`, `kindle`.
+- Valid formats: `hardcover`, `paperback`, `ebook`, `audiobook`, `other`.
+- `GET /api/books/search` searches Open Library works by title and returns compact candidates with ISBN candidates. It can bias by language and newer editions, but it does not filter availability.
+- `GET /api/books/editions` loads ISBN-bearing editions for one Open Library work. It paginates Open Library editions up to a bounded scan limit, filters by language and `hardcover`/`paperback`/`ebook`, treats German `Taschenbuch` as paperback and `gebunden` variants as hardcover, then uses the chosen edition ISBN to run `/api/books/prepare`.
+- `POST /api/books/prepare` fetches Open Library data by ISBN and optionally uses OpenAI structured JSON output to normalize an editable draft. It never saves automatically.
+- `coverUrl` fetches an HTTP(S) image. `coverFile` accepts a base64 Data URL from the frontend.
+- Covers are converted to WebP original and thumbnail files, preserving aspect ratio.
 
 ### Movies: `/api/movies`
 
@@ -276,10 +284,6 @@ PUT    /api/series/:id/progress/season/:s    { episodes[], watched }
 GET    /api/hltb/search?q=...
 GET    /api/hltb/:id
 DELETE /api/hltb/cache/:id
-
-GET    /api/googlebooks/search?q=...
-GET    /api/googlebooks/:id
-DELETE /api/googlebooks/cache/:id
 
 GET    /api/tmdb/search?q=...&type=movie|series
 GET    /api/tmdb/:id?type=movie|series
@@ -326,7 +330,7 @@ Request:
 }
 ```
 
-AI currently does not support books.
+AI currently does not support book recommendations in the UI. Book metadata preparation is implemented separately via `/api/books/prepare`: it answers "prepare editable fields for this ISBN", while future book recommendations should answer "what should I read next".
 
 ### Admin: `/api/admin`
 
@@ -339,7 +343,7 @@ POST /api/admin/clear-hltb-cache
 POST /api/admin/clear-tmdb-cache
 ```
 
-Admin export/import covers user-owned library state: games, books, movies, series, Next, providers, formats, platforms, tags, sort order, completion dates, and `episodeprogress`. It intentionally excludes rebuildable caches: `hltbcache`, `tmdbcache`, `tmdbcacheepisodes`, and `googlebookscache`.
+Admin export/import covers user-owned library state: games, books, movies, series, Next, providers, formats, platforms, tags, sort order, completion dates, and `episodeprogress`. It intentionally excludes rebuildable caches: `hltbcache`, `tmdbcache`, and `tmdbcacheepisodes`.
 
 ## Frontend State And Business Rules
 
@@ -376,8 +380,13 @@ Main file: `src/components/BookList.vue`.
 - Tabs: `wishlist`, `backlog`, `started`, `completed`, `all`.
 - Started count includes `started` plus `shelved`.
 - Backlog tab has Read Next section above normal backlog items.
-- Formats are currently `hardcover` and `kindle`.
-- Search overlay uses Google Books. Barcode scanner is in `src/components/books/BarcodeScanner.vue`.
+- Formats are `hardcover`, `paperback`, `ebook`, `audiobook`, and `other`.
+- Local files and cover URLs both save a WebP original plus thumbnail under `/uploads/books/`.
+- Book cards use thumbnails; the book detail overlay prefers the original cover.
+- Add overlay accepts manual title/ISBN entry, can search Open Library by title, can load filtered edition candidates for a selected work, and uses `src/components/books/BarcodeScanner.vue` for mobile ISBN scanning.
+- Google Books has been removed from the Book flow. Do not reintroduce an `externalId` requirement for books.
+- Book editor has a `Prepare` action next to ISBN. It calls `/api/books/prepare`, overwrites the editor draft with returned values, and still requires the user to review/save.
+- Open Library should be treated as raw evidence, not source of truth. Prefer ISBN edition data for edition-specific fields; use LLM output only as an editable draft with warnings.
 - Moving a Read Next book out of `backlog` removes it from `/api/next?type=book`.
 
 ### Movies
@@ -463,11 +472,10 @@ Useful selectors that already exist in tests:
 - Admin backup is not a byte-for-byte database dump. It preserves user-owned state and intentionally omits rebuildable metadata caches.
 - `POST /api/admin/import` wipes and rebuilds the imported tables. Back up before using it.
 - SQLite CHECK constraints enforce status/platform/storefront/format values.
-- `mediaproviders.streamingProviders`, `tmdbcache.genres`, `tmdbcache.videos`, and Google Books arrays are stored as JSON strings and parsed before returning API objects.
+- `mediaproviders.streamingProviders`, `tmdbcache.genres`, and `tmdbcache.videos` are stored as JSON strings and parsed before returning API objects.
 - TMDB metadata service uses German and English data together; avoid simplifying it to one locale.
 - Series runtime may be computed from episode runtimes when TMDB series runtime is missing.
 - `AI_MODEL` defaults to `gpt-4o-mini`; `AI_API_KEY` is optional and missing keys should not break app startup.
-- The HA `AI_MODEL` option is currently not wired through `docker/entrypoint.js`; do not document it as effective in stock add-on runtime unless the entrypoint is updated.
 - `TMDB_API_KEY` is optional for startup but required for useful movie/series metadata.
 - Watch/Read/Play Next auto-removal should happen when leaving backlog/watchlist states.
 - For Vue reactivity, replace Sets/arrays when needed rather than mutating silently.

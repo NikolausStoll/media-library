@@ -11,6 +11,10 @@ static_dir: /app/public
 TMDB_API_KEY: ""
 AI_API_KEY: ""
 AI_MODEL: "gpt-4o-mini"
+IMAGE_QUALITY: 80
+IMAGE_MAX_DIMENSION: 2400
+IMAGE_QUALITY_THUMB: 80
+IMAGE_MAX_DIMENSION_THUMB: 600
 ```
 
 ### `port`
@@ -45,22 +49,29 @@ When configured, movies and series can fetch covers, DE/EN titles, German certif
 
 ### `AI_API_KEY`
 
-Optional password field for AI recommendations.
+Optional password field for AI recommendations and book metadata draft preparation.
 
-When empty, the app remains fully usable and the recommendation endpoint returns a deterministic fallback from the local library context.
+When empty, the app remains fully usable. The recommendation endpoint returns a deterministic fallback from the local library context, and book preparation falls back to Open Library data without LLM normalization.
 
 ### `AI_MODEL`
 
-Model name passed to the OpenAI SDK for recommendation requests.
+Model name passed to the OpenAI SDK for recommendation and book-preparation requests.
 
 Default: `gpt-4o-mini`
 
-Current implementation note: `config.yaml` exposes this option, and the backend honors `process.env.AI_MODEL`, but `docker/entrypoint.js` does not yet read `AI_MODEL` from `/data/options.json`. In the stock add-on, recommendations therefore use the backend default unless the environment variable is supplied by a custom runtime.
+### Book cover image options
+
+Book covers imported from a URL or local file upload are stored locally as WebP files without changing the aspect ratio. The app stores both an original image and a thumbnail.
+
+- `IMAGE_QUALITY`: WebP quality for the original image. Default: `80`
+- `IMAGE_MAX_DIMENSION`: maximum width or height for the original image. Default: `2400`
+- `IMAGE_QUALITY_THUMB`: WebP quality for thumbnails. Default: `80`
+- `IMAGE_MAX_DIMENSION_THUMB`: maximum width or height for thumbnails. Default: `600`
 
 ## Runtime Behavior
 
 - The add-on reads Home Assistant options from `/data/options.json` in `docker/entrypoint.js`.
-- The entrypoint exports `PORT`, `DB_PATH`, `STATIC_DIR`, `TMDB_API_KEY`, and `AI_API_KEY` before starting `node backend/src/index.js`.
+- The entrypoint exports `PORT`, `DB_PATH`, `STATIC_DIR`, `TMDB_API_KEY`, `AI_API_KEY`, `AI_MODEL`, and book-cover image settings before starting `node backend/src/index.js`.
 - The backend serves all API routes under `/api`.
 - The frontend uses relative `/api` calls, so no browser-side API URL needs to be configured.
 - Static assets are served from `static_dir` when `index.html` exists there.
@@ -82,7 +93,6 @@ This database stores library items, statuses, ratings, completion dates, provide
 - HowLongToBeat game data is cached in SQLite.
 - TMDB movie/series metadata uses a 7 day default TTL.
 - TMDB episode details are cached separately for 30 days.
-- Google Books/Open Library metadata is cached in SQLite.
 - Item overlays and the admin page can clear relevant caches.
 
 ## Admin Page

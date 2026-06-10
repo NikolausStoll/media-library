@@ -4,10 +4,15 @@ import { db } from '../db/library.js'
 const VALID_GAME_STATUSES = ['backlog', 'wishlist', 'started', 'completed', 'dropped', 'shelved']
 const VALID_GAME_PLATFORMS = ['pc', 'xbox', 'switch', '3ds']
 const VALID_PC_STOREFRONTS = ['steam', 'epic', 'gog', 'battlenet', 'uplay', 'ea', 'xbox']
+const VALID_BOOK_FORMATS = ['hardcover', 'paperback', 'ebook', 'audiobook', 'other']
 
 const router = Router()
 
 const withDefaults = (row, defaults) => ({ ...defaults, ...row })
+const normalizeBookFormat = (format) => {
+  const normalized = String(format ?? '').trim().toLowerCase()
+  return normalized === 'kindle' ? 'ebook' : normalized
+}
 
 // ─── EXPORT ───────────────────────────────────────────────────────────────────
 router.get('/export', (req, res) => {
@@ -59,7 +64,6 @@ router.post('/import', (req, res) => {
       db.prepare('DELETE FROM hltbcache').run()
       db.prepare('DELETE FROM tmdbcache').run()
       db.prepare('DELETE FROM tmdbcacheepisodes').run()
-      db.prepare('DELETE FROM googlebookscache').run()
 
       // Games
       const insertGame = db.prepare('INSERT INTO games (id, externalId, status, userRating, completedAt, lastTouched) VALUES (@id, @externalId, @status, @userRating, @completedAt, @lastTouched)')
@@ -107,14 +111,52 @@ router.post('/import', (req, res) => {
       }
 
       // Books
-      const insertBook = db.prepare('INSERT INTO books (id, externalId, status, userRating, completedAt, lastTouched) VALUES (@id, @externalId, @status, @userRating, @completedAt, @lastTouched)')
+      const insertBook = db.prepare(`
+        INSERT INTO books (
+          id, title, authors, description, imageUrl, coverPath, coverThumbPath, pageCount,
+          publishedDate, seriesName, seriesPosition, publisher, isbn, language,
+          sourceName, sourceUrl, status, userRating, completedAt, lastTouched
+        )
+        VALUES (
+          @id, @title, @authors, @description, @imageUrl, @coverPath, @coverThumbPath, @pageCount,
+          @publishedDate, @seriesName, @seriesPosition, @publisher, @isbn, @language,
+          @sourceName, @sourceUrl, @status, @userRating, @completedAt, @lastTouched
+        )
+      `)
       for (const b of data.books ?? []) {
-        insertBook.run(withDefaults(b, { userRating: null, completedAt: null, lastTouched: null }))
+        insertBook.run(withDefaults(b, {
+          title: null,
+          authors: '[]',
+          description: null,
+          imageUrl: null,
+          coverPath: null,
+          coverThumbPath: null,
+          pageCount: null,
+          publishedDate: null,
+          seriesName: null,
+          seriesPosition: null,
+          publisher: null,
+          isbn: null,
+          language: null,
+          sourceName: null,
+          sourceUrl: null,
+          userRating: null,
+          completedAt: null,
+          lastTouched: null,
+        }))
       }
 
       // Book Formats
       const insertBookFormat = db.prepare('INSERT INTO bookformats (id, bookId, format) VALUES (@id, @bookId, @format)')
-      for (const f of data.bookformats ?? []) insertBookFormat.run(f)
+      const importedBookFormats = new Set()
+      for (const f of data.bookformats ?? []) {
+        const format = normalizeBookFormat(f.format)
+        if (!VALID_BOOK_FORMATS.includes(format)) continue
+        const key = `${f.bookId}:${format}`
+        if (importedBookFormats.has(key)) continue
+        importedBookFormats.add(key)
+        insertBookFormat.run({ ...f, format })
+      }
 
       // Next (game + movie + series + book)
       const insertNext = db.prepare('INSERT INTO next (id, mediaId, mediaType) VALUES (@id, @mediaId, @mediaType)')

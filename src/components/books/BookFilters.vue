@@ -9,8 +9,10 @@ defineProps({
   sortBy: { type: String, required: true },
   sortDirection: { type: String, required: true },
   formatFilter: { type: Array, default: () => [] },
+  languageFilter: { type: Array, default: () => [] },
   noRatingFilter: { type: Boolean, default: false },
   availableFormats: { type: Array, required: true },
+  availableLanguages: { type: Array, required: true },
   filterSectionsOpen: { type: Object, required: true },
   viewMode: { type: String, required: true },
   gridDensity: { type: String, default: 'normal' },
@@ -75,7 +77,7 @@ const configVersion = configVersionMatch?.[1] ?? 'unbekannt'
           Title <span v-if="sortBy === 'title'" class="sort-dir">{{ sortDirection === 'asc' ? 'A→Z' : 'Z→A' }}</span>
         </button>
         <button :class="['filter-btn', { active: sortBy === 'rating' }]" @click="emit('sort-rating')">
-          Rating <span v-if="sortBy === 'rating'" class="sort-dir">{{ sortDirection === 'desc' ? '↓' : '↑' }}</span>
+          My Rating <span v-if="sortBy === 'rating'" class="sort-dir">{{ sortDirection === 'desc' ? '↓' : '↑' }}</span>
         </button>
         <button :class="['filter-btn', { active: sortBy === 'pages' }]" @click="emit('sort-pages')">
           Pages <span v-if="sortBy === 'pages'" class="sort-dir">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
@@ -112,6 +114,18 @@ const configVersion = configVersionMatch?.[1] ?? 'unbekannt'
             @click="emit('toggle-filter', 'format', fmt.id)"
           >
             {{ fmt.label }}
+          </button>
+        </div>
+
+        <div class="filter-subsection-label">Language</div>
+        <div class="filter-options">
+          <button
+            v-for="lang in availableLanguages"
+            :key="lang.id"
+            :class="['filter-btn', { active: languageFilter.includes(lang.id) }]"
+            @click="emit('toggle-filter', 'language', lang.id)"
+          >
+            {{ lang.label }}
           </button>
         </div>
       </div>

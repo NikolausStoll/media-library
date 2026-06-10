@@ -11,11 +11,15 @@ export async function loadBooks() {
   }
 }
 
-export async function addBook(externalId, status, formats = []) {
+export async function addBook(input, status, formats = []) {
+  const payload = typeof input === 'object' && input !== null
+    ? input
+    : { title: input, status, formats }
+
   const res = await fetch(`${API_BASE}/books`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ externalId, status, formats }),
+    body: JSON.stringify(payload),
   })
 
   if (!res.ok) {
@@ -27,31 +31,74 @@ export async function addBook(externalId, status, formats = []) {
 }
 
 export async function updateBook(id, data) {
-  try {
-    const res = await fetch(`${API_BASE}/books/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    })
-    if (!res.ok) throw new Error(`updateBook failed: ${res.status}`)
-    return await res.json()
-  } catch (err) {
-    console.error('updateBook:', err)
+  const res = await fetch(`${API_BASE}/books/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: `Status ${res.status}` }))
+    throw new Error(err.error ?? `updateBook failed: ${res.status}`)
   }
+  return await res.json()
 }
 
 export async function updateBookFormats(id, formats) {
-  try {
-    const res = await fetch(`${API_BASE}/books/${id}/formats`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ formats }),
-    })
-    if (!res.ok) throw new Error(`updateBookFormats failed: ${res.status}`)
-    return await res.json()
-  } catch (err) {
-    console.error('updateBookFormats:', err)
+  const res = await fetch(`${API_BASE}/books/${id}/formats`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ formats }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: `Status ${res.status}` }))
+    throw new Error(err.error ?? `updateBookFormats failed: ${res.status}`)
   }
+  return await res.json()
+}
+
+export async function prepareBookDraft({ isbn, languageHint }) {
+  const res = await fetch(`${API_BASE}/books/prepare`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ isbn, languageHint }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: `Status ${res.status}` }))
+    throw new Error(err.error ?? `prepareBookDraft failed: ${res.status}`)
+  }
+  return await res.json()
+}
+
+function appendOptionalParam(params, key, value) {
+  const normalized = String(value ?? '').trim()
+  if (normalized) params.set(key, normalized)
+}
+
+export async function searchBookCandidates(query, options = {}) {
+  const params = new URLSearchParams({ q: String(query).trim() })
+  appendOptionalParam(params, 'language', options.language)
+  appendOptionalParam(params, 'sort', options.sort)
+
+  const res = await fetch(`${API_BASE}/books/search?${params.toString()}`)
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: `Status ${res.status}` }))
+    throw new Error(err.error ?? `searchBookCandidates failed: ${res.status}`)
+  }
+  return await res.json()
+}
+
+export async function loadBookEditions(workKey, options = {}) {
+  const params = new URLSearchParams({ workKey: String(workKey ?? '').trim() })
+  appendOptionalParam(params, 'language', options.language)
+  appendOptionalParam(params, 'format', options.format)
+  appendOptionalParam(params, 'sort', options.sort)
+
+  const res = await fetch(`${API_BASE}/books/editions?${params.toString()}`)
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: `Status ${res.status}` }))
+    throw new Error(err.error ?? `loadBookEditions failed: ${res.status}`)
+  }
+  return await res.json()
 }
 
 export async function deleteBook(id) {
@@ -95,10 +142,4 @@ export async function removeFromNext(mediaId, mediaType = 'book') {
   } catch (err) {
     console.error('removeFromNext', err)
   }
-}
-
-export async function searchGoogleBooks(query) {
-  const res = await fetch(`${API_BASE}/googlebooks/search?q=${encodeURIComponent(String(query).trim())}`)
-  if (!res.ok) throw new Error(`searchGoogleBooks failed: ${res.status}`)
-  return res.json()
 }
