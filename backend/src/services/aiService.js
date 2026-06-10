@@ -1,13 +1,13 @@
 import OpenAI from 'openai'
 import { getMovieContext, getSeriesContext, getGameContext } from './aiContext.js'
 
-const MODEL = process.env.AI_MODEL ?? 'gpt-4o-mini'
+export const MODEL = process.env.AI_MODEL ?? 'gpt-4o-mini'
 let cachedClient = null
 let cachedKey = ''
 
 const WEEKDAY_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-function getAiClient() {
+export function getAiClient() {
   const key = (process.env.AI_API_KEY ?? '').trim()
   if (!key) return null
   if (cachedClient && cachedKey === key) return cachedClient

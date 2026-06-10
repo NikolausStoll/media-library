@@ -7,7 +7,7 @@ The app is built around everyday backlog decisions: what is waiting, what is in 
 ## Features
 
 - Games with HowLongToBeat metadata, platforms, storefronts, DLC/game type data, playtime estimates, ratings, release dates, and curated tags.
-- Books with Google Books/Open Library metadata, covers, authors, page counts, ratings, formats, and barcode-assisted lookup.
+- Books with local-first metadata, manually editable authors/pages/publisher/ISBN/language/series data, locally stored WebP covers, format tracking, title/edition/ISBN search, barcode-assisted ISBN entry, and optional Open Library/LLM draft preparation.
 - Movies and series with TMDB metadata, DE/EN title handling, German certifications, German flatrate streaming providers, trailers/videos, genres, runtime, release dates, and ratings.
 - Series episode tracking with per-episode toggles, watched summaries, season bulk toggles, and cached episode data.
 - Per-media status tabs, fuzzy search, no-rating filters, provider/genre/platform/format filters, sortable grid/list views, dark mode, and responsive mobile navigation.
@@ -24,7 +24,7 @@ The app is built around everyday backlog decisions: what is waiting, what is in 
 | Type | External metadata | Statuses |
 | --- | --- | --- |
 | Games | HowLongToBeat | `wishlist`, `backlog`, `started`, `shelved`, `completed`, `dropped` |
-| Books | Google Books plus Open Library ratings | `wishlist`, `backlog`, `started`, `shelved`, `completed` |
+| Books | Local data with ISBN-assisted entry | `wishlist`, `backlog`, `started`, `shelved`, `completed` |
 | Movies | TMDB | `watchlist`, `watching`, `finished` |
 | Series | TMDB plus episode cache | `watchlist`, `watching`, `paused`, `finished`, `dropped` |
 
@@ -41,7 +41,7 @@ The app is built around everyday backlog decisions: what is waiting, what is in 
 - HLTB data is cached for games. Cached fields include names, cover images, playtime buckets, ratings, DLCs, game type, and EU release date.
 - TMDB metadata is fetched in German and English. German data is used for certifications, release dates, and streaming providers; English data is used for consistent genre names and display titles unless German is the original language.
 - TMDB movie/series metadata defaults to a 7 day TTL. Episode data is cached separately for 30 days.
-- Google Books cache stores book metadata and merged rating signals, including Open Library rating/count fields.
+- Books persist their own editable metadata. Title search can load Open Library works and filtered ISBN-bearing editions by language/format, ISBN scanning is used as fast manual-entry assistance, `/api/books/prepare` can prepare an editable draft from ISBN/Open Library plus optional LLM normalization, and local cover files are stored as WebP original/thumbnail pairs.
 - Cache entries can be invalidated from item overlays or admin routes.
 
 ### AI Recommendations
@@ -57,7 +57,7 @@ The AI assistant supports games, movies, and series.
 
 ### Admin Backup Scope
 
-The admin JSON export/import covers user-owned library state: games, books, movies, series, Next queues, formats, platforms, providers, tags, sort order, completion dates, and episode progress. Rebuildable metadata caches such as HLTB, TMDB, TMDB episodes, and Google Books are not included.
+The admin JSON export/import covers user-owned library state: games, books, movies, series, Next queues, formats, platforms, providers, tags, sort order, completion dates, and episode progress. Rebuildable metadata caches such as HLTB, TMDB, and TMDB episodes are not included.
 
 ## Tech Stack
 
@@ -67,7 +67,7 @@ The admin JSON export/import covers user-owned library state: games, books, movi
 | Styling | Plain CSS, dark mode default |
 | Backend | Node.js, Express |
 | Database | SQLite via `better-sqlite3` |
-| External APIs | TMDB, HowLongToBeat, Google Books, Open Library, optional OpenAI |
+| External APIs | TMDB, HowLongToBeat, Open Library, optional OpenAI |
 | Tests | Vitest, JSDOM, `@vue/test-utils` |
 | Container | Docker, Home Assistant add-on metadata |
 
@@ -200,7 +200,6 @@ Main route groups:
 - `/api/movies`
 - `/api/series`
 - `/api/hltb`
-- `/api/googlebooks`
 - `/api/tmdb`
 - `/api/next`
 - `/api/sort-order`

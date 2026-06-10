@@ -64,7 +64,21 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS books (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    externalId  TEXT NOT NULL UNIQUE,
+    title       TEXT,
+    authors     TEXT,
+    description TEXT,
+    imageUrl    TEXT,
+    coverPath   TEXT,
+    coverThumbPath TEXT,
+    pageCount   INTEGER,
+    publishedDate TEXT,
+    seriesName  TEXT,
+    seriesPosition TEXT,
+    publisher   TEXT,
+    isbn        TEXT,
+    language    TEXT,
+    sourceName  TEXT,
+    sourceUrl   TEXT,
     status      TEXT NOT NULL CHECK(status IN ('wishlist','backlog','started','completed','shelved')),
     userRating  INTEGER CHECK(userRating BETWEEN 1 AND 10),
     completedAt TEXT,
@@ -74,31 +88,9 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS bookformats (
     id     INTEGER PRIMARY KEY AUTOINCREMENT,
     bookId INTEGER NOT NULL,
-    format TEXT NOT NULL CHECK(format IN ('hardcover','kindle')),
+    format TEXT NOT NULL CHECK(format IN ('hardcover','paperback','ebook','audiobook','other')),
     UNIQUE(bookId, format),
     FOREIGN KEY (bookId) REFERENCES books(id) ON DELETE CASCADE
-  );
-
-  CREATE TABLE IF NOT EXISTS googlebookscache (
-    id          TEXT PRIMARY KEY,
-    title       TEXT,
-    authors     TEXT,
-    description TEXT,
-    imageUrl    TEXT,
-    pageCount   INTEGER,
-    publishedDate TEXT,
-    categories  TEXT,
-    rating      REAL,
-    ratingsCount INTEGER,
-    olRating    REAL,
-    olRatingsCount INTEGER,
-    seriesName  TEXT,
-    seriesPosition TEXT,
-    publisher   TEXT,
-    isbn        TEXT,
-    language    TEXT,
-    linkUrl     TEXT,
-    updatedAt   INTEGER
   );
 
   CREATE TABLE IF NOT EXISTS movies (
@@ -237,7 +229,21 @@ db.prepare('UPDATE episodeprogress SET lastTouched = COALESCE(lastTouched, ?)').
 try {
   db.exec(`CREATE TABLE IF NOT EXISTS books (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    externalId  TEXT NOT NULL UNIQUE,
+    title       TEXT,
+    authors     TEXT,
+    description TEXT,
+    imageUrl    TEXT,
+    coverPath   TEXT,
+    coverThumbPath TEXT,
+    pageCount   INTEGER,
+    publishedDate TEXT,
+    seriesName  TEXT,
+    seriesPosition TEXT,
+    publisher   TEXT,
+    isbn        TEXT,
+    language    TEXT,
+    sourceName  TEXT,
+    sourceUrl   TEXT,
     status      TEXT NOT NULL CHECK(status IN ('wishlist','backlog','started','completed','shelved')),
     userRating  INTEGER CHECK(userRating BETWEEN 1 AND 10),
     completedAt TEXT,
@@ -249,40 +255,112 @@ try {
   db.exec(`CREATE TABLE IF NOT EXISTS bookformats (
     id     INTEGER PRIMARY KEY AUTOINCREMENT,
     bookId INTEGER NOT NULL,
-    format TEXT NOT NULL CHECK(format IN ('hardcover','kindle')),
+    format TEXT NOT NULL CHECK(format IN ('hardcover','paperback','ebook','audiobook','other')),
     UNIQUE(bookId, format),
     FOREIGN KEY (bookId) REFERENCES books(id) ON DELETE CASCADE
   )`)
 } catch {}
 
-try {
-  db.exec(`CREATE TABLE IF NOT EXISTS googlebookscache (
-    id          TEXT PRIMARY KEY,
-    title       TEXT,
-    authors     TEXT,
-    description TEXT,
-    imageUrl    TEXT,
-    pageCount   INTEGER,
-    publishedDate TEXT,
-    categories  TEXT,
-    rating      REAL,
-    ratingsCount INTEGER,
-    olRating    REAL,
-    olRatingsCount INTEGER,
-    seriesName  TEXT,
-    seriesPosition TEXT,
-    publisher   TEXT,
-    isbn        TEXT,
-    language    TEXT,
-    linkUrl     TEXT,
-    updatedAt   INTEGER
-  )`)
-} catch {}
-
-ensureColumn('googlebookscache', 'olRating REAL')
-ensureColumn('googlebookscache', 'olRatingsCount INTEGER')
 ensureColumn('books', 'completedAt TEXT')
 ensureColumn('books', 'lastTouched TEXT')
+ensureColumn('books', 'title TEXT')
+ensureColumn('books', 'authors TEXT')
+ensureColumn('books', 'description TEXT')
+ensureColumn('books', 'imageUrl TEXT')
+ensureColumn('books', 'coverPath TEXT')
+ensureColumn('books', 'coverThumbPath TEXT')
+ensureColumn('books', 'pageCount INTEGER')
+ensureColumn('books', 'publishedDate TEXT')
+ensureColumn('books', 'seriesName TEXT')
+ensureColumn('books', 'seriesPosition TEXT')
+ensureColumn('books', 'publisher TEXT')
+ensureColumn('books', 'isbn TEXT')
+ensureColumn('books', 'language TEXT')
+ensureColumn('books', 'sourceName TEXT')
+ensureColumn('books', 'sourceUrl TEXT')
+
+try {
+  db.prepare('DROP TABLE IF EXISTS googlebookscache').run()
+} catch {}
+
+try {
+  const tableInfo = db.prepare(
+    "SELECT sql FROM sqlite_master WHERE type='table' AND name='books'"
+  ).get()
+  if (tableInfo?.sql && tableInfo.sql.includes('externalId')) {
+    db.pragma('foreign_keys = OFF')
+    db.transaction(() => {
+      db.exec(`
+        CREATE TABLE books_new (
+          id          INTEGER PRIMARY KEY AUTOINCREMENT,
+          title       TEXT,
+          authors     TEXT,
+          description TEXT,
+          imageUrl    TEXT,
+          coverPath   TEXT,
+          coverThumbPath TEXT,
+          pageCount   INTEGER,
+          publishedDate TEXT,
+          seriesName  TEXT,
+          seriesPosition TEXT,
+          publisher   TEXT,
+          isbn        TEXT,
+          language    TEXT,
+          sourceName  TEXT,
+          sourceUrl   TEXT,
+          status      TEXT NOT NULL CHECK(status IN ('wishlist','backlog','started','completed','shelved')),
+          userRating  INTEGER CHECK(userRating BETWEEN 1 AND 10),
+          completedAt TEXT,
+          lastTouched TEXT
+        )
+      `)
+      db.exec(`
+        INSERT INTO books_new (
+          id, title, authors, description, imageUrl, coverPath, coverThumbPath, pageCount,
+          publishedDate, seriesName, seriesPosition, publisher, isbn, language,
+          sourceName, sourceUrl, status, userRating, completedAt, lastTouched
+        )
+        SELECT
+          id, title, authors, description, imageUrl, coverPath, coverThumbPath, pageCount,
+          publishedDate, seriesName, seriesPosition, publisher, isbn, language,
+          sourceName, sourceUrl, status, userRating, completedAt, lastTouched
+        FROM books
+      `)
+      db.exec('DROP TABLE books')
+      db.exec('ALTER TABLE books_new RENAME TO books')
+    })()
+    db.pragma('foreign_keys = ON')
+  }
+} catch {}
+
+try {
+  const tableInfo = db.prepare(
+    "SELECT sql FROM sqlite_master WHERE type='table' AND name='bookformats'"
+  ).get()
+  if (tableInfo?.sql && !tableInfo.sql.includes("'paperback'")) {
+    db.pragma('foreign_keys = OFF')
+    db.transaction(() => {
+      db.exec(`
+        CREATE TABLE bookformats_new (
+          id     INTEGER PRIMARY KEY AUTOINCREMENT,
+          bookId INTEGER NOT NULL,
+          format TEXT NOT NULL CHECK(format IN ('hardcover','paperback','ebook','audiobook','other')),
+          UNIQUE(bookId, format),
+          FOREIGN KEY (bookId) REFERENCES books(id) ON DELETE CASCADE
+        )
+      `)
+      db.exec(`
+        INSERT OR IGNORE INTO bookformats_new (id, bookId, format)
+        SELECT id, bookId, CASE format WHEN 'kindle' THEN 'ebook' ELSE format END
+        FROM bookformats
+        WHERE format IN ('hardcover','kindle','paperback','ebook','audiobook','other')
+      `)
+      db.exec('DROP TABLE bookformats')
+      db.exec('ALTER TABLE bookformats_new RENAME TO bookformats')
+    })()
+    db.pragma('foreign_keys = ON')
+  }
+} catch {}
 
 // Migrate `next` table: add 'book' to mediaType CHECK constraint.
 // SQLite cannot ALTER CHECK constraints, so we rebuild the table.
