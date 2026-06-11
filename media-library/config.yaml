@@ -1,7 +1,7 @@
 name: "Media Library"
 slug: "media-library"
 description: "Media Library (games, movies, series)"
-version: "1.12.1"
+version: "1.13.0"
 url: "https://github.com/NikolausStoll/media-library"
 
 arch:
@@ -29,6 +29,7 @@ options:
   TMDB_API_KEY: ""
   AI_API_KEY: ""
   AI_MODEL: "gpt-4o-mini"
+  BOOK_PREP_WEB_SEARCH_MODEL: "gpt-4o-mini"
   IMAGE_QUALITY: 80
   IMAGE_MAX_DIMENSION: 1200
   IMAGE_QUALITY_THUMB: 80
@@ -40,6 +41,7 @@ schema:
   TMDB_API_KEY: password
   AI_API_KEY: password
   AI_MODEL: str
+  BOOK_PREP_WEB_SEARCH_MODEL: str
   IMAGE_QUALITY: int(1,100)
   IMAGE_MAX_DIMENSION: int(100,8000)
   IMAGE_QUALITY_THUMB: int(1,100)

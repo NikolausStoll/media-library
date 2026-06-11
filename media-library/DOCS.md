@@ -11,8 +11,9 @@ static_dir: /app/public
 TMDB_API_KEY: ""
 AI_API_KEY: ""
 AI_MODEL: "gpt-4o-mini"
+BOOK_PREP_WEB_SEARCH_MODEL: "gpt-4o-mini"
 IMAGE_QUALITY: 80
-IMAGE_MAX_DIMENSION: 2400
+IMAGE_MAX_DIMENSION: 1200
 IMAGE_QUALITY_THUMB: 80
 IMAGE_MAX_DIMENSION_THUMB: 600
 ```
@@ -59,19 +60,25 @@ Model name passed to the OpenAI SDK for recommendation and book-preparation requ
 
 Default: `gpt-4o-mini`
 
+### `BOOK_PREP_WEB_SEARCH_MODEL`
+
+Model used only for the book ISBN web-search fallback when Open Library does not return enough usable metadata.
+
+Default: `gpt-4o-mini`
+
 ### Book cover image options
 
 Book covers imported from a URL or local file upload are stored locally as WebP files without changing the aspect ratio. The app stores an original image and, for images larger than the thumbnail maximum dimension, a separate thumbnail. Smaller images reuse the same WebP file for both paths.
 
 - `IMAGE_QUALITY`: WebP quality for the original image. Default: `80`
-- `IMAGE_MAX_DIMENSION`: maximum width or height for the original image. Default: `2400`
+- `IMAGE_MAX_DIMENSION`: maximum width or height for the original image. Default: `1200`
 - `IMAGE_QUALITY_THUMB`: WebP quality for thumbnails. Default: `80`
 - `IMAGE_MAX_DIMENSION_THUMB`: maximum width or height for thumbnails. Default: `600`
 
 ## Runtime Behavior
 
 - The add-on reads Home Assistant options from `/data/options.json` in `docker/entrypoint.js`.
-- The entrypoint exports `PORT`, `DB_PATH`, `STATIC_DIR`, `TMDB_API_KEY`, `AI_API_KEY`, `AI_MODEL`, and book-cover image settings before starting `node backend/src/index.js`.
+- The entrypoint exports `PORT`, `DB_PATH`, `STATIC_DIR`, `TMDB_API_KEY`, `AI_API_KEY`, `AI_MODEL`, `BOOK_PREP_WEB_SEARCH_MODEL`, and book-cover image settings before starting `node backend/src/index.js`.
 - The backend serves all API routes under `/api`.
 - The frontend uses relative `/api` calls, so no browser-side API URL needs to be configured.
 - Static assets are served from `static_dir` when `index.html` exists there.

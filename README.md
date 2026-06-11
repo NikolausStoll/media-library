@@ -115,6 +115,7 @@ FRONTEND_URL=http://localhost:5173
 TMDB_API_KEY=
 AI_API_KEY=
 AI_MODEL=gpt-4o-mini
+BOOK_PREP_WEB_SEARCH_MODEL=gpt-4o-mini
 DB_PATH=backend.db
 STATIC_DIR=dist
 ```

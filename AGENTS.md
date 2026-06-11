@@ -12,7 +12,7 @@ This is the source of truth for AI assistants working in this repository. Keep i
 - Local dev frontend: Vite on `localhost:5173`.
 - Local dev backend: `npm run dev:backend`, should use `PORT=8098` because `vite.config.js` proxies `/api` to `http://localhost:8098`.
 - Container/Home Assistant backend: defaults to `PORT=8099`, `DB_PATH=/data/backend.db`, `STATIC_DIR=/app/public`.
-- Current package/add-on version: `1.12.1`.
+- Current package/add-on version: `1.13.0`.
 
 ## High-Level Features
 
@@ -67,10 +67,11 @@ FRONTEND_URL=http://localhost:5173
 TMDB_API_KEY=MY_TMDB_API_KEY
 AI_API_KEY=MY_OPEN_AI_API_KEY
 AI_MODEL=gpt-4o-mini
+BOOK_PREP_WEB_SEARCH_MODEL=gpt-4o-mini
 DB_PATH=backend.db
 STATIC_DIR=/app/public
 IMAGE_QUALITY=80
-IMAGE_MAX_DIMENSION=2400
+IMAGE_MAX_DIMENSION=1200
 IMAGE_QUALITY_THUMB=80
 IMAGE_MAX_DIMENSION_THUMB=600
 ```
@@ -93,7 +94,7 @@ STATIC_DIR=/app/public
 NODE_ENV=production
 ```
 
-Home Assistant options are read from `/data/options.json` by `docker/entrypoint.js`, not by a `run.sh` script. `config.yaml` exposes `AI_MODEL`, and the entrypoint exports it to the backend.
+Home Assistant options are read from `/data/options.json` by `docker/entrypoint.js`, not by a `run.sh` script. `config.yaml` exposes `AI_MODEL` and `BOOK_PREP_WEB_SEARCH_MODEL`, and the entrypoint exports them to the backend.
 
 ## Repository Structure
 
@@ -241,7 +242,8 @@ DELETE /api/books/:id
 - Valid formats: `hardcover`, `paperback`, `ebook`, `audiobook`, `other`.
 - `GET /api/books/search` searches Open Library works by title and returns compact candidates with ISBN candidates. It can bias by language and newer editions, but it does not filter availability.
 - `GET /api/books/editions` loads ISBN-bearing editions for one Open Library work. It paginates Open Library editions up to a bounded scan limit, filters by language and `hardcover`/`paperback`/`ebook`, treats German `Taschenbuch` as paperback and `gebunden` variants as hardcover, then uses the chosen edition ISBN to run `/api/books/prepare`.
-- `POST /api/books/prepare` fetches Open Library data by ISBN and optionally uses OpenAI structured JSON output to normalize an editable draft. It never saves automatically.
+- `POST /api/books/prepare` fetches Open Library data by ISBN and optionally uses OpenAI structured JSON output to normalize an editable draft. It never saves automatically. If Open Library is too sparse for title/author/core fields, it uses the Responses API web-search fallback with `BOOK_PREP_WEB_SEARCH_MODEL` (default `gpt-4o-mini`) and returns `analysis` with method, web search count, token usage, Open Library field count, and filled/changed fields for the editor UI.
+- Book `publishedDate` is persisted only as `YYYY-MM-DD`, `YYYY-MM`, `YYYY`, or `null`. Prepare prompts, save routes, and admin import should normalize to that shape. Detail UI displays full dates as `DD.MM.YYYY`, month precision as `Month YYYY`, and year precision as `YYYY`.
 - `coverUrl` fetches an HTTP(S) image. `coverFile` accepts a base64 Data URL from the frontend.
 - Covers are converted to WebP, preserving aspect ratio. Images larger than `IMAGE_MAX_DIMENSION_THUMB` get separate original and thumbnail files; smaller images reuse the same WebP file for `coverPath` and `coverThumbPath`.
 
@@ -475,7 +477,7 @@ Useful selectors that already exist in tests:
 - `mediaproviders.streamingProviders`, `tmdbcache.genres`, and `tmdbcache.videos` are stored as JSON strings and parsed before returning API objects.
 - TMDB metadata service uses German and English data together; avoid simplifying it to one locale.
 - Series runtime may be computed from episode runtimes when TMDB series runtime is missing.
-- `AI_MODEL` defaults to `gpt-4o-mini`; `AI_API_KEY` is optional and missing keys should not break app startup.
+- `AI_MODEL` defaults to `gpt-4o-mini`; `BOOK_PREP_WEB_SEARCH_MODEL` defaults to `gpt-4o-mini` for sparse Open Library ISBN fallback; `AI_API_KEY` is optional and missing keys should not break app startup.
 - `TMDB_API_KEY` is optional for startup but required for useful movie/series metadata.
 - Watch/Read/Play Next auto-removal should happen when leaving backlog/watchlist states.
 - For Vue reactivity, replace Sets/arrays when needed rather than mutating silently.

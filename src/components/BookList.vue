@@ -45,6 +45,8 @@ const showSearchOverlay  = ref(false)
 const overlaySearchQuery = ref('')
 const bookPrepareLoading = ref(false)
 const bookPrepareWarnings = ref([])
+const bookPrepareAnalysis = ref(null)
+const bookPrepareAnalysisOpen = ref(false)
 const bookSearchResults = ref([])
 const bookSearchLoading = ref(false)
 const bookSearchError = ref('')
@@ -109,6 +111,33 @@ const availableLanguages = [
   { id: 'de', label: 'Deutsch' },
   { id: 'en', label: 'English' },
 ]
+
+const BOOK_DATE_MONTHS = {
+  jan: 1,
+  january: 1,
+  feb: 2,
+  february: 2,
+  mar: 3,
+  march: 3,
+  apr: 4,
+  april: 4,
+  may: 5,
+  jun: 6,
+  june: 6,
+  jul: 7,
+  july: 7,
+  aug: 8,
+  august: 8,
+  sep: 9,
+  sept: 9,
+  september: 9,
+  oct: 10,
+  october: 10,
+  nov: 11,
+  november: 11,
+  dec: 12,
+  december: 12,
+}
 
 function getFormatLabel(format) {
   const normalized = format === 'kindle' ? 'ebook' : format
@@ -350,6 +379,8 @@ function createBookDraft(result = {}, status = activeTab.value === 'all' ? 'back
 function openBookEditor(book = null) {
   searchError.value = ''
   bookPrepareWarnings.value = []
+  bookPrepareAnalysis.value = null
+  bookPrepareAnalysisOpen.value = false
   bookEditor.value = createBookDraft(
     book
       ? { ...book, coverUrl: '', id: book.id }
@@ -363,6 +394,8 @@ function openBookEditor(book = null) {
 function openDraftFromSearch({ result, status }) {
   searchError.value = ''
   bookPrepareWarnings.value = []
+  bookPrepareAnalysis.value = null
+  bookPrepareAnalysisOpen.value = false
   bookEditor.value = createBookDraft(
     {
       ...result,
@@ -391,6 +424,82 @@ function normalizeDraftLanguage(value) {
   if (['de', 'deutsch', 'german'].includes(lang)) return 'de'
   if (['en', 'english', 'englisch'].includes(lang)) return 'en'
   return lang.length === 2 ? lang : ''
+}
+
+function padBookDate(value) {
+  return String(value).padStart(2, '0')
+}
+
+function normalizeEditorPublishedDate(value) {
+  const raw = String(value ?? '').trim()
+  if (!raw) return ''
+
+  const iso = raw.match(/^(\d{4})(?:-(\d{1,2})(?:-(\d{1,2}))?)?$/)
+  if (iso) {
+    const [, year, month, day] = iso
+    if (!month) return year
+    if (!day) return `${year}-${padBookDate(month)}`
+    return `${year}-${padBookDate(month)}-${padBookDate(day)}`
+  }
+
+  const monthDayYear = raw.match(/^([A-Za-z]+)\.?\s+(\d{1,2}),?\s+(\d{4})$/)
+  if (monthDayYear) {
+    const month = BOOK_DATE_MONTHS[monthDayYear[1].toLowerCase()]
+    if (month) return `${monthDayYear[3]}-${padBookDate(month)}-${padBookDate(monthDayYear[2])}`
+  }
+
+  const dayMonthYear = raw.match(/^(\d{1,2})\s+([A-Za-z]+)\.?\s+(\d{4})$/)
+  if (dayMonthYear) {
+    const month = BOOK_DATE_MONTHS[dayMonthYear[2].toLowerCase()]
+    if (month) return `${dayMonthYear[3]}-${padBookDate(month)}-${padBookDate(dayMonthYear[1])}`
+  }
+
+  const monthYear = raw.match(/^([A-Za-z]+)\.?\s+(\d{4})$/)
+  if (monthYear) {
+    const month = BOOK_DATE_MONTHS[monthYear[1].toLowerCase()]
+    if (month) return `${monthYear[2]}-${padBookDate(month)}`
+  }
+
+  return raw
+}
+
+function normalizeBookEditorPublishedDate() {
+  if (!bookEditor.value) return
+  bookEditor.value.publishedDate = normalizeEditorPublishedDate(bookEditor.value.publishedDate)
+}
+
+function prepareMethodLabel(method) {
+  if (method === 'web-search') return 'Web search'
+  if (method === 'llm-normalization') return 'LLM normalization'
+  if (method === 'open-library') return 'Open Library only'
+  return method || 'Unknown'
+}
+
+function prepareFieldLabel(field) {
+  const labels = {
+    title: 'Title',
+    authors: 'Authors',
+    description: 'Description',
+    coverUrl: 'Cover',
+    pageCount: 'Pages',
+    publishedDate: 'Published',
+    seriesName: 'Series',
+    seriesPosition: 'Series position',
+    publisher: 'Publisher',
+    isbn: 'ISBN',
+    language: 'Language',
+    sourceName: 'Source',
+    sourceUrl: 'Source URL',
+  }
+  return labels[field] ?? field
+}
+
+function prepareTokenSummary(usage) {
+  if (!usage) return 'No token usage'
+  const input = usage.prompt_tokens ?? usage.input_tokens ?? 0
+  const output = usage.completion_tokens ?? usage.output_tokens ?? 0
+  const total = usage.total_tokens ?? input + output
+  return `${total} tokens (${input} in / ${output} out)`
 }
 
 function readFileAsDataUrl(file) {
@@ -457,6 +566,8 @@ function applyPreparedDraft(prepared) {
   if (draft.sourceName) bookEditor.value.sourceName = draft.sourceName
   if (draft.sourceUrl) bookEditor.value.sourceUrl = draft.sourceUrl
   bookPrepareWarnings.value = prepared.warnings ?? []
+  bookPrepareAnalysis.value = prepared.analysis ?? null
+  bookPrepareAnalysisOpen.value = false
 }
 
 async function prepareCurrentBookDraft() {
@@ -468,6 +579,8 @@ async function prepareCurrentBookDraft() {
   bookPrepareLoading.value = true
   searchError.value = ''
   bookPrepareWarnings.value = []
+  bookPrepareAnalysis.value = null
+  bookPrepareAnalysisOpen.value = false
   try {
     const prepared = await prepareBookDraft({
       isbn: bookEditor.value.isbn,
@@ -1053,7 +1166,13 @@ onUnmounted(() => {
 
           <label class="book-editor-field">
             <span>Published</span>
-            <input v-model="bookEditor.publishedDate" class="book-editor-input" type="text" placeholder="YYYY or YYYY-MM-DD" />
+            <input
+              v-model="bookEditor.publishedDate"
+              class="book-editor-input"
+              type="text"
+              placeholder="YYYY-MM-DD, YYYY-MM or YYYY"
+              @blur="normalizeBookEditorPublishedDate"
+            />
           </label>
 
           <label class="book-editor-field">
@@ -1140,6 +1259,49 @@ onUnmounted(() => {
           <div v-for="warning in bookPrepareWarnings" :key="warning" class="book-editor-warning">{{ warning }}</div>
         </div>
 
+        <div v-if="bookPrepareAnalysis" class="book-prepare-analysis">
+          <button
+            class="book-prepare-analysis-header"
+            type="button"
+            @click="bookPrepareAnalysisOpen = !bookPrepareAnalysisOpen"
+          >
+            <span>Prepare analysis</span>
+            <span>{{ prepareMethodLabel(bookPrepareAnalysis.method) }}</span>
+            <span aria-hidden="true">{{ bookPrepareAnalysisOpen ? '−' : '+' }}</span>
+          </button>
+          <div v-if="bookPrepareAnalysisOpen" class="book-prepare-analysis-body">
+            <div class="book-prepare-analysis-chips">
+              <span :class="{ active: bookPrepareAnalysis.webSearchUsed }">
+                Web search: {{ bookPrepareAnalysis.webSearchUsed ? bookPrepareAnalysis.webSearchCallCount || 1 : 'no' }}
+              </span>
+              <span>{{ prepareTokenSummary(bookPrepareAnalysis.tokenUsage) }}</span>
+              <span>Open Library fields: {{ bookPrepareAnalysis.openLibraryFieldCount }}</span>
+            </div>
+            <div
+              v-if="bookPrepareAnalysis.fieldComparison?.filled?.length || bookPrepareAnalysis.fieldComparison?.changed?.length"
+              class="book-prepare-delta"
+            >
+              <div
+                v-for="item in bookPrepareAnalysis.fieldComparison.filled"
+                :key="`filled-${item.field}`"
+                class="book-prepare-delta-row"
+              >
+                <span>Filled {{ prepareFieldLabel(item.field) }}</span>
+                <strong>{{ item.to }}</strong>
+              </div>
+              <div
+                v-for="item in bookPrepareAnalysis.fieldComparison.changed"
+                :key="`changed-${item.field}`"
+                class="book-prepare-delta-row"
+              >
+                <span>Changed {{ prepareFieldLabel(item.field) }}</span>
+                <strong>{{ item.from }} -> {{ item.to }}</strong>
+              </div>
+            </div>
+            <div v-else class="book-prepare-empty-delta">No editable fields were filled or changed.</div>
+          </div>
+        </div>
+
         <p v-if="searchError" class="book-editor-error">{{ searchError }}</p>
 
         <div class="book-editor-actions">
@@ -1208,6 +1370,54 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.theme-book .game-grid {
+  align-items: stretch;
+  grid-auto-rows: 1fr;
+}
+
+.theme-book .game-card {
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.theme-book .card-cover-wrap {
+  flex: 0 0 auto;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+}
+
+.theme-book .card-cover {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  object-fit: cover;
+}
+
+.theme-book .card-info {
+  flex: 0 0 116px;
+  height: 116px;
+  min-height: 116px;
+  padding: 6px 8px;
+  overflow: hidden;
+}
+
+.theme-book .card-row {
+  min-height: 18px;
+  overflow: hidden;
+}
+
+.theme-book .card-platform {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.theme-book .platform-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .book-title-block {
   min-width: 0;
   display: flex;
@@ -1215,8 +1425,13 @@ onUnmounted(() => {
 }
 
 .book-title-block .card-title {
+  display: -webkit-box;
   min-height: calc(11px * 1.3 * 2);
   margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 .book-card-author {
@@ -1264,6 +1479,25 @@ onUnmounted(() => {
   font-size: 9px;
   font-weight: 700;
   line-height: 1.4;
+}
+
+.book-series-badge {
+  flex-shrink: 1;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  padding: 1px 5px;
+  border: 1px solid rgb(var(--accent-rgb) / 0.35);
+  border-radius: 2px;
+  color: var(--accent-light);
+  background: rgb(var(--accent-rgb) / 0.12);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .book-editor-content {
@@ -1461,6 +1695,102 @@ onUnmounted(() => {
   line-height: 1.4;
 }
 
+.book-prepare-analysis {
+  display: flex;
+  flex-direction: column;
+  margin-top: 12px;
+  border: 1px solid rgb(var(--accent-rgb) / 0.35);
+  border-radius: 2px;
+  background: rgb(var(--accent-rgb) / 0.08);
+  overflow: hidden;
+}
+
+.book-prepare-analysis-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 8px 10px;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.book-prepare-analysis-header span:nth-child(2) {
+  color: var(--accent-light);
+  text-align: right;
+}
+
+.book-prepare-analysis-header span:last-child {
+  color: var(--text-dim);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.book-prepare-analysis-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid rgb(var(--accent-rgb) / 0.2);
+  padding: 10px;
+}
+
+.book-prepare-analysis-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.book-prepare-analysis-chips span {
+  border: 1px solid var(--border2);
+  border-radius: 2px;
+  background: var(--surface2);
+  color: var(--text-dim);
+  padding: 4px 6px;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.book-prepare-analysis-chips span.active {
+  border-color: rgb(var(--accent-rgb) / 0.55);
+  color: var(--accent-light);
+}
+
+.book-prepare-delta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.book-prepare-delta-row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.book-prepare-delta-row strong {
+  min-width: 0;
+  color: var(--text);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.book-prepare-empty-delta {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
 .book-editor-actions {
   display: flex;
   gap: 8px;
@@ -1490,6 +1820,11 @@ onUnmounted(() => {
     flex-direction: row;
     width: auto;
     text-align: left;
+  }
+
+  .book-prepare-delta-row {
+    grid-template-columns: 1fr;
+    gap: 2px;
   }
 
   .book-editor-file-name {

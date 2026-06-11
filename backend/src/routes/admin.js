@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { db } from '../db/library.js'
+import { normalizeBookPublishedDate } from '../utils/bookDate.js'
 
 const VALID_GAME_STATUSES = ['backlog', 'wishlist', 'started', 'completed', 'dropped', 'shelved']
 const VALID_GAME_PLATFORMS = ['pc', 'xbox', 'switch', '3ds']
@@ -124,7 +125,7 @@ router.post('/import', (req, res) => {
         )
       `)
       for (const b of data.books ?? []) {
-        insertBook.run(withDefaults(b, {
+        const book = withDefaults(b, {
           title: null,
           authors: '[]',
           description: null,
@@ -143,7 +144,9 @@ router.post('/import', (req, res) => {
           userRating: null,
           completedAt: null,
           lastTouched: null,
-        }))
+        })
+        book.publishedDate = normalizeBookPublishedDate(book.publishedDate) ?? book.publishedDate
+        insertBook.run(book)
       }
 
       // Book Formats

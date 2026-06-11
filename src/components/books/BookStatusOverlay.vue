@@ -64,6 +64,22 @@ const MONTHS = {
   december: 12,
 }
 
+const MONTH_NAMES = [
+  '',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+]
+
 const FORMAT_LABELS = {
   hardcover: 'Hardcover',
   paperback: 'Paperback',
@@ -111,7 +127,7 @@ function formatDisplayDate(value) {
   if (isoFull) return `${isoFull[3]}.${isoFull[2]}.${isoFull[1]}`
 
   const isoMonth = raw.match(/^(\d{4})-(\d{2})$/)
-  if (isoMonth) return `${isoMonth[2]}.${isoMonth[1]}`
+  if (isoMonth) return `${MONTH_NAMES[Number(isoMonth[2])] ?? isoMonth[2]} ${isoMonth[1]}`
 
   const yearOnly = raw.match(/^\d{4}$/)
   if (yearOnly) return raw
@@ -131,7 +147,7 @@ function formatDisplayDate(value) {
   const monthYear = raw.match(/^([A-Za-z]+)\.?\s+(\d{4})$/)
   if (monthYear) {
     const month = MONTHS[monthYear[1].toLowerCase()]
-    if (month) return `${pad2(month)}.${monthYear[2]}`
+    if (month) return `${MONTH_NAMES[month]} ${monthYear[2]}`
   }
 
   return raw

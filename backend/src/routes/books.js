@@ -7,6 +7,7 @@ import sharp from 'sharp'
 import { db, getBookWithFormats } from '../db/library.js'
 import { prepareBookDraft } from '../services/bookPreparationService.js'
 import { getEditionCandidatesForWork, searchBookDraftCandidates } from '../services/openLibraryService.js'
+import { normalizeBookPublishedDate } from '../utils/bookDate.js'
 
 const router = Router()
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/
@@ -17,7 +18,7 @@ const dbPath = process.env.DB_PATH ?? join(process.cwd(), 'backend.db')
 const uploadsRoot = process.env.UPLOAD_DIR ?? join(dirname(dbPath), 'uploads')
 const bookUploadsDir = join(uploadsRoot, 'books')
 const IMAGE_QUALITY = parseInt(process.env.IMAGE_QUALITY ?? '80', 10)
-const IMAGE_MAX_DIMENSION = parseInt(process.env.IMAGE_MAX_DIMENSION ?? '2400', 10)
+const IMAGE_MAX_DIMENSION = parseInt(process.env.IMAGE_MAX_DIMENSION ?? '1200', 10)
 const IMAGE_QUALITY_THUMB = parseInt(process.env.IMAGE_QUALITY_THUMB ?? '80', 10)
 const IMAGE_MAX_DIMENSION_THUMB = parseInt(process.env.IMAGE_MAX_DIMENSION_THUMB ?? '600', 10)
 
@@ -177,6 +178,10 @@ function normalizeDateInput(value) {
   return value
 }
 
+function errorStatus(err) {
+  return err.message?.includes('publishedDate') ? 400 : 500
+}
+
 function resolveCompletedAt(existing, requested, status, today) {
   if (requested !== undefined) return requested
   if (existing) return existing
@@ -194,7 +199,7 @@ async function aggregateBook(book) {
     coverPath: book.coverPath ?? null,
     coverThumbPath: book.coverThumbPath ?? null,
     pageCount: book.pageCount ?? null,
-    publishedDate: book.publishedDate ?? null,
+    publishedDate: normalizeBookPublishedDate(book.publishedDate) ?? book.publishedDate ?? null,
     categories: [],
     rating: null,
     ratingsCount: null,
@@ -227,7 +232,7 @@ router.get('/', async (req, res) => {
     aggregated.sort((a, b) => (a.title ?? '').localeCompare(b.title ?? ''))
     res.json(aggregated)
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    res.status(errorStatus(err)).json({ error: err.message })
   }
 })
 
@@ -286,7 +291,7 @@ router.get('/:id', async (req, res) => {
     if (!book) return res.status(404).json({ error: 'Buch nicht gefunden' })
     res.json(await aggregateBook(book))
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    res.status(errorStatus(err)).json({ error: err.message })
   }
 })
 
@@ -313,6 +318,7 @@ router.post('/', async (req, res) => {
   try {
     const today = new Date().toISOString().slice(0, 10)
     const completedAt = BOOK_COMPLETION_STATUSES.has(status) ? today : null
+    const publishedDate = normalizeBookPublishedDate(req.body.publishedDate, { strict: true })
     const savedCover = await resolveSavedCover(req.body)
     const bookId = db.transaction(() => {
       const { lastInsertRowid } = db
@@ -332,7 +338,7 @@ router.post('/', async (req, res) => {
           savedCover.coverPath,
           savedCover.coverThumbPath,
           normalizeOptionalNumber(req.body.pageCount),
-          normalizeOptionalString(req.body.publishedDate),
+          publishedDate,
           normalizeOptionalString(req.body.seriesName),
           normalizeOptionalString(req.body.seriesPosition),
           normalizeOptionalString(req.body.publisher),
@@ -354,7 +360,7 @@ router.post('/', async (req, res) => {
 
     res.status(201).json(await aggregateBook(getBookWithFormats(bookId)))
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    res.status(errorStatus(err)).json({ error: err.message })
   }
 })
 
@@ -390,6 +396,9 @@ router.put('/:id', async (req, res) => {
   )
 
   try {
+    const publishedDate = req.body.publishedDate !== undefined
+      ? normalizeBookPublishedDate(req.body.publishedDate, { strict: true })
+      : existing.publishedDate
     const savedCover = await resolveSavedCover(req.body, existing)
 
     db.prepare(`
@@ -422,7 +431,7 @@ router.put('/:id', async (req, res) => {
       savedCover.coverPath,
       savedCover.coverThumbPath,
       req.body.pageCount !== undefined ? normalizeOptionalNumber(req.body.pageCount) : existing.pageCount,
-      req.body.publishedDate !== undefined ? normalizeOptionalString(req.body.publishedDate) : existing.publishedDate,
+      publishedDate,
       req.body.seriesName !== undefined ? normalizeOptionalString(req.body.seriesName) : existing.seriesName,
       req.body.seriesPosition !== undefined ? normalizeOptionalString(req.body.seriesPosition) : existing.seriesPosition,
       req.body.publisher !== undefined ? normalizeOptionalString(req.body.publisher) : existing.publisher,
@@ -438,7 +447,7 @@ router.put('/:id', async (req, res) => {
     )
     res.json(await aggregateBook(getBookWithFormats(id)))
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    res.status(errorStatus(err)).json({ error: err.message })
   }
 })
 

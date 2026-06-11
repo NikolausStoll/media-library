@@ -31,6 +31,7 @@ const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= MOBILE
 
 function handleResize() {
   isMobile.value = window.innerWidth <= MOBILE_BREAKPOINT
+  if (!isMobile.value) showScanner.value = false
 }
 
 onMounted(() => {
@@ -170,32 +171,38 @@ function handleBarcodeScan(code) {
   <div class="overlay search-overlay" @click="emit('close')">
     <div class="search-overlay-content" @click.stop>
       <div class="search-overlay-header">
-        <div class="search-input-wrap" style="flex: 1">
-          <input
-            ref="searchInputRef"
-            :value="searchQuery"
-            @input="emit('update:searchQuery', $event.target.value)"
-            type="text"
-            placeholder="Title or ISBN..."
-            class="search-input"
-            @keydown.enter="handlePrimaryAction"
-          />
-          <button v-if="searchQuery" class="search-clear-btn" @click="emit('update:searchQuery', '')">✕</button>
+        <div class="book-search-primary-row">
+          <div class="search-input-wrap">
+            <input
+              ref="searchInputRef"
+              :value="searchQuery"
+              @input="emit('update:searchQuery', $event.target.value)"
+              type="text"
+              placeholder="Title or ISBN..."
+              class="search-input"
+              @keydown.enter="handlePrimaryAction"
+            />
+            <button v-if="searchQuery" class="search-clear-btn" @click="emit('update:searchQuery', '')">✕</button>
+          </div>
+          <button class="hltb-search-btn" :disabled="loading || !searchQuery.trim()" @click="handleSearchClick">
+            {{ loading ? '...' : (parsedInput.isbn ? 'Prepare' : 'Search') }}
+          </button>
+          <button class="hltb-search-btn desktop-manual-btn" @click="emitManualDraft">
+            Manual
+          </button>
+          <button class="hltb-search-btn book-search-close-btn" @click="emit('close')">✕</button>
         </div>
-        <button
-          v-if="isMobile"
-          class="hltb-search-btn scan-btn"
-          :class="{ active: showScanner }"
-          @click="showScanner = !showScanner"
-          title="Scan ISBN barcode"
-        >⌖</button>
-        <button class="hltb-search-btn" :disabled="loading || !searchQuery.trim()" @click="handleSearchClick">
-          {{ loading ? '...' : (parsedInput.isbn ? 'Prepare' : 'Search') }}
-        </button>
-        <button class="hltb-search-btn" @click="emitManualDraft">
-          Manual
-        </button>
-        <button class="hltb-search-btn" style="background: transparent; border: 1px solid var(--border2); color: var(--text-muted)" @click="emit('close')">✕</button>
+        <div class="book-search-secondary-row">
+          <button
+            class="hltb-search-btn scan-btn"
+            :class="{ active: showScanner }"
+            @click="showScanner = !showScanner"
+            title="Scan ISBN barcode"
+          >Barcode</button>
+          <button class="hltb-search-btn mobile-manual-btn" @click="emitManualDraft">
+            Manual
+          </button>
+        </div>
       </div>
 
       <div class="book-search-filters">
@@ -373,10 +380,10 @@ function handleBarcodeScan(code) {
 }
 
 .scan-btn {
+  display: none;
   background: var(--surface3) !important;
   border: 1px solid var(--border2) !important;
   color: var(--text-muted) !important;
-  font-size: 16px !important;
   padding: 4px 10px !important;
   min-width: 36px;
   transition: all 0.15s;
@@ -391,6 +398,21 @@ function handleBarcodeScan(code) {
   background: rgb(var(--accent-rgb) / 0.15) !important;
   border-color: var(--accent) !important;
   color: var(--accent) !important;
+}
+
+.book-search-primary-row,
+.book-search-secondary-row {
+  display: contents;
+}
+
+.book-search-close-btn {
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.mobile-manual-btn {
+  display: none;
 }
 
 .book-existing-notice {
@@ -580,7 +602,51 @@ function handleBarcodeScan(code) {
   min-width: 88px;
 }
 
-@media (max-width: 520px) {
+@media (max-width: 768px) {
+  .search-overlay-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .book-search-primary-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto 36px;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .book-search-primary-row .hltb-search-btn {
+    min-height: 36px;
+    padding-inline: 10px;
+  }
+
+  .desktop-manual-btn {
+    display: none;
+  }
+
+  .mobile-manual-btn {
+    display: inline-flex;
+  }
+
+  .book-search-secondary-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .book-search-secondary-row .hltb-search-btn {
+    align-items: center;
+    justify-content: center;
+    min-height: 36px;
+    width: 100%;
+  }
+
+  .scan-btn {
+    display: inline-flex;
+    min-width: 0;
+  }
+
   .book-search-filters {
     grid-template-columns: 1fr;
   }
