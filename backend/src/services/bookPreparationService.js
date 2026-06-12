@@ -86,6 +86,7 @@ Task:
 - Normalize language to "de", "en", or null.
 - Extract seriesName and seriesPosition only when there is clear evidence.
 - If seriesName is known but seriesPosition is missing, you may use your general literary knowledge to infer seriesPosition. When you do, add a warning that the series position was inferred by AI and set confidence.seriesPosition to "medium" or "low", not "high".
+- Do not change sourceName or sourceUrl. Keep the Open Library source information from fallbackDraft/sourceUrls unchanged.
 - Do not invent missing facts. Use null and add a warning when uncertain.
 
 Rules:
@@ -291,6 +292,13 @@ function countResponseWebSearchCalls(response) {
   return (response?.output ?? []).filter(item => item?.type === 'web_search_call').length
 }
 
+function openLibrarySourceUrl(source) {
+  return source.fallbackDraft?.sourceUrl ??
+    source.sourceUrls?.edition ??
+    source.sourceUrls?.isbn ??
+    null
+}
+
 function createAnalysis({ source, draft, method, model, tokenUsage = null, webSearchCallCount = 0 }) {
   const before = {
     ...cleanDraft(source.fallbackDraft, source.isbn),
@@ -390,8 +398,8 @@ async function runNormalPreparation(aiClient, source, payload) {
   const draft = {
     ...cleaned,
     coverUrl: cleaned.coverUrl ?? source.fallbackDraft?.coverUrl ?? source.fallbackDraft?.imageUrl ?? null,
-    sourceName: cleaned.sourceName ?? source.fallbackDraft?.sourceName ?? 'Open Library',
-    sourceUrl: cleaned.sourceUrl ?? source.fallbackDraft?.sourceUrl ?? source.sourceUrls?.isbn ?? null,
+    sourceName: source.fallbackDraft?.sourceName ?? 'Open Library',
+    sourceUrl: openLibrarySourceUrl(source),
   }
 
   const result = {
@@ -459,7 +467,7 @@ async function runWebSearchPreparation(aiClient, source, payload) {
   }
 
   const warnings = Array.isArray(parsed.warnings) ? [...parsed.warnings] : []
-  warnings.push('Metadata was prepared with web search because Open Library did not return enough usable data.')
+  warnings.push('Metadata was enriched using web search.')
   if (cleaned.coverUrl && !coverUrl) {
     warnings.push('Cover URL from web search was ignored because it was not a trusted Open Library cover URL.')
   }

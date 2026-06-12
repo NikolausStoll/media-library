@@ -47,6 +47,7 @@ const bookPrepareLoading = ref(false)
 const bookPrepareWarnings = ref([])
 const bookPrepareAnalysis = ref(null)
 const bookPrepareAnalysisOpen = ref(false)
+const bookImportInfoOpen = ref(false)
 const bookSearchResults = ref([])
 const bookSearchLoading = ref(false)
 const bookSearchError = ref('')
@@ -381,6 +382,7 @@ function openBookEditor(book = null) {
   bookPrepareWarnings.value = []
   bookPrepareAnalysis.value = null
   bookPrepareAnalysisOpen.value = false
+  bookImportInfoOpen.value = false
   bookEditor.value = createBookDraft(
     book
       ? { ...book, coverUrl: '', id: book.id }
@@ -396,6 +398,7 @@ function openDraftFromSearch({ result, status }) {
   bookPrepareWarnings.value = []
   bookPrepareAnalysis.value = null
   bookPrepareAnalysisOpen.value = false
+  bookImportInfoOpen.value = false
   bookEditor.value = createBookDraft(
     {
       ...result,
@@ -568,6 +571,7 @@ function applyPreparedDraft(prepared) {
   bookPrepareWarnings.value = prepared.warnings ?? []
   bookPrepareAnalysis.value = prepared.analysis ?? null
   bookPrepareAnalysisOpen.value = false
+  bookImportInfoOpen.value = false
 }
 
 async function prepareCurrentBookDraft() {
@@ -581,6 +585,7 @@ async function prepareCurrentBookDraft() {
   bookPrepareWarnings.value = []
   bookPrepareAnalysis.value = null
   bookPrepareAnalysisOpen.value = false
+  bookImportInfoOpen.value = false
   try {
     const prepared = await prepareBookDraft({
       isbn: bookEditor.value.isbn,
@@ -1117,195 +1122,238 @@ onUnmounted(() => {
       <div class="editor-content book-editor-content" @click.stop>
         <div class="overlay-title">{{ bookEditor?.id ? 'Edit Book' : 'Add Book' }}</div>
         <div class="overlay-subtitle">Local book data</div>
+        <div v-if="bookPrepareLoading" class="book-editor-loading-banner" role="status" aria-live="polite">
+          <span class="book-editor-loading-spinner" aria-hidden="true"></span>
+          <span>Preparing metadata from ISBN...</span>
+        </div>
 
-        <div class="book-editor-grid">
-          <label class="book-editor-field wide">
-            <span>Title</span>
-            <input v-model="bookEditor.title" class="book-editor-input" type="text" />
-          </label>
+        <fieldset class="book-editor-form-lock" :class="{ locked: bookPrepareLoading }" :disabled="bookPrepareLoading">
+          <div class="book-editor-layout">
+            <div class="book-editor-main-column">
+              <section class="book-editor-section">
+                <div class="overlay-section-label">Main</div>
+                <div class="book-editor-grid book-editor-main-grid">
+                  <label class="book-editor-field wide">
+                    <span>Title</span>
+                    <input v-model="bookEditor.title" class="book-editor-input" type="text" />
+                  </label>
 
-          <label class="book-editor-field wide">
-            <span>Authors</span>
-            <input v-model="bookEditor.authorsText" class="book-editor-input" type="text" placeholder="Author One, Author Two" />
-          </label>
+                  <label class="book-editor-field wide">
+                    <span>Authors</span>
+                    <input v-model="bookEditor.authorsText" class="book-editor-input" type="text" placeholder="Author One, Author Two" />
+                  </label>
 
-          <label class="book-editor-field">
-            <span>Status</span>
-            <select v-model="bookEditor.status" class="book-editor-input">
-              <option v-for="option in statusOptions" :key="option.id" :value="option.id">{{ option.label }}</option>
-            </select>
-          </label>
+                  <div class="book-editor-field wide">
+                    <span>ISBN</span>
+                    <div class="book-editor-inline-row">
+                      <input v-model="bookEditor.isbn" class="book-editor-input" type="text" />
+                      <button
+                        class="book-editor-prepare-btn"
+                        type="button"
+                        :disabled="bookPrepareLoading || !bookEditor.isbn?.trim()"
+                        @click="prepareCurrentBookDraft"
+                      >
+                        {{ bookPrepareLoading ? 'Preparing' : 'Prepare' }}
+                      </button>
+                    </div>
+                  </div>
 
-          <label class="book-editor-field">
-            <span>Language</span>
-            <select v-model="bookEditor.language" class="book-editor-input">
-              <option value="">Unknown</option>
-              <option v-for="lang in availableLanguages" :key="lang.id" :value="lang.id">{{ lang.label }}</option>
-            </select>
-          </label>
+                  <label class="book-editor-field">
+                    <span>Status</span>
+                    <select v-model="bookEditor.status" class="book-editor-input">
+                      <option v-for="option in statusOptions" :key="option.id" :value="option.id">{{ option.label }}</option>
+                    </select>
+                  </label>
 
-          <div class="book-editor-field">
-            <span>ISBN</span>
-            <div class="book-editor-inline-row">
-              <input v-model="bookEditor.isbn" class="book-editor-input" type="text" />
-              <button
-                class="book-editor-prepare-btn"
-                type="button"
-                :disabled="bookPrepareLoading || !bookEditor.isbn?.trim()"
-                @click="prepareCurrentBookDraft"
-              >
-                {{ bookPrepareLoading ? '...' : 'Prepare' }}
-              </button>
+                  <label class="book-editor-field">
+                    <span>Language</span>
+                    <select v-model="bookEditor.language" class="book-editor-input">
+                      <option value="">Unknown</option>
+                      <option v-for="lang in availableLanguages" :key="lang.id" :value="lang.id">{{ lang.label }}</option>
+                    </select>
+                  </label>
+
+                  <label class="book-editor-field">
+                    <span>Pages</span>
+                    <input v-model="bookEditor.pageCount" class="book-editor-input" type="number" min="0" />
+                  </label>
+
+                  <label class="book-editor-field wide">
+                    <span>Description</span>
+                    <textarea v-model="bookEditor.description" class="book-editor-input book-editor-textarea"></textarea>
+                  </label>
+                </div>
+              </section>
+
+              <section class="book-editor-section">
+                <div class="overlay-section-label">Metadata</div>
+                <div class="book-editor-grid book-editor-metadata-grid">
+                  <label class="book-editor-field">
+                    <span>Published</span>
+                    <input
+                      v-model="bookEditor.publishedDate"
+                      class="book-editor-input"
+                      type="text"
+                      placeholder="YYYY-MM-DD, YYYY-MM or YYYY"
+                      @blur="normalizeBookEditorPublishedDate"
+                    />
+                  </label>
+
+                  <label class="book-editor-field">
+                    <span>Publisher</span>
+                    <input v-model="bookEditor.publisher" class="book-editor-input" type="text" />
+                  </label>
+
+                  <label class="book-editor-field">
+                    <span>Series</span>
+                    <input v-model="bookEditor.seriesName" class="book-editor-input" type="text" />
+                  </label>
+
+                  <label class="book-editor-field">
+                    <span>Position</span>
+                    <input v-model="bookEditor.seriesPosition" class="book-editor-input" type="text" />
+                  </label>
+                </div>
+              </section>
+
+              <section class="book-editor-section book-editor-formats">
+                <div class="overlay-section-label">Formats</div>
+                <div class="book-editor-format-row">
+                  <button
+                    v-for="(fmt, index) in bookEditor.formats"
+                    :key="`${fmt.format}-${index}`"
+                    class="filter-btn active"
+                    @click="removeDraftFormat(index)"
+                  >
+                    {{ getFormatLabel(fmt.format ?? fmt) }} ✕
+                  </button>
+                  <select
+                    class="add-platform-select"
+                    @change="addDraftFormat($event.target.value); $event.target.value = ''"
+                  >
+                    <option value="">+ Add format</option>
+                    <option v-for="f in availableFormats" :key="f.id" :value="f.id">{{ f.label }}</option>
+                  </select>
+                </div>
+              </section>
+            </div>
+
+            <aside class="book-editor-cover-panel">
+              <div class="overlay-section-label">Cover</div>
+              <div class="book-editor-preview compact" v-if="bookEditor.coverPreviewUrl || bookEditor.coverPath || bookEditor.coverThumbPath || bookEditor.coverUrl || bookEditor.imageUrl">
+                <img :src="bookEditor.coverPreviewUrl || bookEditor.coverThumbPath || bookEditor.coverPath || bookEditor.coverUrl || bookEditor.imageUrl" alt="" />
+              </div>
+              <div v-else class="book-editor-cover-placeholder">No cover</div>
+
+              <div class="book-editor-cover-actions">
+                <label class="book-editor-file-btn">
+                  Choose Image
+                  <input type="file" accept="image/*" @change="handleCoverFileChange" />
+                </label>
+                <a
+                  v-if="bookEditor.coverUrl"
+                  class="book-editor-link-btn"
+                  :href="bookEditor.coverUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Open cover URL
+                </a>
+                <button
+                  v-if="bookEditor.coverPath || bookEditor.coverThumbPath || bookEditor.coverUrl || bookEditor.coverFile || bookEditor.imageUrl"
+                  class="clear-cache-btn"
+                  type="button"
+                  @click="clearDraftCover"
+                >
+                  Remove Cover
+                </button>
+              </div>
+              <span v-if="bookEditor.coverFileName" class="book-editor-file-name">{{ bookEditor.coverFileName }}</span>
+            </aside>
+          </div>
+
+          <div v-if="bookPrepareWarnings.length" class="book-editor-warnings">
+            <div v-for="warning in bookPrepareWarnings" :key="warning" class="book-editor-warning">{{ warning }}</div>
+          </div>
+
+          <div class="book-editor-collapse">
+            <button
+              class="book-editor-collapse-header"
+              type="button"
+              @click="bookImportInfoOpen = !bookImportInfoOpen"
+            >
+              <span>Import information</span>
+              <span aria-hidden="true">{{ bookImportInfoOpen ? '−' : '+' }}</span>
+            </button>
+            <div v-if="bookImportInfoOpen" class="book-editor-collapse-body">
+              <label class="book-editor-field">
+                <span>Source</span>
+                <input v-model="bookEditor.sourceName" class="book-editor-input" type="text" />
+              </label>
+              <div class="book-editor-field">
+                <span>Source URL</span>
+                <a
+                  v-if="bookEditor.sourceUrl"
+                  class="book-editor-link-btn"
+                  :href="bookEditor.sourceUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Open source URL
+                </a>
+                <span v-else class="book-editor-muted-value">No source URL</span>
+              </div>
             </div>
           </div>
 
-          <label class="book-editor-field">
-            <span>Pages</span>
-            <input v-model="bookEditor.pageCount" class="book-editor-input" type="number" min="0" />
-          </label>
-
-          <label class="book-editor-field">
-            <span>Published</span>
-            <input
-              v-model="bookEditor.publishedDate"
-              class="book-editor-input"
-              type="text"
-              placeholder="YYYY-MM-DD, YYYY-MM or YYYY"
-              @blur="normalizeBookEditorPublishedDate"
-            />
-          </label>
-
-          <label class="book-editor-field">
-            <span>Publisher</span>
-            <input v-model="bookEditor.publisher" class="book-editor-input" type="text" />
-          </label>
-
-          <label class="book-editor-field">
-            <span>Series</span>
-            <input v-model="bookEditor.seriesName" class="book-editor-input" type="text" />
-          </label>
-
-          <label class="book-editor-field">
-            <span>Position</span>
-            <input v-model="bookEditor.seriesPosition" class="book-editor-input" type="text" />
-          </label>
-
-          <div class="book-editor-field wide">
-            <span>Cover</span>
-            <div class="book-editor-cover-row">
-              <div class="book-editor-cover-controls">
-                <input v-model="bookEditor.coverUrl" class="book-editor-input" type="url" placeholder="Cover URL" />
-                <div class="book-editor-file-row">
-                  <label class="book-editor-file-btn">
-                    Choose Image
-                    <input type="file" accept="image/*" @change="handleCoverFileChange" />
-                  </label>
-                  <span class="book-editor-file-name">{{ bookEditor.coverFileName || 'No local file selected' }}</span>
-                  <button
-                    v-if="bookEditor.coverPath || bookEditor.coverThumbPath || bookEditor.coverUrl || bookEditor.coverFile || bookEditor.imageUrl"
-                    class="clear-cache-btn"
-                    type="button"
-                    @click="clearDraftCover"
-                  >
-                    Remove Cover
-                  </button>
+          <div v-if="bookPrepareAnalysis" class="book-editor-collapse book-prepare-analysis">
+            <button
+              class="book-editor-collapse-header"
+              type="button"
+              @click="bookPrepareAnalysisOpen = !bookPrepareAnalysisOpen"
+            >
+              <span>Prepare Analysis / Debug</span>
+              <span>{{ prepareMethodLabel(bookPrepareAnalysis.method) }}</span>
+              <span aria-hidden="true">{{ bookPrepareAnalysisOpen ? '−' : '+' }}</span>
+            </button>
+            <div v-if="bookPrepareAnalysisOpen" class="book-editor-collapse-body book-prepare-analysis-body">
+              <div class="book-prepare-analysis-chips">
+                <span :class="{ active: bookPrepareAnalysis.webSearchUsed }">
+                  Web search: {{ bookPrepareAnalysis.webSearchUsed ? bookPrepareAnalysis.webSearchCallCount || 1 : 'no' }}
+                </span>
+                <span>{{ prepareTokenSummary(bookPrepareAnalysis.tokenUsage) }}</span>
+                <span>Open Library fields: {{ bookPrepareAnalysis.openLibraryFieldCount }}</span>
+              </div>
+              <div
+                v-if="bookPrepareAnalysis.fieldComparison?.filled?.length || bookPrepareAnalysis.fieldComparison?.changed?.length"
+                class="book-prepare-delta"
+              >
+                <div
+                  v-for="item in bookPrepareAnalysis.fieldComparison.filled"
+                  :key="`filled-${item.field}`"
+                  class="book-prepare-delta-row"
+                >
+                  <span>Filled {{ prepareFieldLabel(item.field) }}</span>
+                  <strong>{{ item.to }}</strong>
+                </div>
+                <div
+                  v-for="item in bookPrepareAnalysis.fieldComparison.changed"
+                  :key="`changed-${item.field}`"
+                  class="book-prepare-delta-row"
+                >
+                  <span>Changed {{ prepareFieldLabel(item.field) }}</span>
+                  <strong>{{ item.from }} -> {{ item.to }}</strong>
                 </div>
               </div>
-              <div class="book-editor-preview inline" v-if="bookEditor.coverPreviewUrl || bookEditor.coverPath || bookEditor.coverThumbPath || bookEditor.coverUrl || bookEditor.imageUrl">
-                <img :src="bookEditor.coverPreviewUrl || bookEditor.coverThumbPath || bookEditor.coverPath || bookEditor.coverUrl || bookEditor.imageUrl" alt="" />
-                <span>Stored locally when saved.</span>
-              </div>
+              <div v-else class="book-prepare-empty-delta">No editable fields were filled or changed.</div>
             </div>
           </div>
-
-          <label class="book-editor-field">
-            <span>Source</span>
-            <input v-model="bookEditor.sourceName" class="book-editor-input" type="text" />
-          </label>
-
-          <label class="book-editor-field">
-            <span>Source URL</span>
-            <input v-model="bookEditor.sourceUrl" class="book-editor-input" type="url" />
-          </label>
-
-          <label class="book-editor-field wide">
-            <span>Description</span>
-            <textarea v-model="bookEditor.description" class="book-editor-input book-editor-textarea"></textarea>
-          </label>
-        </div>
-
-        <div class="book-editor-formats">
-          <div class="overlay-section-label">Formats</div>
-          <div class="book-editor-format-row">
-            <button
-              v-for="(fmt, index) in bookEditor.formats"
-              :key="`${fmt.format}-${index}`"
-              class="filter-btn active"
-              @click="removeDraftFormat(index)"
-            >
-              {{ getFormatLabel(fmt.format ?? fmt) }} ✕
-            </button>
-            <select
-              class="add-platform-select"
-              @change="addDraftFormat($event.target.value); $event.target.value = ''"
-            >
-              <option value="">+ Add format</option>
-              <option v-for="f in availableFormats" :key="f.id" :value="f.id">{{ f.label }}</option>
-            </select>
-          </div>
-        </div>
-
-        <div v-if="bookPrepareWarnings.length" class="book-editor-warnings">
-          <div v-for="warning in bookPrepareWarnings" :key="warning" class="book-editor-warning">{{ warning }}</div>
-        </div>
-
-        <div v-if="bookPrepareAnalysis" class="book-prepare-analysis">
-          <button
-            class="book-prepare-analysis-header"
-            type="button"
-            @click="bookPrepareAnalysisOpen = !bookPrepareAnalysisOpen"
-          >
-            <span>Prepare analysis</span>
-            <span>{{ prepareMethodLabel(bookPrepareAnalysis.method) }}</span>
-            <span aria-hidden="true">{{ bookPrepareAnalysisOpen ? '−' : '+' }}</span>
-          </button>
-          <div v-if="bookPrepareAnalysisOpen" class="book-prepare-analysis-body">
-            <div class="book-prepare-analysis-chips">
-              <span :class="{ active: bookPrepareAnalysis.webSearchUsed }">
-                Web search: {{ bookPrepareAnalysis.webSearchUsed ? bookPrepareAnalysis.webSearchCallCount || 1 : 'no' }}
-              </span>
-              <span>{{ prepareTokenSummary(bookPrepareAnalysis.tokenUsage) }}</span>
-              <span>Open Library fields: {{ bookPrepareAnalysis.openLibraryFieldCount }}</span>
-            </div>
-            <div
-              v-if="bookPrepareAnalysis.fieldComparison?.filled?.length || bookPrepareAnalysis.fieldComparison?.changed?.length"
-              class="book-prepare-delta"
-            >
-              <div
-                v-for="item in bookPrepareAnalysis.fieldComparison.filled"
-                :key="`filled-${item.field}`"
-                class="book-prepare-delta-row"
-              >
-                <span>Filled {{ prepareFieldLabel(item.field) }}</span>
-                <strong>{{ item.to }}</strong>
-              </div>
-              <div
-                v-for="item in bookPrepareAnalysis.fieldComparison.changed"
-                :key="`changed-${item.field}`"
-                class="book-prepare-delta-row"
-              >
-                <span>Changed {{ prepareFieldLabel(item.field) }}</span>
-                <strong>{{ item.from }} -> {{ item.to }}</strong>
-              </div>
-            </div>
-            <div v-else class="book-prepare-empty-delta">No editable fields were filled or changed.</div>
-          </div>
-        </div>
+        </fieldset>
 
         <p v-if="searchError" class="book-editor-error">{{ searchError }}</p>
 
         <div class="book-editor-actions">
-          <button class="close-btn" :disabled="!bookEditor.title?.trim()" @click="saveBookEditor">Save</button>
+          <button class="close-btn" :disabled="bookPrepareLoading || !bookEditor.title?.trim()" @click="saveBookEditor">Save</button>
           <button class="clear-cache-btn" @click="showBookEditor = false">Cancel</button>
         </div>
       </div>
@@ -1501,18 +1549,86 @@ onUnmounted(() => {
 }
 
 .book-editor-content {
-  width: min(680px, calc(100vw - 28px));
-  max-width: 680px;
+  width: min(900px, calc(100vw - 28px));
+  max-width: 900px;
   max-height: calc(100dvh - 28px);
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+
+.book-editor-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 176px;
+  gap: 16px;
+  align-items: start;
+  margin-top: 14px;
+}
+
+.book-editor-main-column,
+.book-editor-section,
+.book-editor-cover-panel {
+  min-width: 0;
+}
+
+.book-editor-main-column {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.book-editor-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.book-editor-loading-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  border: 1px solid rgb(var(--accent-rgb) / 0.45);
+  border-radius: 2px;
+  background: rgb(var(--accent-rgb) / 0.12);
+  color: var(--accent-light);
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.book-editor-form-lock {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.book-editor-form-lock.locked {
+  opacity: 0.68;
+  pointer-events: none;
+}
+
+.book-editor-loading-spinner {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  border: 2px solid rgb(var(--accent-rgb) / 0.25);
+  border-top-color: var(--accent-light);
+  border-radius: 50%;
+  animation: book-editor-spin 0.8s linear infinite;
+}
+
+@keyframes book-editor-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .book-editor-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
-  margin-top: 14px;
+  margin-top: 0;
 }
 
 .book-editor-field {
@@ -1578,27 +1694,6 @@ onUnmounted(() => {
   resize: vertical;
 }
 
-.book-editor-file-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.book-editor-cover-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: stretch;
-}
-
-.book-editor-cover-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 0;
-}
-
 .book-editor-file-btn {
   flex-shrink: 0;
   display: inline-flex;
@@ -1615,6 +1710,12 @@ onUnmounted(() => {
   letter-spacing: 0;
   text-transform: none;
   cursor: pointer;
+}
+
+.book-editor-file-btn:hover,
+.book-editor-link-btn:hover {
+  border-color: rgb(var(--accent-rgb) / 0.5);
+  color: var(--accent-light);
 }
 
 .book-editor-file-btn input {
@@ -1634,10 +1735,6 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-.book-editor-formats {
-  margin-top: 14px;
-}
-
 .book-editor-format-row {
   display: flex;
   flex-wrap: wrap;
@@ -1649,18 +1746,9 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 14px;
+  margin-top: 0;
   color: var(--text-dim);
   font-size: 11px;
-}
-
-.book-editor-preview.inline {
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 92px;
-  margin-top: 0;
-  text-align: center;
 }
 
 .book-editor-preview img {
@@ -1669,6 +1757,77 @@ onUnmounted(() => {
   object-fit: cover;
   border-radius: 2px;
   border: 1px solid var(--border2);
+}
+
+.book-editor-cover-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-left: 1px solid var(--border2);
+  padding-left: 14px;
+}
+
+.book-editor-preview.compact img,
+.book-editor-cover-placeholder {
+  width: 88px;
+  aspect-ratio: 2 / 3;
+  border: 1px solid var(--border2);
+  border-radius: 2px;
+}
+
+.book-editor-preview.compact img {
+  height: auto;
+  max-height: 132px;
+  object-fit: cover;
+}
+
+.book-editor-cover-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface2);
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.book-editor-cover-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.book-editor-cover-actions .clear-cache-btn,
+.book-editor-cover-actions .book-editor-file-btn,
+.book-editor-link-btn {
+  width: 100%;
+  min-height: 32px;
+  padding: 6px 8px;
+  font-size: 11px;
+}
+
+.book-editor-link-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border2);
+  border-radius: 2px;
+  background: var(--surface2);
+  color: var(--text);
+  font-weight: 700;
+  letter-spacing: 0;
+  text-decoration: none;
+  text-transform: none;
+}
+
+.book-editor-muted-value {
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.35;
+  text-transform: none;
 }
 
 .book-editor-error {
@@ -1695,7 +1854,7 @@ onUnmounted(() => {
   line-height: 1.4;
 }
 
-.book-prepare-analysis {
+.book-editor-collapse {
   display: flex;
   flex-direction: column;
   margin-top: 12px;
@@ -1705,7 +1864,7 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
-.book-prepare-analysis-header {
+.book-editor-collapse-header {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 10px;
@@ -1723,18 +1882,19 @@ onUnmounted(() => {
   text-transform: uppercase;
 }
 
-.book-prepare-analysis-header span:nth-child(2) {
+.book-editor-collapse-header span:nth-child(2):not(:last-child) {
   color: var(--accent-light);
   text-align: right;
 }
 
-.book-prepare-analysis-header span:last-child {
+.book-editor-collapse-header span:last-child {
+  justify-self: end;
   color: var(--text-dim);
   font-size: 14px;
   line-height: 1;
 }
 
-.book-prepare-analysis-body {
+.book-editor-collapse-body {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1802,24 +1962,59 @@ onUnmounted(() => {
 }
 
 @media (max-width: 640px) {
+  .book-editor-content {
+    width: min(680px, calc(100vw - 20px));
+  }
+
+  .book-editor-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    align-items: stretch;
+  }
+
+  .book-editor-main-column,
+  .book-editor-section,
+  .book-editor-grid,
+  .book-editor-format-row {
+    width: 100%;
+  }
+
   .book-editor-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .book-editor-file-row {
-    align-items: stretch;
+  .book-editor-cover-panel {
+    display: grid;
+    grid-template-columns: 88px minmax(0, 1fr);
+    column-gap: 12px;
+    row-gap: 8px;
+    align-items: start;
+    border-left: 0;
+    border-top: 1px solid var(--border2);
+    padding-left: 0;
+    padding-top: 12px;
+  }
+
+  .book-editor-cover-panel .overlay-section-label {
+    grid-column: 1 / -1;
+  }
+
+  .book-editor-preview.compact,
+  .book-editor-cover-placeholder {
+    grid-column: 1;
+  }
+
+  .book-editor-cover-actions {
+    grid-column: 2;
+    grid-row: 2;
+    display: flex;
     flex-direction: column;
+    gap: 6px;
   }
 
-  .book-editor-cover-row {
-    grid-template-columns: 1fr;
-  }
-
-  .book-editor-preview.inline {
-    align-items: flex-start;
-    flex-direction: row;
-    width: auto;
-    text-align: left;
+  .book-editor-file-name {
+    grid-column: 1 / -1;
   }
 
   .book-prepare-delta-row {
@@ -1829,10 +2024,6 @@ onUnmounted(() => {
 
   .book-editor-file-name {
     white-space: normal;
-  }
-
-  .book-editor-inline-row {
-    flex-direction: column;
   }
 }
 

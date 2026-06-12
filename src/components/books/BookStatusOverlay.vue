@@ -339,7 +339,7 @@ function isbn10To13(isbn10) {
 
 .book-edit-icon-btn span {
   display: inline-block;
-  transform: scaleX(-1);
+  transform: scaleX(-1) rotate(5deg);
 }
 
 .book-edit-icon-btn:hover {
