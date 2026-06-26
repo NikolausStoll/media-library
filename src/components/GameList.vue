@@ -80,7 +80,7 @@ const HLTB_RESULTS_LIMIT = 40
 
 const tabs = [
   { id: 'wishlist',  label: 'Wishlist'  },
-  { id: 'backlog',   label: 'Backlog'   },  
+  { id: 'backlog',   label: 'Collection' },
   { id: 'started',   label: 'Started'   },
   { id: 'completed', label: 'Completed' },
   { id: 'dropped',   label: 'Dropped'   },
@@ -89,7 +89,7 @@ const tabs = [
 
 const statusOptions = [
   { id: 'wishlist',  label: 'Wishlist'  },
-  { id: 'backlog',   label: 'Backlog'   },  
+  { id: 'backlog',   label: 'Collection' },
   { id: 'started',   label: 'Started'   },
   { id: 'shelved',   label: 'Shelved'   },
   { id: 'completed', label: 'Completed' },

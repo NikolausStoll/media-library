@@ -34,7 +34,7 @@ afterEach(() => {
 describe('GameBadges', () => {
   it('zeigt Play-Next-Badge wenn Spiel in playNextList ist', async () => {
     const wrapper = await mountApp({ playNext: [ZELDA.id] })
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
+    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
     await backlogTab!.trigger('click')
     await nextTick()
 
@@ -44,9 +44,9 @@ describe('GameBadges', () => {
     wrapper.unmount()
   })
 
-  it('Normal-Backlog-Karten sind NICHT in der Play-Next-Sektion', async () => {
+  it('Normal-Collection-Karten sind NICHT in der Play-Next-Sektion', async () => {
     const wrapper = await mountApp({ playNext: [ZELDA.id] })
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
+    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
     await backlogTab!.trigger('click')
     await nextTick()
 
@@ -72,16 +72,16 @@ describe('GameBadges', () => {
     wrapper.unmount()
   })
 
-  it('Backlog-Count entspricht Anzahl der Backlog-Spiele', async () => {
+  it('Collection-Count entspricht Anzahl der Collection-Spiele', async () => {
     const wrapper = await mountApp({ games: [ZELDA, MARIO] })
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
+    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
     expect(backlogTab!.text()).toMatch(/1/)
     wrapper.unmount()
   })
 
   it('zeigt Fallback wenn coverUrl null ist', async () => {
     const wrapper = await mountApp({ games: [ZELDA] })
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
+    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
     await backlogTab!.trigger('click')
     await nextTick()
 
@@ -95,7 +95,7 @@ describe('GameBadges', () => {
 
   it('zeigt Platform-Label auf der Game-Card', async () => {
     const wrapper = await mountApp({ games: [ZELDA] })
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
+    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
     await backlogTab!.trigger('click')
     await nextTick()
 

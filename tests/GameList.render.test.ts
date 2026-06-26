@@ -35,7 +35,7 @@ afterEach(() => {
 describe('GameList – Rendering', () => {
   it('zeigt alle Tab-Labels', async () => {
     const wrapper = await mountApp()
-    const tabLabels = ['Backlog', 'Wishlist', 'Started', 'Completed', 'Dropped']
+    const tabLabels = ['Collection', 'Wishlist', 'Started', 'Completed', 'Dropped']
     tabLabels.forEach(label => {
       expect(wrapper.text()).toContain(label)
     })
@@ -45,15 +45,15 @@ describe('GameList – Rendering', () => {
   it('zeigt die korrekten Spiel-Counts pro Tab', async () => {
     const wrapper = await mountApp()
     const tabEls = wrapper.findAll('.tab-btn, [data-tab], button').filter(b =>
-      ['Backlog', 'Started'].some(l => b.text().includes(l))
+      ['Collection', 'Started'].some(l => b.text().includes(l))
     )
     expect(tabEls.length).toBeGreaterThanOrEqual(2)
     wrapper.unmount()
   })
 
-  it('rendert Game-Cards für den aktiven Tab (Backlog)', async () => {
+  it('rendert Game-Cards für den aktiven Tab (Collection)', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
+    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
     await backlogTab!.trigger('click')
     await nextTick()
 
@@ -62,9 +62,9 @@ describe('GameList – Rendering', () => {
     wrapper.unmount()
   })
 
-  it('zeigt Zelda-Karte im Backlog-Tab', async () => {
+  it('zeigt Zelda-Karte im Collection-Tab', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
+    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
     await backlogTab!.trigger('click')
     await nextTick()
 

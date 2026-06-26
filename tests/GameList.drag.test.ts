@@ -51,13 +51,13 @@ describe('GameList – Drag & Drop (Started-Tab)', () => {
     expect(customBtnStarted).toBeDefined()
     expect(customBtnStarted!.classes()).toContain('active')
 
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
+    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
     await backlogTab!.trigger('click')
     await nextTick()
 
-    const customBtnBacklog = wrapper.findAll('button').find(b => b.text().includes('Custom'))
-    if (customBtnBacklog) {
-      expect(customBtnBacklog.classes()).not.toContain('active')
+    const customBtnCollection = wrapper.findAll('button').find(b => b.text().includes('Custom'))
+    if (customBtnCollection) {
+      expect(customBtnCollection.classes()).not.toContain('active')
     }
 
     wrapper.unmount()

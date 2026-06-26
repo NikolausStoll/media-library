@@ -71,7 +71,7 @@ describe('Overlay – Game-Detail', () => {
 
   it('öffnet Game-Detail beim Klick auf Card', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
+    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
     await backlogTab!.trigger('click')
     await nextTick()
 
@@ -91,7 +91,7 @@ describe('Overlay – Game-Detail', () => {
 
   it('zeigt den korrekten Spielnamen im Overlay', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
+    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
     await backlogTab!.trigger('click')
     await nextTick()
 
@@ -108,7 +108,7 @@ describe('Overlay – Game-Detail', () => {
 
   it('schließt Overlay beim Klick auf den Backdrop', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
+    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
     await backlogTab!.trigger('click')
     await nextTick()
 
@@ -126,7 +126,7 @@ describe('Overlay – Game-Detail', () => {
 
   it('schließt Overlay mit ESC-Taste', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
+    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
     await backlogTab!.trigger('click')
     await nextTick()
 
@@ -145,7 +145,7 @@ describe('Overlay – Game-Detail', () => {
 
   it('schließt NICHT beim Klick auf overlay-content', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
+    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
     await backlogTab!.trigger('click')
     await nextTick()
 
@@ -168,7 +168,7 @@ describe('Overlay – Game-Detail', () => {
     })
 
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
+    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
     await backlogTab!.trigger('click')
     await nextTick()
 
@@ -198,7 +198,7 @@ describe('Overlay – Game-Detail', () => {
     ;(deleteGame as ReturnType<typeof vi.fn>).mockResolvedValue(undefined)
 
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
+    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
 
     if (backlogTab) {
       await backlogTab.trigger('click')
@@ -236,7 +236,7 @@ describe('Overlay – Game-Detail', () => {
     let cards = wrapper.findAll('.game-card')
 
     if (cards.length === 0) {
-      const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
+      const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
       if (backlogTab) {
         await backlogTab.trigger('click')
         await nextTick()

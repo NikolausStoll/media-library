@@ -86,7 +86,7 @@ watch(overlaySearchQuery, () => {
 
 const tabs = [
   { id: 'wishlist',  label: 'Wishlist'  },
-  { id: 'backlog',   label: 'Backlog'   },
+  { id: 'backlog',   label: 'Library'   },
   { id: 'started',   label: 'Started'   },
   { id: 'completed', label: 'Completed' },
   { id: 'all',       label: 'All'       },
@@ -94,7 +94,7 @@ const tabs = [
 
 const statusOptions = [
   { id: 'wishlist',  label: 'Wishlist'  },
-  { id: 'backlog',   label: 'Backlog'   },
+  { id: 'backlog',   label: 'Library'   },
   { id: 'started',   label: 'Started'   },
   { id: 'shelved',   label: 'Shelved'   },
   { id: 'completed', label: 'Completed' },

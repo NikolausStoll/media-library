@@ -148,7 +148,7 @@ describe('Backend-Mock – API Calls', () => {
     })
 
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
+    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
     await backlogTab!.trigger('click')
     await nextTick()
 
@@ -195,8 +195,8 @@ describe('Backend-Mock – API Calls', () => {
 
     const wrapper = await mountApp()
 
-    // Zum Backlog-Tab wechseln
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
+    // Zum Collection-Tab wechseln
+    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
     await backlogTab!.trigger('click')
     await flushPromises()
     await nextTick()
@@ -238,7 +238,7 @@ describe('Backend-Mock – API Calls', () => {
     })
 
     const wrapper = await mountApp({ games: [ZELDA] })
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
+    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
     await backlogTab!.trigger('click')
     await nextTick()
 
@@ -264,7 +264,7 @@ describe('Backend-Mock – API Calls', () => {
     ;(addGame as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Server Error'))
 
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
+    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
     await backlogTab!.trigger('click')
     await nextTick()
 

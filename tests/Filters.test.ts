@@ -33,9 +33,9 @@ afterEach(() => {
 })
 
 describe('Filters & Sortierung', () => {
-  it('Platform-Filter "Switch" zeigt nur Switch-Spiele im Backlog', async () => {
+  it('Platform-Filter "Switch" zeigt nur Switch-Spiele im Collection', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
+    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
     await backlogTab!.trigger('click')
     await nextTick()
 
@@ -53,7 +53,7 @@ describe('Filters & Sortierung', () => {
 
   it('Storefront-Filter "Steam" filtert Nintendo-Spiele heraus', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
+    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
     await backlogTab!.trigger('click')
     await nextTick()
 
@@ -71,7 +71,7 @@ describe('Filters & Sortierung', () => {
 
   it('Kombination Platform+Storefront gibt leere Liste wenn kein Match', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
+    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
     await backlogTab!.trigger('click')
     await nextTick()
 
@@ -87,7 +87,7 @@ describe('Filters & Sortierung', () => {
 
   it('Fuzzy-Suche findet Spiel mit Teilstring', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
+    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
     await backlogTab!.trigger('click')
     await nextTick()
 
@@ -102,7 +102,7 @@ describe('Filters & Sortierung', () => {
 
   it('Fuzzy-Suche filtert nicht passende Spiele heraus', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
+    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
     await backlogTab!.trigger('click')
     await nextTick()
 
@@ -118,7 +118,7 @@ describe('Filters & Sortierung', () => {
 
   it('Fuzzy-Suche ist case-insensitive', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
+    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
     await backlogTab!.trigger('click')
     await nextTick()
 
@@ -132,7 +132,7 @@ describe('Filters & Sortierung', () => {
 
   it('Name-Sort: erster Klick → A→Z', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
+    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
     await backlogTab!.trigger('click')
     await nextTick()
 
@@ -150,7 +150,7 @@ describe('Filters & Sortierung', () => {
 
   it('Name-Sort: zweiter Klick togglet auf Z→A', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
+    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
     await backlogTab!.trigger('click')
     await nextTick()
 
@@ -172,7 +172,7 @@ describe('Filters & Sortierung', () => {
 
   it('Wechsel zu "Started" Tab setzt sortBy auf custom', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Backlog'))
+    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
     await backlogTab!.trigger('click')
     await nextTick()
 
