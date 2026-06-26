@@ -1,29 +1,8 @@
+import './setupGameMocks'
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { flushPromises } from '@vue/test-utils'
 import { nextTick } from 'vue'
-import { mountApp, ZELDA, MARIO, METROID } from './helpers'
-
-vi.mock('../src/services/gameStorage.js', () => ({
-  loadGames: vi.fn(),
-  addGame: vi.fn(),
-  updateGame: vi.fn(),
-  updateGamePlatforms: vi.fn(),
-  deleteGame: vi.fn(),
-  loadSortOrder: vi.fn(),
-  saveSortOrder: vi.fn(),
-  loadNext: vi.fn(),
-  saveNext: vi.fn(),
-  removeFromNext: vi.fn(),
-}))
-
-vi.mock('../src/data/games.js', () => ({
-  storefronts: [{ id: 'nintendo', label: 'Nintendo' }, { id: 'steam', label: 'Steam' }],
-  availablePlatforms: [{ id: 'switch', label: 'Switch' }, { id: 'pc', label: 'PC' }],
-}))
-
-vi.mock('../src/data/platformLogos.js', () => ({
-  getPlatformLogo: vi.fn(() => null),
-}))
+import { mountApp, ZELDA, MARIO, METROID, clickTab } from './helpers'
 
 global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => [] })
 
@@ -35,9 +14,7 @@ afterEach(() => {
 describe('Filters & Sortierung', () => {
   it('Platform-Filter "Switch" zeigt nur Switch-Spiele im Collection', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
-    await backlogTab!.trigger('click')
-    await nextTick()
+    await clickTab(wrapper, 'Collection')
 
     const switchBtn = wrapper.findAll('button').find(b => b.text().includes('Switch'))
     expect(switchBtn).toBeDefined()
@@ -53,9 +30,7 @@ describe('Filters & Sortierung', () => {
 
   it('Storefront-Filter "Steam" filtert Nintendo-Spiele heraus', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
-    await backlogTab!.trigger('click')
-    await nextTick()
+    await clickTab(wrapper, 'Collection')
 
     const steamBtn = wrapper.findAll('button').find(b => b.text().includes('Steam'))
     expect(steamBtn).toBeDefined()
@@ -71,9 +46,7 @@ describe('Filters & Sortierung', () => {
 
   it('Kombination Platform+Storefront gibt leere Liste wenn kein Match', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
-    await backlogTab!.trigger('click')
-    await nextTick()
+    await clickTab(wrapper, 'Collection')
 
     const switchBtn = wrapper.findAll('button').find(b => b.text().includes('Switch'))
     const steamBtn = wrapper.findAll('button').find(b => b.text().includes('Steam'))
@@ -87,24 +60,20 @@ describe('Filters & Sortierung', () => {
 
   it('Fuzzy-Suche findet Spiel mit Teilstring', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
-    await backlogTab!.trigger('click')
-    await nextTick()
+    await clickTab(wrapper, 'Collection')
 
     const searchInput = wrapper.find('.search-input')
     await searchInput.setValue('zelda')
     await nextTick()
 
-    expect(wrapper.findAll('.game-card').length).toBeGreaterThanOrEqual(1)
+    expect(wrapper.findAll('.game-card').length).toBe(1)
     expect(wrapper.text()).toContain('Zelda')
     wrapper.unmount()
   })
 
   it('Fuzzy-Suche filtert nicht passende Spiele heraus', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
-    await backlogTab!.trigger('click')
-    await nextTick()
+    await clickTab(wrapper, 'Collection')
 
     const searchInput = wrapper.find('.search-input')
     await searchInput.setValue('zelda')
@@ -118,9 +87,7 @@ describe('Filters & Sortierung', () => {
 
   it('Fuzzy-Suche ist case-insensitive', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
-    await backlogTab!.trigger('click')
-    await nextTick()
+    await clickTab(wrapper, 'Collection')
 
     const searchInput = wrapper.find('.search-input')
     await searchInput.setValue('ZELDA')
@@ -132,57 +99,49 @@ describe('Filters & Sortierung', () => {
 
   it('Name-Sort: erster Klick → A→Z', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
-    await backlogTab!.trigger('click')
-    await nextTick()
+    await clickTab(wrapper, 'Collection')
+
+    const cards = wrapper.findAll('.game-card')
+    expect(cards.length).toBe(2)
+    expect(cards[0].text()).toContain('Metroid')
+    expect(cards[1].text()).toContain('Zelda')
 
     const nameBtn = wrapper.findAll('button').find(b => b.text().includes('Name'))
     await nameBtn!.trigger('click')
     await nextTick()
 
-    const cards = wrapper.findAll('.game-card')
-    expect(cards.length).toBe(2)
-    const names = cards.map(c => c.text())
-    expect(names.some(n => n.includes('Metroid'))).toBe(true)
-    expect(names.some(n => n.includes('Zelda'))).toBe(true)
+    const descCards = wrapper.findAll('.game-card')
+    expect(descCards[0].text()).toContain('Zelda')
+    expect(descCards[1].text()).toContain('Metroid')
     wrapper.unmount()
   })
 
-  it('Name-Sort: zweiter Klick togglet auf Z→A', async () => {
+  it('Name-Sort: zweiter Klick togglet zurück auf A→Z', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
-    await backlogTab!.trigger('click')
-    await nextTick()
+    await clickTab(wrapper, 'Collection')
 
     const nameBtn = wrapper.findAll('button').find(b => b.text().includes('Name'))
     await nameBtn!.trigger('click')
     await nextTick()
-    const firstOrder = wrapper.findAll('.game-card').map(c => c.text())
-
     await nameBtn!.trigger('click')
     await nextTick()
 
     const cards = wrapper.findAll('.game-card')
     expect(cards.length).toBe(2)
-    const secondOrder = cards.map(c => c.text())
-    expect(secondOrder[0]).toBe(firstOrder[1])
-    expect(secondOrder[1]).toBe(firstOrder[0])
+    expect(cards[0].text()).toContain('Metroid')
+    expect(cards[1].text()).toContain('Zelda')
     wrapper.unmount()
   })
 
   it('Wechsel zu "Started" Tab setzt sortBy auf custom', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
-    await backlogTab!.trigger('click')
-    await nextTick()
+    await clickTab(wrapper, 'Collection')
 
     const nameBtn = wrapper.findAll('button').find(b => b.text().includes('Name'))
     await nameBtn!.trigger('click')
     await nextTick()
 
-    const startedTab = wrapper.findAll('button').find(b => b.text().includes('Started'))
-    await startedTab!.trigger('click')
-    await nextTick()
+    await clickTab(wrapper, 'Started')
 
     const customBtn = wrapper.findAll('button').find(b => b.text().includes('Custom'))
     expect(customBtn?.classes()).toContain('active')
@@ -211,5 +170,4 @@ describe('Filters & Sortierung', () => {
 
     wrapper.unmount()
   })
-
 })

@@ -1,7 +1,7 @@
 {
   "name": "media-library",
   "private": true,
-  "version": "1.13.1",
+  "version": "1.14.0",
   "type": "module",
   "scripts": {
     "dev:frontend": "vite",
@@ -12,6 +12,9 @@
     "start:backend": "npm run start",
     "preview": "vite preview",
     "test": "vitest",
+    "test:run": "vitest --run",
+    "test:backend": "node --test --test-concurrency=1 backend/tests/**/*.test.js",
+    "test:all": "npm run test:run && npm run test:backend",
     "test:ui": "vitest --ui"
   },
   "dependencies": {

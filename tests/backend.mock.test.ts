@@ -1,31 +1,8 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import './setupGameMocks'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { nextTick } from 'vue'
 import { flushPromises } from '@vue/test-utils'
-import { mountApp, ZELDA } from './helpers'
-
-vi.mock('../src/services/gameStorage.js', () => ({
-  loadGames: vi.fn(),
-  addGame: vi.fn(),
-  updateGame: vi.fn(),
-  updateGamePlatforms: vi.fn(),
-  deleteGame: vi.fn(),
-  loadSortOrder: vi.fn(),
-  saveSortOrder: vi.fn(),
-  loadNext: vi.fn(),
-  saveNext: vi.fn(),
-  removeFromNext: vi.fn(),
-}))
-
-vi.mock('../src/data/games.js', () => ({
-  storefronts: [{ id: 'nintendo', label: 'Nintendo' }],
-  availablePlatforms: [{ id: 'switch', label: 'Switch' }],
-}))
-
-vi.mock('../src/data/platformLogos.js', () => ({
-  getPlatformLogo: vi.fn(() => null),
-}))
-
-global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => [] })
+import { mountApp, ZELDA, clickTab } from './helpers'
 
 afterEach(() => {
   vi.clearAllMocks()
@@ -55,7 +32,6 @@ describe('Search Overlay – addGame', () => {
 
     const wrapper = await mountApp()
 
-    // Search Overlay öffnen
     const openBtn = wrapper.find('.search-open-btn')
     expect(openBtn.exists()).toBe(true)
     await openBtn.trigger('click')
@@ -63,21 +39,18 @@ describe('Search Overlay – addGame', () => {
 
     expect(wrapper.find('.search-overlay').exists()).toBe(true)
 
-    // Suche ausführen
     const searchInput = wrapper.find('.search-overlay .search-input')
     await searchInput.setValue('New Test')
     await wrapper.find('.hltb-search-btn').trigger('click')
     await flushPromises()
     await nextTick()
 
-    // Ergebnis-Karte prüfen
     const addBtn = wrapper.find('.search-result-add-btn.primary')
     expect(addBtn.exists()).toBe(true)
 
     await addBtn.trigger('click')
     await flushPromises()
 
-    // addGame mit activeTab (started) aufgerufen
     expect(addGame).toHaveBeenCalledWith('99999', 'started', [])
 
     wrapper.unmount()
@@ -93,7 +66,6 @@ describe('Search Overlay – addGame', () => {
 
     const wrapper = await mountApp()
 
-    // Search Overlay öffnen & suchen
     await wrapper.find('.search-open-btn').trigger('click')
     await nextTick()
     await wrapper.find('.search-overlay .search-input').setValue('New Test')
@@ -101,20 +73,17 @@ describe('Search Overlay – addGame', () => {
     await flushPromises()
     await nextTick()
 
-    // Other-Dropdown auf backlog setzen
     const select = wrapper.find('.search-result-status-select')
     expect(select.exists()).toBe(true)
     await select.setValue('backlog')
     await select.trigger('change')
     await flushPromises()
 
-    // addGame mit backlog aufgerufen
     expect(addGame).toHaveBeenCalledWith('99999', 'backlog', [])
 
     wrapper.unmount()
   })
 })
-
 
 describe('Backend-Mock – API Calls', () => {
   beforeEach(() => {
@@ -128,6 +97,7 @@ describe('Backend-Mock – API Calls', () => {
       return Promise.resolve({ ok: true, json: async () => [] })
     })
   })
+
   it('ruft loadGames, loadSortOrder und loadNext beim Mount auf', async () => {
     const { loadGames, loadSortOrder, loadNext } =
       await import('../src/services/gameStorage.js')
@@ -148,9 +118,7 @@ describe('Backend-Mock – API Calls', () => {
     })
 
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
-    await backlogTab!.trigger('click')
-    await nextTick()
+    await clickTab(wrapper, 'Collection')
 
     const input = wrapper.find('.add-game-input')
     await input.setValue('99999')
@@ -194,14 +162,8 @@ describe('Backend-Mock – API Calls', () => {
     ;(deleteGame as ReturnType<typeof vi.fn>).mockResolvedValue(undefined)
 
     const wrapper = await mountApp()
+    await clickTab(wrapper, 'Collection')
 
-    // Zum Collection-Tab wechseln
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
-    await backlogTab!.trigger('click')
-    await flushPromises()
-    await nextTick()
-
-    // Alphabetisch ist Metroid vor Zelda – gezielt ZELDA per Name finden
     const cards = wrapper.findAll('.game-card')
     const zeldaCard = cards.find(c => c.text().includes('Zelda'))
     expect(zeldaCard).toBeDefined()
@@ -217,13 +179,9 @@ describe('Backend-Mock – API Calls', () => {
     await flushPromises()
     await nextTick()
 
-    // ✅ API mit ZELDA-ID aufgerufen
     expect(deleteGame).toHaveBeenCalledWith('1')
-
-    // ✅ Overlay geschlossen
     expect(wrapper.find('.overlay').exists()).toBe(false)
 
-    // ✅ Zelda nicht mehr in der Liste
     const remainingCards = wrapper.findAll('.game-card')
     expect(remainingCards.every(c => !c.text().includes('Zelda'))).toBe(true)
 
@@ -238,9 +196,7 @@ describe('Backend-Mock – API Calls', () => {
     })
 
     const wrapper = await mountApp({ games: [ZELDA] })
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
-    await backlogTab!.trigger('click')
-    await nextTick()
+    await clickTab(wrapper, 'Collection')
 
     await wrapper.find('.game-card').trigger('click')
     await nextTick()
@@ -254,7 +210,7 @@ describe('Backend-Mock – API Calls', () => {
 
     expect(updateGame).toHaveBeenCalledWith(
       ZELDA.id,
-      expect.objectContaining({ status: 'completed' })
+      expect.objectContaining({ status: 'completed' }),
     )
     wrapper.unmount()
   })
@@ -264,9 +220,7 @@ describe('Backend-Mock – API Calls', () => {
     ;(addGame as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Server Error'))
 
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
-    await backlogTab!.trigger('click')
-    await nextTick()
+    await clickTab(wrapper, 'Collection')
 
     const input = wrapper.find('.add-game-input')
     await input.setValue('12345')

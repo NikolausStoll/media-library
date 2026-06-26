@@ -1,29 +1,8 @@
+import './setupGameMocks'
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { flushPromises } from '@vue/test-utils'
 import { nextTick } from 'vue'
-import { mountApp, ZELDA, MARIO, METROID } from './helpers'
-
-vi.mock('../src/services/gameStorage.js', () => ({
-  loadGames: vi.fn(),
-  addGame: vi.fn(),
-  updateGame: vi.fn(),
-  updateGamePlatforms: vi.fn(),
-  deleteGame: vi.fn(),
-  loadSortOrder: vi.fn(),
-  saveSortOrder: vi.fn(),
-  loadNext: vi.fn(),
-  saveNext: vi.fn(),
-  removeFromNext: vi.fn(),
-}))
-
-vi.mock('../src/data/games.js', () => ({
-  storefronts: [{ id: 'nintendo', label: 'Nintendo' }, { id: 'steam', label: 'Steam' }],
-  availablePlatforms: [{ id: 'switch', label: 'Switch' }, { id: 'pc', label: 'PC' }],
-}))
-
-vi.mock('../src/data/platformLogos.js', () => ({
-  getPlatformLogo: vi.fn(() => null),
-}))
+import { mountApp, ZELDA, clickTab, tabCount } from './helpers'
 
 global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => [] })
 
@@ -35,7 +14,7 @@ afterEach(() => {
 describe('GameList – Rendering', () => {
   it('zeigt alle Tab-Labels', async () => {
     const wrapper = await mountApp()
-    const tabLabels = ['Collection', 'Wishlist', 'Started', 'Completed', 'Dropped']
+    const tabLabels = ['Collection', 'Wishlist', 'Started', 'Completed', 'Dropped', 'All']
     tabLabels.forEach(label => {
       expect(wrapper.text()).toContain(label)
     })
@@ -44,18 +23,15 @@ describe('GameList – Rendering', () => {
 
   it('zeigt die korrekten Spiel-Counts pro Tab', async () => {
     const wrapper = await mountApp()
-    const tabEls = wrapper.findAll('.tab-btn, [data-tab], button').filter(b =>
-      ['Collection', 'Started'].some(l => b.text().includes(l))
-    )
-    expect(tabEls.length).toBeGreaterThanOrEqual(2)
+    expect(tabCount(wrapper, 'Collection')).toBe(2)
+    expect(tabCount(wrapper, 'Started')).toBe(1)
+    expect(tabCount(wrapper, 'All')).toBe(3)
     wrapper.unmount()
   })
 
   it('rendert Game-Cards für den aktiven Tab (Collection)', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
-    await backlogTab!.trigger('click')
-    await nextTick()
+    await clickTab(wrapper, 'Collection')
 
     const cards = wrapper.findAll('.game-card')
     expect(cards.length).toBe(2)
@@ -64,9 +40,7 @@ describe('GameList – Rendering', () => {
 
   it('zeigt Zelda-Karte im Collection-Tab', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
-    await backlogTab!.trigger('click')
-    await nextTick()
+    await clickTab(wrapper, 'Collection')
 
     expect(wrapper.text()).toContain('Zelda')
     wrapper.unmount()
@@ -74,19 +48,14 @@ describe('GameList – Rendering', () => {
 
   it('wechselt Tab und zeigt Started-Spiele', async () => {
     const wrapper = await mountApp()
-    const startedTab = wrapper.findAll('button').find(b => b.text().includes('Started'))
-    expect(startedTab).toBeDefined()
-    await startedTab!.trigger('click')
-    await nextTick()
+    await clickTab(wrapper, 'Started')
     expect(wrapper.text()).toContain('Mario')
     wrapper.unmount()
   })
 
   it('zeigt keine Cards wenn Tab leer ist', async () => {
     const wrapper = await mountApp({ games: [ZELDA] })
-    const completedTab = wrapper.findAll('button').find(b => b.text().includes('Completed'))
-    await completedTab!.trigger('click')
-    await nextTick()
+    await clickTab(wrapper, 'Completed')
     const cards = wrapper.findAll('.game-card')
     expect(cards.length).toBe(0)
     wrapper.unmount()

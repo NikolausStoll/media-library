@@ -12,7 +12,7 @@ This is the source of truth for AI assistants working in this repository. Keep i
 - Local dev frontend: Vite on `localhost:5173`.
 - Local dev backend: `npm run dev:backend`, should use `PORT=8098` because `vite.config.js` proxies `/api` to `http://localhost:8098`.
 - Container/Home Assistant backend: defaults to `PORT=8099`, `DB_PATH=/data/backend.db`, `STATIC_DIR=/app/public`.
-- Current package/add-on version: `1.13.1`.
+- Current package/add-on version: `1.14.0`.
 
 ## High-Level Features
 

@@ -1,66 +1,13 @@
+import './setupGameMocks'
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { mount, flushPromises } from '@vue/test-utils'
+import { flushPromises } from '@vue/test-utils'
 import { nextTick } from 'vue'
-import GameList from '../src/components/GameList.vue'
-
-vi.mock('../src/services/gameStorage.js', () => ({
-  loadGames: vi.fn(),
-  addGame: vi.fn(),
-  updateGame: vi.fn(),
-  updateGamePlatforms: vi.fn(),
-  deleteGame: vi.fn(),
-  loadSortOrder: vi.fn(),
-  saveSortOrder: vi.fn(),
-  loadNext: vi.fn(),
-  saveNext: vi.fn(),
-  removeFromNext: vi.fn(),
-}))
-
-vi.mock('../src/data/games.js', () => ({
-  storefronts: [{ id: 'nintendo', label: 'Nintendo' }],
-  availablePlatforms: [{ id: 'switch', label: 'Switch' }],
-}))
-
-vi.mock('../src/data/platformLogos.js', () => ({
-  getPlatformLogo: vi.fn(() => null),
-}))
+import { mountApp, ZELDA, clickTab } from './helpers'
 
 global.fetch = vi.fn().mockResolvedValue({
   ok: true,
   json: async () => [],
 })
-
-const ZELDA = {
-  id: '1',
-  externalId: '10101',
-  name: 'The Legend of Zelda: Tears of the Kingdom',
-  status: 'backlog',
-  platforms: [{ platform: 'switch', storefront: 'nintendo' }],
-  coverUrl: null,
-}
-
-const MARIO = {
-  id: '2',
-  externalId: '20202',
-  name: 'Super Mario Odyssey',
-  status: 'started',
-  platforms: [{ platform: 'switch', storefront: 'nintendo' }],
-  coverUrl: null,
-}
-
-async function mountApp() {
-  const { loadGames, loadSortOrder, loadNext } =
-    await import('../src/services/gameStorage.js')
-
-  ;(loadGames as ReturnType<typeof vi.fn>).mockResolvedValue([ZELDA, MARIO])
-  ;(loadSortOrder as ReturnType<typeof vi.fn>).mockResolvedValue([])
-  ;(loadNext as ReturnType<typeof vi.fn>).mockResolvedValue([])
-
-  const wrapper = mount(GameList, { attachTo: document.body })
-  await flushPromises()
-  await nextTick()
-  return wrapper
-}
 
 afterEach(() => {
   vi.clearAllMocks()
@@ -71,16 +18,14 @@ describe('Overlay – Game-Detail', () => {
 
   it('öffnet Game-Detail beim Klick auf Card', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
-    await backlogTab!.trigger('click')
-    await nextTick()
+    await clickTab(wrapper, 'Collection')
 
     expect(wrapper.find('.overlay').exists()).toBe(false)
 
-    const cards = wrapper.findAll('.game-card')
-    expect(cards.length).toBeGreaterThan(0)
+    const zeldaCard = wrapper.findAll('.game-card').find(c => c.text().includes('Zelda'))
+    expect(zeldaCard).toBeDefined()
 
-    await cards[0].trigger('click')
+    await zeldaCard!.trigger('click')
     await nextTick()
 
     expect(wrapper.find('.overlay').exists()).toBe(true)
@@ -91,16 +36,15 @@ describe('Overlay – Game-Detail', () => {
 
   it('zeigt den korrekten Spielnamen im Overlay', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
-    await backlogTab!.trigger('click')
-    await nextTick()
+    await clickTab(wrapper, 'Collection')
 
-    const cards = wrapper.findAll('.game-card')
-    await cards[0].trigger('click')
+    const zeldaCard = wrapper.findAll('.game-card').find(c => c.text().includes('Zelda'))
+    expect(zeldaCard).toBeDefined()
+    await zeldaCard!.trigger('click')
     await nextTick()
 
     expect(wrapper.find('.overlay-title').text()).toBe(
-      'The Legend of Zelda: Tears of the Kingdom'
+      'The Legend of Zelda: Tears of the Kingdom',
     )
 
     wrapper.unmount()
@@ -108,11 +52,10 @@ describe('Overlay – Game-Detail', () => {
 
   it('schließt Overlay beim Klick auf den Backdrop', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
-    await backlogTab!.trigger('click')
-    await nextTick()
+    await clickTab(wrapper, 'Collection')
 
-    await wrapper.findAll('.game-card')[0].trigger('click')
+    const zeldaCard = wrapper.findAll('.game-card').find(c => c.text().includes('Zelda'))
+    await zeldaCard!.trigger('click')
     await nextTick()
     expect(wrapper.find('.overlay').exists()).toBe(true)
 
@@ -126,15 +69,13 @@ describe('Overlay – Game-Detail', () => {
 
   it('schließt Overlay mit ESC-Taste', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
-    await backlogTab!.trigger('click')
-    await nextTick()
+    await clickTab(wrapper, 'Collection')
 
-    await wrapper.findAll('.game-card')[0].trigger('click')
+    const zeldaCard = wrapper.findAll('.game-card').find(c => c.text().includes('Zelda'))
+    await zeldaCard!.trigger('click')
     await nextTick()
     expect(wrapper.find('.overlay').exists()).toBe(true)
 
-    await wrapper.trigger('keydown', { key: 'Escape' })
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
     await nextTick()
 
@@ -145,11 +86,10 @@ describe('Overlay – Game-Detail', () => {
 
   it('schließt NICHT beim Klick auf overlay-content', async () => {
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
-    await backlogTab!.trigger('click')
-    await nextTick()
+    await clickTab(wrapper, 'Collection')
 
-    await wrapper.findAll('.game-card')[0].trigger('click')
+    const zeldaCard = wrapper.findAll('.game-card').find(c => c.text().includes('Zelda'))
+    await zeldaCard!.trigger('click')
     await nextTick()
 
     await wrapper.find('.overlay-content').trigger('click')
@@ -168,11 +108,10 @@ describe('Overlay – Game-Detail', () => {
     })
 
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
-    await backlogTab!.trigger('click')
-    await nextTick()
+    await clickTab(wrapper, 'Collection')
 
-    await wrapper.findAll('.game-card')[0].trigger('click')
+    const zeldaCard = wrapper.findAll('.game-card').find(c => c.text().includes('Zelda'))
+    await zeldaCard!.trigger('click')
     await nextTick()
 
     const completedBtn = wrapper
@@ -186,7 +125,7 @@ describe('Overlay – Game-Detail', () => {
 
     expect(updateGame).toHaveBeenCalledWith(
       ZELDA.id,
-      expect.objectContaining({ status: 'completed' })
+      expect.objectContaining({ status: 'completed' }),
     )
     expect(wrapper.find('.overlay').exists()).toBe(false)
 
@@ -198,21 +137,13 @@ describe('Overlay – Game-Detail', () => {
     ;(deleteGame as ReturnType<typeof vi.fn>).mockResolvedValue(undefined)
 
     const wrapper = await mountApp()
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
-
-    if (backlogTab) {
-      await backlogTab.trigger('click')
-      await flushPromises()
-      await nextTick()
-    }
+    await clickTab(wrapper, 'Collection')
 
     const cards = wrapper.findAll('.game-card')
-    if (cards.length === 0) {
-      wrapper.unmount()
-      return
-    }
+    const zeldaCard = cards.find(c => c.text().includes('Zelda'))
+    expect(zeldaCard).toBeDefined()
 
-    await cards[0].trigger('click')
+    await zeldaCard!.trigger('click')
     await nextTick()
 
     const deleteBtn = wrapper.find('.delete-trigger-btn')
@@ -231,27 +162,16 @@ describe('Overlay – Game-Detail', () => {
     wrapper.unmount()
   })
 
-  it('öffnet für jede Card das richtige Spiel im Overlay', async () => {
+  it('öffnet für Started-Card das richtige Spiel im Overlay', async () => {
     const wrapper = await mountApp()
-    let cards = wrapper.findAll('.game-card')
 
-    if (cards.length === 0) {
-      const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
-      if (backlogTab) {
-        await backlogTab.trigger('click')
-        await nextTick()
-        cards = wrapper.findAll('.game-card')
-      }
-    }
+    const marioCard = wrapper.findAll('.game-card').find(c => c.text().includes('Mario Odyssey'))
+    expect(marioCard).toBeDefined()
 
-    expect(cards.length).toBeGreaterThan(0)
-
-    await cards[0].trigger('click')
+    await marioCard!.trigger('click')
     await nextTick()
 
-    const overlayTitle = wrapper.find('.overlay-title').text()
-    expect(overlayTitle).toBeTruthy()
-    expect(overlayTitle.length).toBeGreaterThan(0)
+    expect(wrapper.find('.overlay-title').text()).toBe('Super Mario Odyssey')
 
     wrapper.unmount()
   })
@@ -259,17 +179,14 @@ describe('Overlay – Game-Detail', () => {
   it('Platform Editor öffnet sich beim Klick auf Platform-Badge', async () => {
     const wrapper = await mountApp()
 
-    // Started-Tab ist default, MARIO hat status: started
     const cards = wrapper.findAll('.game-card')
     expect(cards.length).toBeGreaterThan(0)
 
-    // Platform-Badge klicken (nicht die Karte selbst)
     const platformBadge = cards[0].find('.card-platform')
     expect(platformBadge.exists()).toBe(true)
     await platformBadge.trigger('click')
     await nextTick()
 
-    // Platform Editor sollte offen sein, NICHT der Status-Overlay
     expect(wrapper.find('.editor-content').exists()).toBe(true)
     expect(wrapper.find('.overlay-content').exists()).toBe(false)
 
@@ -310,6 +227,4 @@ describe('Overlay – Game-Detail', () => {
 
     wrapper.unmount()
   })
-
-
 })

@@ -1,29 +1,8 @@
+import './setupGameMocks'
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { nextTick } from 'vue'
 import { flushPromises } from '@vue/test-utils'
-import { mountApp, MARIO } from './helpers'
-
-vi.mock('../src/services/gameStorage.js', () => ({
-  loadGames: vi.fn(),
-  addGame: vi.fn(),
-  updateGame: vi.fn(),
-  updateGamePlatforms: vi.fn(),
-  deleteGame: vi.fn(),
-  loadSortOrder: vi.fn(),
-  saveSortOrder: vi.fn(),
-  loadNext: vi.fn(),
-  saveNext: vi.fn(),
-  removeFromNext: vi.fn(),
-}))
-
-vi.mock('../src/data/games.js', () => ({
-  storefronts: [{ id: 'nintendo', label: 'Nintendo' }],
-  availablePlatforms: [{ id: 'switch', label: 'Switch' }],
-}))
-
-vi.mock('../src/data/platformLogos.js', () => ({
-  getPlatformLogo: vi.fn(() => null),
-}))
+import { mountApp, MARIO, clickTab } from './helpers'
 
 global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => [] })
 
@@ -38,27 +17,25 @@ const MARIO_2 = {
   name: 'Mario Kart 8',
   status: 'started',
   coverUrl: null,
+  imageUrl: null,
   rating: null,
   gameplayAll: 20,
   platforms: [{ platform: 'switch', storefront: 'nintendo' }],
+  tags: [],
 }
 
 describe('GameList – Drag & Drop (Started-Tab)', () => {
-  it('Custom-Sort-Button ist nur im Started-Tab sichtbar', async () => {
+  it('Custom-Sort-Button ist nur im Started-Tab aktiv', async () => {
     const wrapper = await mountApp()
 
     const customBtnStarted = wrapper.findAll('button').find(b => b.text().includes('Custom'))
     expect(customBtnStarted).toBeDefined()
     expect(customBtnStarted!.classes()).toContain('active')
 
-    const backlogTab = wrapper.findAll('button').find(b => b.text().includes('Collection'))
-    await backlogTab!.trigger('click')
-    await nextTick()
+    await clickTab(wrapper, 'Collection')
 
     const customBtnCollection = wrapper.findAll('button').find(b => b.text().includes('Custom'))
-    if (customBtnCollection) {
-      expect(customBtnCollection.classes()).not.toContain('active')
-    }
+    expect(customBtnCollection).toBeUndefined()
 
     wrapper.unmount()
   })
@@ -73,9 +50,8 @@ describe('GameList – Drag & Drop (Started-Tab)', () => {
 
     const cards = wrapper.findAll('.game-card')
     expect(cards.length).toBe(2)
-    const cardTexts = cards.map(c => c.text())
-    expect(cardTexts.some(t => t.includes('Mario Kart'))).toBe(true)
-    expect(cardTexts.some(t => t.includes('Mario Odyssey'))).toBe(true)
+    expect(cards[0].text()).toContain('Mario Kart')
+    expect(cards[1].text()).toContain('Mario Odyssey')
     wrapper.unmount()
   })
 
@@ -87,11 +63,10 @@ describe('GameList – Drag & Drop (Started-Tab)', () => {
     await nextTick()
 
     const draggable = wrapper.findComponent({ name: 'draggable' })
-    if (draggable.exists()) {
-      await draggable.vm.$emit('end')
-      await flushPromises()
-      expect(saveSortOrder).toHaveBeenCalled()
-    }
+    expect(draggable.exists()).toBe(true)
+    await draggable.vm.$emit('end')
+    await flushPromises()
+    expect(saveSortOrder).toHaveBeenCalled()
     wrapper.unmount()
   })
 

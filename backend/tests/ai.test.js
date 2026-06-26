@@ -20,3 +20,20 @@ test('fallback suggestion uses provided context when AI key is missing', async (
   assert.ok(result.contextSummary.includes('Mock Adventure'), 'Context summary should mention the item')
   assert.ok(result.message.includes('AI_API_KEY'), 'Message should describe missing API key')
 })
+
+test('fallback suggestion works for movie watchlist context', async () => {
+  process.env.AI_API_KEY = ''
+  const items = [
+    { title: 'Inception', status: 'watchlist', metadata: '2010 · ★ 8.4' },
+  ]
+
+  const result = await generateSuggestion({
+    mediaType: 'movie',
+    activeTab: 'watchlist',
+    prompt: 'Was soll ich schauen?',
+    contextItems: items,
+  })
+
+  assert.ok(result.suggestion.includes('Inception'))
+  assert.ok(result.message.includes('AI_API_KEY'))
+})
