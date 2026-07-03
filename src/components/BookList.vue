@@ -474,6 +474,7 @@ function normalizeBookEditorPublishedDate() {
 function prepareMethodLabel(method) {
   if (method === 'web-search') return 'Web search'
   if (method === 'llm-normalization') return 'LLM normalization'
+  if (method === 'dnb-fallback') return 'DNB fallback'
   if (method === 'open-library') return 'Open Library only'
   return method || 'Unknown'
 }
@@ -1320,6 +1321,9 @@ onUnmounted(() => {
               <div class="book-prepare-analysis-chips">
                 <span :class="{ active: bookPrepareAnalysis.webSearchUsed }">
                   Web search: {{ bookPrepareAnalysis.webSearchUsed ? bookPrepareAnalysis.webSearchCallCount || 1 : 'no' }}
+                </span>
+                <span :class="{ active: bookPrepareAnalysis.dnbUsed }">
+                  DNB: {{ bookPrepareAnalysis.dnbUsed ? 'yes' : 'no' }}
                 </span>
                 <span>{{ prepareTokenSummary(bookPrepareAnalysis.tokenUsage) }}</span>
                 <span>Open Library fields: {{ bookPrepareAnalysis.openLibraryFieldCount }}</span>

@@ -1,5 +1,6 @@
 import { getAiClient, MODEL } from './aiService.js'
 import { getBookDraftSourceByIsbn } from './openLibraryService.js'
+import { compactDnbPayload, getDnbBookDraftByIsbn } from './dnbService.js'
 import { normalizeBookPublishedDate } from '../utils/bookDate.js'
 
 const WEB_SEARCH_MODEL = process.env.BOOK_PREP_WEB_SEARCH_MODEL ?? 'gpt-4o-mini'
@@ -74,19 +75,24 @@ You receive one JSON object with:
 - isbn
 - languageHint: optional "de" or "en"
 - openLibrary: compact Open Library edition/work/books-api data, deterministic fallbackDraft, and pre-extracted seriesHints
+- dnb: optional compact Deutsche Nationalbibliothek fallback data when Open Library was weak
+- descriptionLanguageHint: optional "translate-to-de" when a German edition has a non-German description candidate
 
 Task:
 - Return exactly one JSON object matching the provided schema.
 - Prefer ISBN-specific edition fields for edition-specific facts: publisher, publish date, page count, ISBN, cover.
 - Use Open Library work data only as additional context for general facts such as description or series hints.
+- When dnb is present, prefer DNB for missing bibliographic facts (title, authors, publisher, publish date, page count, language) that Open Library did not provide.
 - Use seriesHints directly when present.
 - Keep title and author names clean, without edition noise.
 - Correct obvious title capitalization when evidence points to the same title, e.g. work title vs edition title casing.
 - Return publishedDate only as "YYYY-MM-DD", "YYYY-MM", "YYYY", or null. Use "YYYY-MM-DD" when day/month/year are known, "YYYY-MM" when only month/year are known, and "YYYY" when only the year is known.
 - Normalize language to "de", "en", or null.
+- When the book is German (languageHint "de", fallbackDraft.language "de", edition language keys, or dnb.language "de") and the best available description is clearly in English, translate that description into natural German for draft.description. Do not translate title or author names. Add a warning that the description was translated by AI and set confidence.description to "medium" or "low", not "high".
+- When descriptionLanguageHint is "translate-to-de", you must translate the English description to German rather than returning the English text.
 - Extract seriesName and seriesPosition only when there is clear evidence.
 - If seriesName is known but seriesPosition is missing, you may use your general literary knowledge to infer seriesPosition. When you do, add a warning that the series position was inferred by AI and set confidence.seriesPosition to "medium" or "low", not "high".
-- Do not change sourceName or sourceUrl. Keep the Open Library source information from fallbackDraft/sourceUrls unchanged.
+- Do not change sourceName or sourceUrl. Keep the source information from fallbackDraft/sourceUrls unchanged.
 - Do not invent missing facts. Use null and add a warning when uncertain.
 
 Rules:
@@ -100,11 +106,14 @@ You receive one JSON object with:
 - isbn
 - languageHint: optional "de" or "en"
 - openLibrary: sparse Open Library data that was not enough for a useful draft
+- dnb: optional Deutsche Nationalbibliothek fallback data already fetched before this step
 
 Task:
 - Use web search to identify the ISBN-specific book edition.
 - Return exactly one JSON object matching the provided schema.
 - Prefer edition-specific facts for publisher, publish date, page count, ISBN, and language.
+- When dnb already provides reliable German bibliographic facts, prefer them over conflicting web guesses.
+- When the book is German and you provide a description, prefer a German description. Translate to German when needed and add a warning that the description was translated by AI.
 - Keep title and author names clean, without edition noise.
 - Set coverUrl only when you have a direct, stable cover image URL from Open Library Covers for this ISBN or exact edition. If you would have to infer, guess, pick a generic image result, or use an unrelated shop/page image, return null.
 - Return publishedDate only as "YYYY-MM-DD", "YYYY-MM", "YYYY", or null. Use "YYYY-MM-DD" when day/month/year are known, "YYYY-MM" when only month/year are known, and "YYYY" when only the year is known.
@@ -288,6 +297,129 @@ function isWeakOpenLibrarySource(source) {
   return countPresentFields(draft) < 4
 }
 
+function looksLikeEnglishDescription(text) {
+  const sample = String(text ?? '').trim().slice(0, 600)
+  if (!sample) return false
+  const germanHints = sample.match(/\b(und|der|die|das|ein|eine|ist|sind|wird|nicht|auch|mit|für|auf|einem|einer|eines)\b/gi) ?? []
+  const englishHints = sample.match(/\b(the|and|with|their|when|from|this|that|into|about|after|before|between)\b/gi) ?? []
+  if (englishHints.length >= 3 && englishHints.length > germanHints.length) return true
+  return englishHints.length >= 5
+}
+
+function effectiveBookLanguage(source, languageHint) {
+  if (['de', 'en'].includes(languageHint)) return languageHint
+  const draftLang = source.fallbackDraft?.language
+  if (['de', 'en'].includes(draftLang)) return draftLang
+  const editionLang = (source.edition?.languages ?? [])
+    .map(lang => String(lang.key ?? '').toLowerCase())
+    .find(key => key.includes('ger') || key.includes('deu')) ? 'de'
+    : (source.edition?.languages ?? []).some(lang => String(lang.key ?? '').includes('eng')) ? 'en' : null
+  if (editionLang) return editionLang
+  if (source.dnb?.fallbackDraft?.language === 'de') return 'de'
+  return null
+}
+
+function descriptionCandidate(source) {
+  const workDesc = typeof source.work?.description === 'string'
+    ? source.work.description
+    : source.work?.description?.value ?? null
+  return source.fallbackDraft?.description ?? workDesc ?? source.dnb?.fallbackDraft?.description ?? null
+}
+
+function buildDescriptionLanguageHint(source, languageHint) {
+  const language = effectiveBookLanguage(source, languageHint)
+  const description = descriptionCandidate(source)
+  if (language === 'de' && looksLikeEnglishDescription(description)) return 'translate-to-de'
+  return null
+}
+
+export function mergeDnbIntoOpenLibrarySource(source, dnb) {
+  if (!dnb?.hit || !dnb.fallbackDraft) return { ...source, dnbUsed: false }
+
+  const olInitialDraft = { ...(source.fallbackDraft ?? {}) }
+  const ol = source.fallbackDraft ?? {}
+  const d = dnb.fallbackDraft
+  const merged = { ...ol }
+  const filledFromDnb = []
+
+  const assignIfMissing = (field, value) => {
+    if (present(merged[field])) return
+    if (!present(value)) return
+    merged[field] = value
+    filledFromDnb.push(field)
+  }
+
+  if (!present(merged.title) && present(d.title)) {
+    merged.title = d.title
+    filledFromDnb.push('title')
+  }
+  if (!present(merged.authors) && present(d.authors)) {
+    merged.authors = Array.isArray(d.authors) ? d.authors.filter(Boolean) : []
+    if (merged.authors.length) filledFromDnb.push('authors')
+  }
+
+  assignIfMissing('description', d.description)
+  assignIfMissing('pageCount', d.pageCount)
+  assignIfMissing('publishedDate', d.publishedDate)
+  assignIfMissing('publisher', d.publisher)
+  assignIfMissing('language', d.language)
+
+  const olHadCore = present(ol.title) && present(ol.authors)
+  if (!olHadCore && present(d.title)) {
+    merged.sourceName = d.sourceName ?? 'Deutsche Nationalbibliothek'
+    merged.sourceUrl = d.sourceUrl ?? null
+  } else if (filledFromDnb.length) {
+    const names = new Set([ol.sourceName, d.sourceName].filter(Boolean))
+    merged.sourceName = Array.from(names).join(', ')
+    merged.sourceUrl = ol.sourceUrl ?? d.sourceUrl ?? null
+  }
+
+  return {
+    ...source,
+    olInitialDraft,
+    fallbackDraft: merged,
+    dnb,
+    dnbUsed: true,
+    dnbFilledFields: filledFromDnb,
+  }
+}
+
+async function enrichSourceWithDnbIfNeeded(source) {
+  const openLibraryInitialWeak = isWeakOpenLibrarySource(source)
+  const olInitialDraft = { ...(source.fallbackDraft ?? {}) }
+
+  if (!openLibraryInitialWeak) {
+    return { ...source, olInitialDraft, openLibraryInitialWeak, dnbUsed: false, dnb: null }
+  }
+
+  const dnb = await getDnbBookDraftByIsbn(source.isbn)
+  if (!dnb.hit) {
+    return {
+      ...source,
+      olInitialDraft,
+      openLibraryInitialWeak,
+      dnbUsed: false,
+      dnb: dnb.error ? { error: dnb.error } : null,
+    }
+  }
+
+  return {
+    ...mergeDnbIntoOpenLibrarySource(source, dnb),
+    openLibraryInitialWeak,
+  }
+}
+
+function buildPreparationPayload(source, languageHint) {
+  const normalizedHint = ['de', 'en'].includes(languageHint) ? languageHint : null
+  return {
+    isbn: source.isbn,
+    languageHint: normalizedHint,
+    openLibrary: compactOpenLibraryPayload(source),
+    dnb: compactDnbPayload(source.dnb),
+    descriptionLanguageHint: buildDescriptionLanguageHint(source, normalizedHint),
+  }
+}
+
 function countResponseWebSearchCalls(response) {
   return (response?.output ?? []).filter(item => item?.type === 'web_search_call').length
 }
@@ -299,17 +431,23 @@ function openLibrarySourceUrl(source) {
     null
 }
 
-function createAnalysis({ source, draft, method, model, tokenUsage = null, webSearchCallCount = 0 }) {
+function createAnalysis({ source, draft, method, model, tokenUsage = null, webSearchCallCount = 0, dnbUsed = false }) {
+  const olBefore = cleanDraft(source.olInitialDraft ?? source.fallbackDraft, source.isbn)
   const before = {
-    ...cleanDraft(source.fallbackDraft, source.isbn),
-    coverUrl: source.fallbackDraft?.coverUrl ?? source.fallbackDraft?.imageUrl ?? null,
+    ...olBefore,
+    coverUrl: source.olInitialDraft?.coverUrl ?? source.olInitialDraft?.imageUrl ?? source.fallbackDraft?.coverUrl ?? source.fallbackDraft?.imageUrl ?? null,
   }
   const comparison = createFieldComparison(before, draft)
   return {
     method,
     model,
-    openLibraryWeak: isWeakOpenLibrarySource(source),
+    openLibraryWeak: source.openLibraryInitialWeak ?? isWeakOpenLibrarySource({
+      fallbackDraft: source.olInitialDraft ?? source.fallbackDraft,
+      isbn: source.isbn,
+    }),
     openLibraryFieldCount: countPresentFields(before),
+    dnbUsed,
+    dnbFilledFields: source.dnbFilledFields ?? [],
     webSearchUsed: webSearchCallCount > 0 || method === 'web-search',
     webSearchCallCount,
     tokenUsage,
@@ -328,6 +466,7 @@ function fallbackResult(source, extraWarnings = [], reason = 'AI_API_KEY is not 
     ],
     raw: {
       openLibrary: source,
+      dnb: source.dnb ?? null,
       usedAi: false,
       model: null,
     },
@@ -335,8 +474,9 @@ function fallbackResult(source, extraWarnings = [], reason = 'AI_API_KEY is not 
   result.analysis = createAnalysis({
     source,
     draft,
-    method: 'open-library',
+    method: source.dnbUsed ? 'dnb-fallback' : 'open-library',
     model: null,
+    dnbUsed: Boolean(source.dnbUsed),
   })
   return result
 }
@@ -408,6 +548,7 @@ async function runNormalPreparation(aiClient, source, payload) {
     warnings: mergeSeriesInferenceWarning(parsed.warnings, source, draft),
     raw: {
       openLibrary: source,
+      dnb: source.dnb ?? null,
       usedAi: true,
       usedWebSearch: false,
       model: response?.model ?? MODEL,
@@ -420,6 +561,7 @@ async function runNormalPreparation(aiClient, source, payload) {
     method: 'llm-normalization',
     model: response?.model ?? MODEL,
     tokenUsage: response?.usage ?? null,
+    dnbUsed: Boolean(source.dnbUsed),
   })
   return result
 }
@@ -481,6 +623,7 @@ async function runWebSearchPreparation(aiClient, source, payload) {
     warnings,
     raw: {
       openLibrary: source,
+      dnb: source.dnb ?? null,
       usedAi: true,
       usedWebSearch: true,
       model: response?.model ?? WEB_SEARCH_MODEL,
@@ -495,21 +638,19 @@ async function runWebSearchPreparation(aiClient, source, payload) {
     model: response?.model ?? WEB_SEARCH_MODEL,
     tokenUsage: response?.usage ?? null,
     webSearchCallCount,
+    dnbUsed: Boolean(source.dnbUsed),
   })
   return result
 }
 
 export async function prepareBookDraft({ isbn, languageHint }) {
-  const source = await getBookDraftSourceByIsbn(isbn)
+  const olSource = await getBookDraftSourceByIsbn(isbn)
+  const source = await enrichSourceWithDnbIfNeeded(olSource)
 
   const aiClient = getAiClient()
   if (!aiClient) return fallbackResult(source)
 
-  const payload = {
-    isbn: source.isbn,
-    languageHint: ['de', 'en'].includes(languageHint) ? languageHint : null,
-    openLibrary: compactOpenLibraryPayload(source),
-  }
+  const payload = buildPreparationPayload(source, languageHint)
 
   try {
     if (isWeakOpenLibrarySource(source)) {
@@ -521,7 +662,7 @@ export async function prepareBookDraft({ isbn, languageHint }) {
     return fallbackResult(
       source,
       [`AI preparation failed: ${err.message}`],
-      'Using Open Library data without AI normalization.',
+      'Using available book metadata without AI normalization.',
     )
   }
 }
