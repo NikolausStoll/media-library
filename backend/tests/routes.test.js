@@ -227,6 +227,30 @@ test('POST /api/books creates library book and validates formats', async () => {
   })
 })
 
+test('POST and PUT /api/books persist alternateTitle', async () => {
+  await withServer(app, async (baseUrl) => {
+    const created = await requestJson(baseUrl, '/api/books', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'Das Spiel des Löwen',
+        alternateTitle: "The Lion's Game",
+        status: 'backlog',
+        formats: [{ format: 'paperback' }],
+        authors: ['Nelson DeMille'],
+      }),
+    })
+    assert.equal(created.status, 201)
+    assert.equal(created.body.alternateTitle, "The Lion's Game")
+
+    const updated = await requestJson(baseUrl, `/api/books/${created.body.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ alternateTitle: 'Lions Game' }),
+    })
+    assert.equal(updated.status, 200)
+    assert.equal(updated.body.alternateTitle, 'Lions Game')
+  })
+})
+
 test('PUT /api/sort-order persists drag order for started games', async () => {
   await withServer(app, async (baseUrl) => {
     const gameA = await requestJson(baseUrl, '/api/games', {

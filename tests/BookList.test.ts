@@ -25,6 +25,14 @@ function backlogBook(id: string, title: string) {
   }
 }
 
+async function openBookOptionsTab(wrapper: Awaited<ReturnType<typeof mountBookApp>>) {
+  const optionsTab = wrapper.find('.overlay').findAll('button.tab')
+    .find(b => b.text().includes('Options'))
+  expect(optionsTab).toBeDefined()
+  await optionsTab!.trigger('click')
+  await nextTick()
+}
+
 describe('BookList – Library tab', () => {
   it('zeigt Library statt Backlog als Tab-Label', async () => {
     const wrapper = await mountBookApp()
@@ -110,6 +118,7 @@ describe('BookList – Read Next', () => {
 
     await wrapper.find('.game-card').trigger('click')
     await nextTick()
+    await openBookOptionsTab(wrapper)
 
     const startedBtn = wrapper.findAll('.status-btn').find(b => b.text().includes('Started'))
     expect(startedBtn).toBeDefined()
@@ -131,6 +140,7 @@ describe('BookList – Status overlay labels', () => {
 
     await wrapper.find('.game-card').trigger('click')
     await nextTick()
+    await openBookOptionsTab(wrapper)
 
     const statusLabels = wrapper.findAll('.status-btn').map(b => b.text())
     expect(statusLabels).toContain('Library')

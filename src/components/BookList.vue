@@ -21,6 +21,7 @@ import {
 import BookFilters from './books/BookFilters.vue'
 import BookSearchOverlay from './books/BookSearchOverlay.vue'
 import BookStatusOverlay from './books/BookStatusOverlay.vue'
+import BookCardTitle from './books/BookCardTitle.vue'
 
 const bookList      = ref([])
 const readNextList  = ref([])
@@ -37,6 +38,7 @@ const filterSectionsOpen = ref({ formatFilter: true, sort: true })
 
 const overlayBook        = ref(null)
 const showOverlay        = ref(false)
+const showSearchOverlay  = ref(false)
 const deleteConfirm      = ref(false)
 const showFormatEditor   = ref(false)
 const showBookEditor     = ref(false)
@@ -160,6 +162,12 @@ function getFormatLabel(format) {
   return availableFormats.find(f => f.id === normalized)?.label ?? normalized
 }
 
+function bookMatchesSearch(book, query) {
+  if (!query.trim()) return true
+  return fuzzyMatch(book.title, query)
+    || fuzzyMatch(book.alternateTitle ?? '', query)
+}
+
 function fuzzyMatch(str, query) {
   const s = str.toLowerCase()
   const q = query.toLowerCase().trim()
@@ -192,7 +200,7 @@ function applyBookFilters(base, { includeNoRating = false } = {}) {
     base = base.filter(b => b.userRating == null)
 
   if (searchQuery.value.trim())
-    base = base.filter(b => fuzzyMatch(b.title, searchQuery.value))
+    base = base.filter(b => bookMatchesSearch(b, searchQuery.value))
 
   return base
 }
@@ -396,6 +404,7 @@ function createBookDraft(result = {}, status = activeTab.value === 'all' ? 'back
   return {
     id: result.id ?? null,
     title: result.title ?? '',
+    alternateTitle: result.alternateTitle ?? '',
     authorsText: Array.isArray(result.authors) ? result.authors.join(', ') : (result.authors ?? ''),
     description: result.description ?? '',
     imageUrl: result.imageUrl ?? '',
@@ -784,6 +793,7 @@ function bookDraftPayload() {
   const draft = bookEditor.value
   return {
     title: draft.title,
+    alternateTitle: draft.alternateTitle,
     authors: draft.authorsText,
     description: draft.description,
     imageUrl: draft.imageUrl,
@@ -1117,10 +1127,8 @@ onUnmounted(() => {
                   <button class="card-pn-btn pn-remove-btn" @click.stop="removeFromReadNext(book.id)" title="Remove from Read Next">✕</button>
                 </div>
                 <div class="card-info">
-                  <div class="book-title-block">
-                    <p class="card-title">{{ book.title }}</p>
-                    <span v-if="book.authors?.length" class="book-card-author">{{ book.authors[0] }}</span>
-                  </div>
+                  <BookCardTitle :title="book.title" :alternate-title="book.alternateTitle" />
+                  <span v-if="book.authors?.length" class="book-card-author">{{ book.authors[0] }}</span>
                   <div class="card-row">
                     <div class="card-platform" @click.stop="openFormatEditor(book, $event)">
                       <span v-if="book.formats.length === 0" class="platform-text">No format</span>
@@ -1162,10 +1170,8 @@ onUnmounted(() => {
                 >›</button>
               </div>
               <div class="card-info">
-                <div class="book-title-block">
-                  <p class="card-title">{{ book.title }}</p>
-                  <span v-if="book.authors?.length" class="book-card-author">{{ book.authors[0] }}</span>
-                </div>
+                <BookCardTitle :title="book.title" :alternate-title="book.alternateTitle" />
+                <span v-if="book.authors?.length" class="book-card-author">{{ book.authors[0] }}</span>
                 <div class="card-row">
                   <div class="card-platform" @click.stop="openFormatEditor(book, $event)">
                     <button v-if="book.formats.length === 0" class="add-first-platform-btn">+</button>
@@ -1206,10 +1212,8 @@ onUnmounted(() => {
                   <div v-else class="card-cover card-cover-placeholder">{{ book.title?.[0] ?? '?' }}</div>
                 </div>
                 <div class="card-info">
-                  <div class="book-title-block">
-                    <p class="card-title">{{ book.title }}</p>
-                    <span v-if="book.authors?.length" class="book-card-author">{{ book.authors[0] }}</span>
-                  </div>
+                  <BookCardTitle :title="book.title" :alternate-title="book.alternateTitle" />
+                  <span v-if="book.authors?.length" class="book-card-author">{{ book.authors[0] }}</span>
                   <div class="card-row">
                     <div class="card-platform" @click.stop="openFormatEditor(book, $event)">
                       <span v-for="(f, idx) in book.formats" :key="idx" class="platform-text">{{ getFormatLabel(f.format ?? f) }}</span>
@@ -1321,6 +1325,16 @@ onUnmounted(() => {
                   <label class="book-editor-field wide">
                     <span>Title</span>
                     <input v-model="bookEditor.title" class="book-editor-input" type="text" />
+                  </label>
+
+                  <label class="book-editor-field wide">
+                    <span>Alternate title</span>
+                    <input
+                      v-model="bookEditor.alternateTitle"
+                      class="book-editor-input"
+                      type="text"
+                      placeholder="e.g. original English title"
+                    />
                   </label>
 
                   <label class="book-editor-field wide">
@@ -1699,11 +1713,13 @@ onUnmounted(() => {
 }
 
 .theme-book .card-info {
-  flex: 0 0 116px;
-  height: 116px;
-  min-height: 116px;
+  flex: 0 0 110px;
+  height: 110px;
+  min-height: 110px;
   padding: 6px 8px;
   overflow: hidden;
+  justify-content: flex-start;
+  gap: 6px;
 }
 
 .theme-book .card-row {
@@ -1720,22 +1736,6 @@ onUnmounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.book-title-block {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.book-title-block .card-title {
-  display: -webkit-box;
-  min-height: calc(11px * 1.3 * 2);
-  margin: 0;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
 }
 
 .book-card-author {

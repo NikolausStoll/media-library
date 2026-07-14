@@ -278,6 +278,7 @@ ensureColumn('books', 'isbn TEXT')
 ensureColumn('books', 'language TEXT')
 ensureColumn('books', 'sourceName TEXT')
 ensureColumn('books', 'sourceUrl TEXT')
+ensureColumn('books', 'alternateTitle TEXT')
 
 try {
   db.prepare('DROP TABLE IF EXISTS googlebookscache').run()

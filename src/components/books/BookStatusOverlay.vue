@@ -33,6 +33,13 @@ let descriptionResizeObserver = null
 
 const coverFullSrc = computed(() => book.value?.coverPath || book.value?.imageUrl || null)
 
+const alternateTitleDisplay = computed(() => {
+  const alt = String(book.value?.alternateTitle ?? '').trim()
+  const title = String(book.value?.title ?? '').trim()
+  if (!alt || alt === title) return ''
+  return alt
+})
+
 function measureDescriptionOverflow() {
   const el = descriptionRef.value
   if (!el || descriptionExpanded.value) return
@@ -265,6 +272,9 @@ function isbn10To13(isbn10) {
           </template>
           <span v-else>{{ book?.title }}</span>
         </div>
+        <div v-if="alternateTitleDisplay" class="book-alternate-title-detail">
+          {{ alternateTitleDisplay }}
+        </div>
         <div class="overlay-subtitle">
           <span v-if="book?.authors?.length">{{ book.authors.join(', ') }}</span>
           <span v-if="book?.publishedDate"> · {{ formatDisplayDate(book.publishedDate) }}</span>
@@ -464,6 +474,14 @@ function isbn10To13(isbn10) {
   text-decoration: none;
   font-family: inherit;
   font-size: inherit;
+}
+
+.book-alternate-title-detail {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: italic;
+  line-height: 1.35;
 }
 
 .detail-cover {

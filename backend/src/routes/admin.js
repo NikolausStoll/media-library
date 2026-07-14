@@ -116,12 +116,12 @@ router.post('/import', (req, res) => {
         INSERT INTO books (
           id, title, authors, description, imageUrl, coverPath, coverThumbPath, pageCount,
           publishedDate, seriesName, seriesPosition, publisher, isbn, language,
-          sourceName, sourceUrl, status, userRating, completedAt, lastTouched
+          sourceName, sourceUrl, alternateTitle, status, userRating, completedAt, lastTouched
         )
         VALUES (
           @id, @title, @authors, @description, @imageUrl, @coverPath, @coverThumbPath, @pageCount,
           @publishedDate, @seriesName, @seriesPosition, @publisher, @isbn, @language,
-          @sourceName, @sourceUrl, @status, @userRating, @completedAt, @lastTouched
+          @sourceName, @sourceUrl, @alternateTitle, @status, @userRating, @completedAt, @lastTouched
         )
       `)
       for (const b of data.books ?? []) {
@@ -141,6 +141,7 @@ router.post('/import', (req, res) => {
           language: null,
           sourceName: null,
           sourceUrl: null,
+          alternateTitle: null,
           userRating: null,
           completedAt: null,
           lastTouched: null,

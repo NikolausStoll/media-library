@@ -12,7 +12,7 @@ This is the source of truth for AI assistants working in this repository. Keep i
 - Local dev frontend: Vite on `localhost:5173`.
 - Local dev backend: `npm run dev:backend`, should use `PORT=8098` because `vite.config.js` proxies `/api` to `http://localhost:8098`.
 - Container/Home Assistant backend: defaults to `PORT=8099`, `DB_PATH=/data/backend.db`, `STATIC_DIR=/app/public`.
-- Current package/add-on version: `1.17.0`.
+- Current package/add-on version: `1.18.0`.
 
 ## High-Level Features
 
@@ -35,6 +35,9 @@ npm run build            # Vite production build to dist/
 npm start                # Express backend, serves STATIC_DIR when present
 npm test                 # Vitest watch mode
 npm test -- --run        # Vitest single run
+npm run test:run         # Vitest single run (alias)
+npm run test:backend     # backend node:test suites
+npm run test:all         # frontend + backend single run
 npm run test:ui          # Vitest UI
 ```
 
@@ -167,7 +170,7 @@ Game API status `dropped` maps to DB status `retired`.
 ### Books
 
 ```sql
-books(id, title, authors, description, imageUrl, coverPath,
+books(id, title, alternateTitle, authors, description, imageUrl, coverPath,
       coverThumbPath, pageCount, publishedDate, seriesName, seriesPosition,
       publisher, isbn, language, sourceName, sourceUrl, status, userRating,
       completedAt, lastTouched)
@@ -385,6 +388,7 @@ Main file: `src/components/BookList.vue`.
 - Formats are `hardcover`, `paperback`, `ebook`, `audiobook`, and `other`.
 - Local files and cover URLs save WebP covers under `/uploads/books/`; larger images get separate original and thumbnail files, while images already at or below thumbnail size reuse one file for both paths.
 - Book cards use thumbnails; the book detail overlay prefers the original cover.
+- Optional `alternateTitle` stores a second title (e.g. original English title for a German edition). Cards show it on a second line when the main title fits on one line; for two-line main titles, a `(...)` hint and tap toggle switch between titles until reload. Detail overlay shows both titles.
 - Add overlay accepts manual title/ISBN entry, can search Open Library by title, can load filtered edition candidates for a selected work, and uses `src/components/books/BarcodeScanner.vue` for mobile ISBN scanning.
 - Google Books has been removed from the Book flow. Do not reintroduce an `externalId` requirement for books.
 - Book editor has a `Prepare` action next to ISBN. It calls `/api/books/prepare`, overwrites the editor draft with returned values, and still requires the user to review/save.
@@ -465,6 +469,26 @@ Useful selectors that already exist in tests:
 - `.status-btn`
 - `.delete-trigger-btn`
 - `.delete-confirm-btn`
+
+## Version Bump Workflow
+
+When the user asks for a version bump (or you are preparing a release), **always run the full test suite first** and treat a green run as a gate before changing version numbers or committing.
+
+```bash
+npm run test:all
+```
+
+Rules:
+
+- Run `npm run test:all` before updating any version fields.
+- If tests fail, fix the failures first. Do not bump the version until tests pass.
+- Report the test result to the user (pass/fail, and which suite failed if relevant).
+- Only after tests pass, update version strings consistently in:
+  - `media-library/config.yaml` (`version`)
+  - `package.json` and `package-lock.json`
+  - `backend/package.json` and `backend/package-lock.json`
+  - `AGENTS.md` project snapshot line (`Current package/add-on version`)
+- Pushing a changed `media-library/config.yaml` to `main` triggers the tag-on-config workflow, which creates a git tag and Docker release. There is currently no CI job that runs tests on push, so local/agent test runs before a bump are the release gate.
 
 ## Implementation Gotchas
 

@@ -193,6 +193,7 @@ async function aggregateBook(book) {
   return {
     id: String(book.id),
     title: book.title ?? '',
+    alternateTitle: book.alternateTitle ?? null,
     authors: parseJsonArray(book.authors),
     description: book.description ?? null,
     imageUrl: book.coverThumbPath ?? book.coverPath ?? book.imageUrl ?? null,
@@ -326,9 +327,9 @@ router.post('/', async (req, res) => {
           `INSERT INTO books (
             title, authors, description, imageUrl, coverPath, coverThumbPath, pageCount,
             publishedDate, seriesName, seriesPosition, publisher, isbn, language,
-            sourceName, sourceUrl, status, completedAt, lastTouched
+            sourceName, sourceUrl, alternateTitle, status, completedAt, lastTouched
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .run(
           title,
@@ -346,6 +347,7 @@ router.post('/', async (req, res) => {
           normalizeOptionalString(req.body.language),
           normalizeOptionalString(req.body.sourceName),
           normalizeOptionalString(req.body.sourceUrl),
+          normalizeOptionalString(req.body.alternateTitle),
           status,
           completedAt,
           today,
@@ -418,6 +420,7 @@ router.put('/:id', async (req, res) => {
         language = ?,
         sourceName = ?,
         sourceUrl = ?,
+        alternateTitle = ?,
         status = ?,
         userRating = ?,
         completedAt = ?,
@@ -439,6 +442,7 @@ router.put('/:id', async (req, res) => {
       req.body.language !== undefined ? normalizeOptionalString(req.body.language) : existing.language,
       req.body.sourceName !== undefined ? normalizeOptionalString(req.body.sourceName) : existing.sourceName,
       req.body.sourceUrl !== undefined ? normalizeOptionalString(req.body.sourceUrl) : existing.sourceUrl,
+      req.body.alternateTitle !== undefined ? normalizeOptionalString(req.body.alternateTitle) : existing.alternateTitle,
       merged.status,
       merged.userRating,
       completedAt,
