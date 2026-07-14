@@ -46,7 +46,8 @@ const coverEditorDimensions = ref(null)
 const coverEditorDimensionsLoading = ref(false)
 const coverEditorDimensionsError = ref(false)
 let coverDimensionLoadId = 0
-const showSearchOverlay  = ref(false)
+const showCoverUrlInput = ref(false)
+const coverUrlDraft = ref('')
 const overlaySearchQuery = ref('')
 const bookPrepareLoading = ref(false)
 const bookPrepareConfirmPending = ref(false)
@@ -425,6 +426,8 @@ function openBookEditor(book = null) {
   bookPrepareAnalysisOpen.value = false
   bookPrepareConfirmPending.value = false
   bookImportInfoOpen.value = false
+  showCoverUrlInput.value = false
+  coverUrlDraft.value = ''
   bookEditor.value = createBookDraft(
     book
       ? { ...book, coverUrl: '', id: book.id }
@@ -442,6 +445,8 @@ function openDraftFromSearch({ result, status }) {
   bookPrepareAnalysisOpen.value = false
   bookPrepareConfirmPending.value = false
   bookImportInfoOpen.value = false
+  showCoverUrlInput.value = false
+  coverUrlDraft.value = ''
   bookEditor.value = createBookDraft(
     {
       ...result,
@@ -585,6 +590,29 @@ const coverEditorMaxDimension = computed(() => {
   return Math.max(dims.width, dims.height)
 })
 
+const bookEditorHasCover = computed(() => {
+  const draft = bookEditor.value
+  if (!draft) return false
+  return Boolean(
+    draft.coverPreviewUrl
+    || draft.coverPath
+    || draft.coverThumbPath
+    || draft.coverUrl
+    || draft.imageUrl,
+  )
+})
+
+const bookEditorCoverPreviewSrc = computed(() => {
+  const draft = bookEditor.value
+  if (!draft) return ''
+  return draft.coverPreviewUrl
+    || draft.coverThumbPath
+    || draft.coverPath
+    || draft.coverUrl
+    || draft.imageUrl
+    || ''
+})
+
 watch(coverEditorInfoSrc, async (src) => {
   const loadId = ++coverDimensionLoadId
   coverEditorDimensions.value = null
@@ -626,7 +654,35 @@ async function handleCoverFileChange(event) {
   }
   bookEditor.value.coverFileName = file.name
   bookEditor.value.coverPreviewUrl = dataUrl
+  bookEditor.value.coverUrl = ''
+  showCoverUrlInput.value = false
+  coverUrlDraft.value = ''
   event.target.value = ''
+}
+
+function toggleCoverUrlInput() {
+  showCoverUrlInput.value = !showCoverUrlInput.value
+  if (showCoverUrlInput.value)
+    coverUrlDraft.value = bookEditor.value?.coverUrl ?? ''
+}
+
+function applyCoverUrlDraft() {
+  if (!bookEditor.value) return
+  const url = String(coverUrlDraft.value ?? '').trim()
+  if (!url) {
+    searchError.value = 'Cover URL is required.'
+    return
+  }
+
+  searchError.value = ''
+  bookEditor.value.coverUrl = url
+  bookEditor.value.coverPath = null
+  bookEditor.value.coverThumbPath = null
+  bookEditor.value.coverFile = null
+  bookEditor.value.coverFileName = ''
+  bookEditor.value.coverPreviewUrl = ''
+  bookEditor.value.imageUrl = ''
+  showCoverUrlInput.value = false
 }
 
 function clearDraftCover() {
@@ -638,6 +694,8 @@ function clearDraftCover() {
   bookEditor.value.coverFileName = ''
   bookEditor.value.coverPreviewUrl = ''
   bookEditor.value.imageUrl = ''
+  showCoverUrlInput.value = false
+  coverUrlDraft.value = ''
 }
 
 function applyPreparedDraft(prepared) {
@@ -1390,52 +1448,79 @@ onUnmounted(() => {
 
             <aside class="book-editor-cover-panel">
               <div class="overlay-section-label">Cover</div>
-              <div class="book-editor-preview compact" v-if="bookEditor.coverPreviewUrl || bookEditor.coverPath || bookEditor.coverThumbPath || bookEditor.coverUrl || bookEditor.imageUrl">
-                <img :src="bookEditor.coverPreviewUrl || bookEditor.coverThumbPath || bookEditor.coverPath || bookEditor.coverUrl || bookEditor.imageUrl" alt="" />
-              </div>
-              <div v-else class="book-editor-cover-placeholder">No cover</div>
 
-              <div v-if="coverEditorInfoSrc" class="book-editor-cover-info">
-                <span v-if="coverEditorDimensionsLoading" class="book-editor-cover-info-muted">Reading cover size…</span>
-                <template v-else-if="coverEditorDimensions">
-                  <span class="book-editor-cover-info-size">
-                    {{ coverEditorDimensions.width }} × {{ coverEditorDimensions.height }} px
-                  </span>
-                  <span
-                    v-if="coverEditorMaxDimension < BOOK_COVER_MAX_DIMENSION"
-                    class="book-editor-cover-info-warn"
+              <div class="book-editor-cover-row">
+                <div
+                  v-if="bookEditorHasCover"
+                  class="book-editor-cover-frame"
+                >
+                  <img :src="bookEditorCoverPreviewSrc" alt="" />
+                  <button
+                    type="button"
+                    class="book-editor-cover-remove"
+                    aria-label="Remove cover"
+                    title="Remove cover"
+                    @click="clearDraftCover"
                   >
-                    Below max storage size ({{ BOOK_COVER_MAX_DIMENSION }} px). A higher-resolution source may improve quality.
-                  </span>
-                </template>
-                <span v-else-if="coverEditorDimensionsError" class="book-editor-cover-info-muted">
-                  Could not read cover size
-                </span>
+                    ✕
+                  </button>
+                </div>
+                <div v-else class="book-editor-cover-placeholder">No cover</div>
+
+                <div class="book-editor-cover-side">
+                  <div class="book-editor-cover-actions">
+                    <label class="book-editor-file-btn">
+                      Choose Image
+                      <input type="file" accept="image/*" @change="handleCoverFileChange" />
+                    </label>
+                    <button
+                      type="button"
+                      class="book-editor-link-btn"
+                      @click="toggleCoverUrlInput"
+                    >
+                      {{ showCoverUrlInput ? 'Hide URL' : 'From URL' }}
+                    </button>
+                  </div>
+
+                  <div v-if="coverEditorInfoSrc" class="book-editor-cover-meta">
+                    <span v-if="coverEditorDimensionsLoading" class="book-editor-cover-info-muted">Reading size…</span>
+                    <template v-else-if="coverEditorDimensions">
+                      <span class="book-editor-cover-info-size">
+                        {{ coverEditorDimensions.width }} × {{ coverEditorDimensions.height }} px
+                      </span>
+                      <span
+                        v-if="coverEditorMaxDimension < BOOK_COVER_MAX_DIMENSION"
+                        class="book-editor-cover-info-warn"
+                        title="Below max storage size (1200 px). A higher-resolution source may improve quality."
+                      >
+                        &lt; {{ BOOK_COVER_MAX_DIMENSION }} px · higher-res recommended
+                      </span>
+                    </template>
+                    <span v-else-if="coverEditorDimensionsError" class="book-editor-cover-info-muted">
+                      Size unknown
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              <div class="book-editor-cover-actions">
-                <label class="book-editor-file-btn">
-                  Choose Image
-                  <input type="file" accept="image/*" @change="handleCoverFileChange" />
-                </label>
-                <a
-                  v-if="bookEditor.coverUrl"
-                  class="book-editor-link-btn"
-                  :href="bookEditor.coverUrl"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Open cover URL
-                </a>
+              <div v-if="showCoverUrlInput" class="book-editor-cover-url-row">
+                <input
+                  v-model="coverUrlDraft"
+                  class="book-editor-input"
+                  type="url"
+                  placeholder="https://…"
+                  @keydown.enter.prevent="applyCoverUrlDraft"
+                />
                 <button
-                  v-if="bookEditor.coverPath || bookEditor.coverThumbPath || bookEditor.coverUrl || bookEditor.coverFile || bookEditor.imageUrl"
-                  class="clear-cache-btn"
                   type="button"
-                  @click="clearDraftCover"
+                  class="book-editor-cover-url-apply"
+                  :disabled="!coverUrlDraft.trim()"
+                  @click="applyCoverUrlDraft"
                 >
-                  Remove Cover
+                  Apply
                 </button>
               </div>
+
               <span v-if="bookEditor.coverFileName" class="book-editor-file-name">{{ bookEditor.coverFileName }}</span>
             </aside>
           </div>
@@ -1729,7 +1814,7 @@ onUnmounted(() => {
 
 .book-editor-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 176px;
+  grid-template-columns: minmax(0, 1fr) 240px;
   gap: 16px;
   align-items: start;
   margin-top: 14px;
@@ -1970,29 +2055,59 @@ onUnmounted(() => {
 .book-editor-cover-panel {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   border-left: 1px solid var(--border2);
   padding-left: 14px;
 }
 
-.book-editor-preview.compact img,
-.book-editor-cover-placeholder {
-  width: 88px;
-  aspect-ratio: 2 / 3;
-  border: 1px solid var(--border2);
-  border-radius: 2px;
+.book-editor-cover-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.book-editor-preview.compact img {
-  height: auto;
-  max-height: 132px;
+.book-editor-cover-frame {
+  position: relative;
+  width: 100%;
+}
+
+.book-editor-cover-frame img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 2 / 3;
   object-fit: cover;
+  border: 1px solid var(--border2);
+  border-radius: 2px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
+}
+
+.book-editor-cover-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.book-editor-cover-remove:hover {
+  background: rgba(0, 0, 0, 0.88);
 }
 
 .book-editor-cover-placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  border: 1px dashed var(--border2);
+  border-radius: 2px;
   background: var(--surface2);
   color: var(--text-dim);
   font-size: 11px;
@@ -2000,13 +2115,18 @@ onUnmounted(() => {
   text-align: center;
 }
 
-.book-editor-cover-info {
+.book-editor-cover-side {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-top: 8px;
+  gap: 10px;
+}
+
+.book-editor-cover-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
   font-size: 11px;
-  line-height: 1.35;
+  line-height: 1.3;
 }
 
 .book-editor-cover-info-size {
@@ -2029,13 +2149,41 @@ onUnmounted(() => {
   gap: 6px;
 }
 
-.book-editor-cover-actions .clear-cache-btn,
 .book-editor-cover-actions .book-editor-file-btn,
-.book-editor-link-btn {
+.book-editor-cover-actions .book-editor-link-btn {
   width: 100%;
   min-height: 32px;
   padding: 6px 8px;
   font-size: 11px;
+}
+
+.book-editor-cover-url-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.book-editor-cover-url-row .book-editor-input {
+  min-width: 0;
+  flex: 1;
+}
+
+.book-editor-cover-url-apply {
+  flex-shrink: 0;
+  min-height: 34px;
+  border: 1px solid rgb(var(--accent-rgb) / 0.45);
+  border-radius: 2px;
+  background: rgb(var(--accent-rgb) / 0.18);
+  color: var(--accent-light);
+  padding: 7px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.book-editor-cover-url-apply:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .book-editor-link-btn {
@@ -2216,44 +2364,43 @@ onUnmounted(() => {
   }
 
   .book-editor-cover-panel {
-    display: grid;
-    grid-template-columns: 88px minmax(0, 1fr);
-    column-gap: 12px;
-    row-gap: 8px;
-    align-items: start;
     border-left: 0;
     border-top: 1px solid var(--border2);
     padding-left: 0;
     padding-top: 12px;
   }
 
-  .book-editor-cover-panel .overlay-section-label {
-    grid-column: 1 / -1;
+  .book-editor-cover-row {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: 12px;
+    align-items: stretch;
   }
 
-  .book-editor-preview.compact,
+  .book-editor-cover-frame,
   .book-editor-cover-placeholder {
     grid-column: 1;
+    grid-row: 1;
+    align-self: end;
   }
 
-  .book-editor-cover-actions {
+  .book-editor-cover-side {
     grid-column: 2;
-    grid-row: 2;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+    grid-row: 1;
+    min-height: 100%;
+    justify-content: space-between;
+  }
+
+  .book-editor-cover-meta {
+    margin-top: auto;
+  }
+
+  .book-editor-cover-url-row {
+    grid-column: 1 / -1;
   }
 
   .book-editor-file-name {
     grid-column: 1 / -1;
-  }
-
-  .book-prepare-delta-row {
-    grid-template-columns: 1fr;
-    gap: 2px;
-  }
-
-  .book-editor-file-name {
     white-space: normal;
   }
 }

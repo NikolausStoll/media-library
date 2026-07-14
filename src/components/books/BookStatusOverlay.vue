@@ -1,6 +1,6 @@
 <!-- src/components/books/BookStatusOverlay.vue -->
 <script setup>
-import { computed, onUnmounted, ref, watch, toRefs } from 'vue'
+import { computed, nextTick, onUnmounted, ref, watch, toRefs } from 'vue'
 import CompletionDateEditor from '../shared/CompletionDateEditor.vue'
 
 const props = defineProps({
@@ -26,21 +26,71 @@ const emit = defineEmits([
 
 const overlayTab = ref('details')
 const descriptionExpanded = ref(false)
+const descriptionRef = ref(null)
+const descriptionOverflows = ref(false)
 const showCoverLightbox = ref(false)
+let descriptionResizeObserver = null
 
 const coverFullSrc = computed(() => book.value?.coverPath || book.value?.imageUrl || null)
 
+function measureDescriptionOverflow() {
+  const el = descriptionRef.value
+  if (!el || descriptionExpanded.value) return
+  descriptionOverflows.value = el.scrollHeight > el.clientHeight + 1
+}
+
+function setupDescriptionObserver() {
+  teardownDescriptionObserver()
+  const el = descriptionRef.value
+  if (!el) return
+  descriptionResizeObserver = new ResizeObserver(() => {
+    measureDescriptionOverflow()
+  })
+  descriptionResizeObserver.observe(el)
+}
+
+function teardownDescriptionObserver() {
+  descriptionResizeObserver?.disconnect()
+  descriptionResizeObserver = null
+}
+
+async function refreshDescriptionOverflow() {
+  await nextTick()
+  measureDescriptionOverflow()
+  if (overlayTab.value === 'details' && book.value?.description)
+    setupDescriptionObserver()
+  else
+    teardownDescriptionObserver()
+}
+
 watch(
   book,
-  (value) => {
+  async (value) => {
     if (value) {
       overlayTab.value = 'details'
       descriptionExpanded.value = false
+      descriptionOverflows.value = false
       showCoverLightbox.value = false
+      await refreshDescriptionOverflow()
+    } else {
+      teardownDescriptionObserver()
+      descriptionOverflows.value = false
     }
   },
   { immediate: true },
 )
+
+watch(overlayTab, async (tab) => {
+  if (tab === 'details')
+    await refreshDescriptionOverflow()
+  else
+    teardownDescriptionObserver()
+})
+
+watch(descriptionExpanded, async (expanded) => {
+  if (!expanded)
+    await refreshDescriptionOverflow()
+})
 
 function handleCoverLightboxKeydown(e) {
   if (e.key === 'Escape' && showCoverLightbox.value) {
@@ -56,6 +106,7 @@ watch(showCoverLightbox, (open) => {
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleCoverLightboxKeydown, true)
+  teardownDescriptionObserver()
 })
 
 const MONTHS = {
@@ -326,10 +377,12 @@ function isbn10To13(isbn10) {
         <div v-if="book?.description" class="book-detail-description">
           <div class="overlay-section-label">Description</div>
           <p
+            ref="descriptionRef"
             :class="['book-description-text', { expanded: descriptionExpanded }]"
             v-html="book.description"
           ></p>
           <button
+            v-if="descriptionOverflows || descriptionExpanded"
             class="book-description-toggle"
             type="button"
             @click="descriptionExpanded = !descriptionExpanded"
