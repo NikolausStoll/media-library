@@ -10,9 +10,11 @@ defineProps({
   sortDirection: { type: String, required: true },
   formatFilter: { type: Array, default: () => [] },
   languageFilter: { type: Array, default: () => [] },
+  seriesFilter: { type: String, default: '' },
   noRatingFilter: { type: Boolean, default: false },
   availableFormats: { type: Array, required: true },
   availableLanguages: { type: Array, required: true },
+  availableSeries: { type: Array, default: () => [] },
   filterSectionsOpen: { type: Object, required: true },
   viewMode: { type: String, required: true },
   gridDensity: { type: String, default: 'normal' },
@@ -29,6 +31,8 @@ const emit = defineEmits([
   'sort-title',
   'sort-rating',
   'sort-pages',
+  'sort-series',
+  'update:seriesFilter',
   'set-view-mode',
   'set-grid-density',
   'toggle-dark-mode',
@@ -82,6 +86,9 @@ const configVersion = configVersionMatch?.[1] ?? 'unbekannt'
         <button :class="['filter-btn', { active: sortBy === 'pages' }]" @click="emit('sort-pages')">
           Pages <span v-if="sortBy === 'pages'" class="sort-dir">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
         </button>
+        <button :class="['filter-btn', { active: sortBy === 'series' }]" @click="emit('sort-series')">
+          Series <span v-if="sortBy === 'series'" class="sort-dir">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
+        </button>
       </div>
     </div>
 
@@ -95,6 +102,18 @@ const configVersion = configVersionMatch?.[1] ?? 'unbekannt'
         <span class="collapse-arrow">{{ filterSectionsOpen.formatFilter ? '▲' : '▼' }}</span>
       </div>
       <div v-show="filterSectionsOpen.formatFilter">
+        <div class="filter-subsection-label">Series</div>
+        <select
+          class="book-filter-select"
+          :value="seriesFilter"
+          @change="emit('update:seriesFilter', $event.target.value)"
+        >
+          <option value="">All series</option>
+          <option v-for="series in availableSeries" :key="series" :value="series">
+            {{ series }}
+          </option>
+        </select>
+
         <div class="filter-subsection-label">Rating</div>
         <div class="filter-options">
           <button
@@ -150,3 +169,21 @@ const configVersion = configVersionMatch?.[1] ?? 'unbekannt'
     </div>
   </div>
 </template>
+
+<style scoped>
+.book-filter-select {
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 6px 8px;
+  border: 1px solid var(--border2);
+  border-radius: 2px;
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 11px;
+}
+
+.book-filter-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+</style>

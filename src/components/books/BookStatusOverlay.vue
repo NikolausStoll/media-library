@@ -1,6 +1,6 @@
 <!-- src/components/books/BookStatusOverlay.vue -->
 <script setup>
-import { computed, ref, watch, toRefs } from 'vue'
+import { computed, onUnmounted, ref, watch, toRefs } from 'vue'
 import CompletionDateEditor from '../shared/CompletionDateEditor.vue'
 
 const props = defineProps({
@@ -24,18 +24,39 @@ const emit = defineEmits([
   'edit-details',
 ])
 
-const overlayTab = ref('options')
+const overlayTab = ref('details')
 const descriptionExpanded = ref(false)
+const showCoverLightbox = ref(false)
+
+const coverFullSrc = computed(() => book.value?.coverPath || book.value?.imageUrl || null)
+
 watch(
   book,
   (value) => {
     if (value) {
-      overlayTab.value = 'options'
+      overlayTab.value = 'details'
       descriptionExpanded.value = false
+      showCoverLightbox.value = false
     }
   },
   { immediate: true },
 )
+
+function handleCoverLightboxKeydown(e) {
+  if (e.key === 'Escape' && showCoverLightbox.value) {
+    e.stopImmediatePropagation()
+    showCoverLightbox.value = false
+  }
+}
+
+watch(showCoverLightbox, (open) => {
+  if (open) document.addEventListener('keydown', handleCoverLightboxKeydown, true)
+  else document.removeEventListener('keydown', handleCoverLightboxKeydown, true)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleCoverLightboxKeydown, true)
+})
 
 const MONTHS = {
   jan: 1,
@@ -206,11 +227,11 @@ function isbn10To13(isbn10) {
       </div>
 
       <div class="tabs" style="margin-bottom: 12px;">
-        <button :class="['tab', { active: overlayTab === 'options' }]" @click="overlayTab = 'options'">
-          Options
-        </button>
         <button :class="['tab', { active: overlayTab === 'details' }]" @click="overlayTab = 'details'">
           Details
+        </button>
+        <button :class="['tab', { active: overlayTab === 'options' }]" @click="overlayTab = 'options'">
+          Options
         </button>
       </div>
 
@@ -264,9 +285,17 @@ function isbn10To13(isbn10) {
 
       <template v-else>
         <div class="overlay-detail-page">
-          <div v-if="book?.coverPath || book?.imageUrl" class="detail-cover">
-            <img :src="book.coverPath || book.imageUrl" :alt="book?.title" />
-          </div>
+          <button
+            v-if="coverFullSrc"
+            type="button"
+            class="detail-cover detail-cover-btn"
+            title="View cover full size"
+            aria-label="View cover full size"
+            @click.stop="showCoverLightbox = true"
+          >
+            <img :src="coverFullSrc" :alt="book?.title" />
+            <span class="detail-cover-zoom-hint" aria-hidden="true">⤢</span>
+          </button>
           <div class="detail-info">
             <div class="detail-metrics">
               <div v-if="book?.pageCount" class="metric-box metric-box-all">
@@ -311,6 +340,29 @@ function isbn10To13(isbn10) {
       </template>
     </div>
   </div>
+
+  <Teleport to="body">
+    <div
+      v-if="showCoverLightbox && coverFullSrc"
+      class="cover-lightbox"
+      @click="showCoverLightbox = false"
+    >
+      <button
+        type="button"
+        class="cover-lightbox-close"
+        aria-label="Close cover view"
+        @click.stop="showCoverLightbox = false"
+      >
+        ✕
+      </button>
+      <img
+        :src="coverFullSrc"
+        :alt="book?.title"
+        class="cover-lightbox-img"
+        @click.stop
+      />
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -368,6 +420,15 @@ function isbn10To13(isbn10) {
   flex-direction: column;
 }
 
+.detail-cover-btn {
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: zoom-in;
+  position: relative;
+  text-align: left;
+}
+
 .detail-cover img {
   width: 100%;
   max-width: 200px;
@@ -375,6 +436,74 @@ function isbn10To13(isbn10) {
   border-radius: 2px;
   object-fit: cover;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  display: block;
+}
+
+.detail-cover-btn:hover img,
+.detail-cover-btn:focus-visible img {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), 0 0 0 1px rgb(var(--accent-rgb) / 0.45);
+}
+
+.detail-cover-zoom-hint {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: 13px;
+  line-height: 22px;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+
+.detail-cover-btn:hover .detail-cover-zoom-hint,
+.detail-cover-btn:focus-visible .detail-cover-zoom-hint {
+  opacity: 1;
+}
+
+.cover-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.92);
+}
+
+.cover-lightbox-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cover-lightbox-close:hover {
+  background: rgba(0, 0, 0, 0.75);
+}
+
+.cover-lightbox-img {
+  max-width: min(1200px, 92vw);
+  max-height: 92vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 2px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
 }
 
 .detail-info {

@@ -28,6 +28,7 @@ const activeTab     = ref('backlog')
 const loading       = ref(true)
 
 const MOBILE_BREAKPOINT = 768
+const BOOK_COVER_MAX_DIMENSION = 1200
 const isMobileLayout = ref(typeof window !== 'undefined' ? window.innerWidth <= MOBILE_BREAKPOINT : false)
 
 const sidebarOpen        = ref(!isMobileLayout.value)
@@ -41,9 +42,14 @@ const showFormatEditor   = ref(false)
 const showBookEditor     = ref(false)
 const formatEditor       = ref(null)
 const bookEditor         = ref(null)
+const coverEditorDimensions = ref(null)
+const coverEditorDimensionsLoading = ref(false)
+const coverEditorDimensionsError = ref(false)
+let coverDimensionLoadId = 0
 const showSearchOverlay  = ref(false)
 const overlaySearchQuery = ref('')
 const bookPrepareLoading = ref(false)
+const bookPrepareConfirmPending = ref(false)
 const bookPrepareWarnings = ref([])
 const bookPrepareAnalysis = ref(null)
 const bookPrepareAnalysisOpen = ref(false)
@@ -61,6 +67,7 @@ const selectedBookSearchResult = ref(null)
 const searchQuery     = ref('')
 const formatFilter    = ref([])
 const languageFilter  = ref([])
+const seriesFilter    = ref('')
 const noRatingFilter  = ref(false)
 const sortBy          = ref('title')
 const sortDirection   = ref('asc')
@@ -77,6 +84,13 @@ watch(darkMode, val => localStorage.setItem('darkMode', val))
 watch(showOverlay, val => {
   if (!val) deleteConfirm.value = false
 })
+
+watch(
+  () => bookEditor.value?.isbn,
+  () => {
+    bookPrepareConfirmPending.value = false
+  },
+)
 
 watch(overlaySearchQuery, () => {
   searchError.value    = ''
@@ -158,6 +172,30 @@ function fuzzyMatch(str, query) {
   return true
 }
 
+function parseSeriesPosition(value) {
+  const n = Number.parseFloat(String(value ?? '').trim())
+  return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY
+}
+
+function applyBookFilters(base, { includeNoRating = false } = {}) {
+  if (formatFilter.value.length)
+    base = base.filter(b => b.formats.some(f => formatFilter.value.includes(f.format ?? f)))
+
+  if (languageFilter.value.length)
+    base = base.filter(b => languageFilter.value.includes((b.language ?? '').toLowerCase()))
+
+  if (seriesFilter.value)
+    base = base.filter(b => (b.seriesName ?? '').trim() === seriesFilter.value)
+
+  if (includeNoRating && noRatingFilter.value)
+    base = base.filter(b => b.userRating == null)
+
+  if (searchQuery.value.trim())
+    base = base.filter(b => fuzzyMatch(b.title, searchQuery.value))
+
+  return base
+}
+
 function applySort(list) {
   const dir = sortDirection.value === 'asc' ? 1 : -1
 
@@ -180,23 +218,42 @@ function applySort(list) {
       return (a.pageCount - b.pageCount) * dir
     })
 
+  if (sortBy.value === 'series')
+    return [...list].sort((a, b) => {
+      const aHasSeries = Boolean((a.seriesName ?? '').trim())
+      const bHasSeries = Boolean((b.seriesName ?? '').trim())
+      if (aHasSeries !== bHasSeries)
+        return ((aHasSeries ? 0 : 1) - (bHasSeries ? 0 : 1)) * dir
+
+      if (aHasSeries && bHasSeries) {
+        const seriesCmp = (a.seriesName ?? '').localeCompare(b.seriesName ?? '')
+        if (seriesCmp !== 0) return seriesCmp * dir
+
+        const positionCmp = parseSeriesPosition(a.seriesPosition) - parseSeriesPosition(b.seriesPosition)
+        if (positionCmp !== 0) return positionCmp * dir
+      }
+
+      return (a.title ?? '').localeCompare(b.title ?? '') * dir
+    })
+
   return list
 }
+
+const availableSeries = computed(() => {
+  const names = new Set()
+  for (const book of bookList.value) {
+    const name = (book.seriesName ?? '').trim()
+    if (name) names.add(name)
+  }
+  return [...names].sort((a, b) => a.localeCompare(b))
+})
 
 const readNextBooks = computed(() => {
   let base = readNextList.value
     .map(id => bookList.value.find(b => String(b.id) === String(id)))
     .filter(b => b && b.status === 'backlog')
 
-  if (formatFilter.value.length)
-    base = base.filter(b => b.formats.some(f => formatFilter.value.includes(f.format ?? f)))
-
-  if (languageFilter.value.length)
-    base = base.filter(b => languageFilter.value.includes((b.language ?? '').toLowerCase()))
-
-  if (searchQuery.value.trim())
-    base = base.filter(b => fuzzyMatch(b.title, searchQuery.value))
-
+  base = applyBookFilters(base)
   return applySort(base)
 })
 
@@ -208,16 +265,7 @@ const normalBacklogBooks = computed(() =>
 
 const shelvedBooks = computed(() => {
   let base = bookList.value.filter(b => b.status === 'shelved')
-
-  if (formatFilter.value.length)
-    base = base.filter(b => b.formats.some(f => formatFilter.value.includes(f.format ?? f)))
-
-  if (languageFilter.value.length)
-    base = base.filter(b => languageFilter.value.includes((b.language ?? '').toLowerCase()))
-
-  if (searchQuery.value.trim())
-    base = base.filter(b => fuzzyMatch(b.title, searchQuery.value))
-
+  base = applyBookFilters(base)
   return applySort(base)
 })
 
@@ -228,18 +276,7 @@ const filteredBooks = computed(() => {
     activeTab.value === 'backlog' ? normalBacklogBooks.value :
     bookList.value.filter(b => b.status === activeTab.value)
 
-  if (formatFilter.value.length)
-    base = base.filter(b => b.formats.some(f => formatFilter.value.includes(f.format ?? f)))
-
-  if (languageFilter.value.length)
-    base = base.filter(b => languageFilter.value.includes((b.language ?? '').toLowerCase()))
-
-  if (noRatingFilter.value)
-    base = base.filter(b => b.userRating == null)
-
-  if (searchQuery.value.trim())
-    base = base.filter(b => fuzzyMatch(b.title, searchQuery.value))
-
+  base = applyBookFilters(base, { includeNoRating: true })
   return applySort(base)
 })
 
@@ -281,6 +318,10 @@ function toggleRatingSort() {
 }
 function togglePagesSort() {
   if (sortBy.value !== 'pages') { sortBy.value = 'pages'; sortDirection.value = 'asc' }
+  else { sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc' }
+}
+function toggleSeriesSort() {
+  if (sortBy.value !== 'series') { sortBy.value = 'series'; sortDirection.value = 'asc' }
   else { sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc' }
 }
 
@@ -382,6 +423,7 @@ function openBookEditor(book = null) {
   bookPrepareWarnings.value = []
   bookPrepareAnalysis.value = null
   bookPrepareAnalysisOpen.value = false
+  bookPrepareConfirmPending.value = false
   bookImportInfoOpen.value = false
   bookEditor.value = createBookDraft(
     book
@@ -398,6 +440,7 @@ function openDraftFromSearch({ result, status }) {
   bookPrepareWarnings.value = []
   bookPrepareAnalysis.value = null
   bookPrepareAnalysisOpen.value = false
+  bookPrepareConfirmPending.value = false
   bookImportInfoOpen.value = false
   bookEditor.value = createBookDraft(
     {
@@ -515,6 +558,57 @@ function readFileAsDataUrl(file) {
   })
 }
 
+function loadImageDimensions(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight })
+    img.onerror = () => reject(new Error('Failed to load image'))
+    img.src = src
+  })
+}
+
+const coverEditorInfoSrc = computed(() => {
+  const draft = bookEditor.value
+  if (!draft) return ''
+
+  if (draft.coverPreviewUrl) return draft.coverPreviewUrl
+  if (draft.coverPath) return draft.coverPath
+  if (draft.coverUrl) return draft.coverUrl
+  if (draft.imageUrl) return draft.imageUrl
+  if (draft.coverThumbPath) return draft.coverThumbPath
+  return ''
+})
+
+const coverEditorMaxDimension = computed(() => {
+  const dims = coverEditorDimensions.value
+  if (!dims) return 0
+  return Math.max(dims.width, dims.height)
+})
+
+watch(coverEditorInfoSrc, async (src) => {
+  const loadId = ++coverDimensionLoadId
+  coverEditorDimensions.value = null
+  coverEditorDimensionsError.value = false
+
+  if (!src) {
+    coverEditorDimensionsLoading.value = false
+    return
+  }
+
+  coverEditorDimensionsLoading.value = true
+  try {
+    const dimensions = await loadImageDimensions(src)
+    if (loadId !== coverDimensionLoadId) return
+    coverEditorDimensions.value = dimensions
+  } catch {
+    if (loadId !== coverDimensionLoadId) return
+    coverEditorDimensionsError.value = true
+  } finally {
+    if (loadId === coverDimensionLoadId)
+      coverEditorDimensionsLoading.value = false
+  }
+})
+
 async function handleCoverFileChange(event) {
   const file = event.target.files?.[0]
   if (!file || !bookEditor.value) return
@@ -573,6 +667,34 @@ function applyPreparedDraft(prepared) {
   bookPrepareAnalysis.value = prepared.analysis ?? null
   bookPrepareAnalysisOpen.value = false
   bookImportInfoOpen.value = false
+}
+
+function draftHasPreparedMetadata() {
+  const draft = bookEditor.value
+  if (!draft) return false
+  if (bookPrepareAnalysis.value) return true
+
+  const sourceName = String(draft.sourceName ?? '').trim()
+  if (sourceName && sourceName !== 'Manual') return true
+
+  return Boolean(String(draft.sourceUrl ?? '').trim())
+}
+
+function requestPrepareCurrentBookDraft() {
+  if (draftHasPreparedMetadata()) {
+    bookPrepareConfirmPending.value = true
+    return
+  }
+  prepareCurrentBookDraft()
+}
+
+function cancelPrepareConfirm() {
+  bookPrepareConfirmPending.value = false
+}
+
+async function confirmPrepareCurrentBookDraft() {
+  bookPrepareConfirmPending.value = false
+  await prepareCurrentBookDraft()
 }
 
 async function prepareCurrentBookDraft() {
@@ -1075,9 +1197,11 @@ onUnmounted(() => {
           :sortDirection="sortDirection"
           :formatFilter="formatFilter"
           :languageFilter="languageFilter"
+          :seriesFilter="seriesFilter"
           :noRatingFilter="noRatingFilter"
           :availableFormats="availableFormats"
           :availableLanguages="availableLanguages"
+          :availableSeries="availableSeries"
           :filterSectionsOpen="filterSectionsOpen"
           :viewMode="viewMode"
           :gridDensity="gridDensity"
@@ -1092,6 +1216,8 @@ onUnmounted(() => {
           @sort-title="toggleTitleSort"
           @sort-rating="toggleRatingSort"
           @sort-pages="togglePagesSort"
+          @sort-series="toggleSeriesSort"
+          @update:seriesFilter="seriesFilter = $event"
           @set-view-mode="(m) => viewMode = m"
           @set-grid-density="(d) => gridDensity = d"
           @toggle-dark-mode="toggleDarkMode"
@@ -1148,15 +1274,38 @@ onUnmounted(() => {
                     <span>ISBN</span>
                     <div class="book-editor-inline-row">
                       <input v-model="bookEditor.isbn" class="book-editor-input" type="text" />
-                      <button
-                        class="book-editor-prepare-btn"
-                        type="button"
-                        :disabled="bookPrepareLoading || !bookEditor.isbn?.trim()"
-                        @click="prepareCurrentBookDraft"
-                      >
-                        {{ bookPrepareLoading ? 'Preparing' : 'Prepare' }}
-                      </button>
+                      <template v-if="!bookPrepareConfirmPending">
+                        <button
+                          class="book-editor-prepare-btn"
+                          type="button"
+                          :disabled="bookPrepareLoading || !bookEditor.isbn?.trim()"
+                          @click="requestPrepareCurrentBookDraft"
+                        >
+                          {{ bookPrepareLoading ? 'Preparing' : 'Prepare' }}
+                        </button>
+                      </template>
+                      <template v-else>
+                        <button
+                          class="book-editor-prepare-cancel-btn"
+                          type="button"
+                          :disabled="bookPrepareLoading"
+                          @click="cancelPrepareConfirm"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          class="book-editor-prepare-confirm-btn"
+                          type="button"
+                          :disabled="bookPrepareLoading"
+                          @click="confirmPrepareCurrentBookDraft"
+                        >
+                          Prepare anyway
+                        </button>
+                      </template>
                     </div>
+                    <p v-if="bookPrepareConfirmPending" class="book-prepare-confirm-text">
+                      Metadata was already prepared. Run Prepare again and overwrite the current fields?
+                    </p>
                   </div>
 
                   <label class="book-editor-field">
@@ -1245,6 +1394,24 @@ onUnmounted(() => {
                 <img :src="bookEditor.coverPreviewUrl || bookEditor.coverThumbPath || bookEditor.coverPath || bookEditor.coverUrl || bookEditor.imageUrl" alt="" />
               </div>
               <div v-else class="book-editor-cover-placeholder">No cover</div>
+
+              <div v-if="coverEditorInfoSrc" class="book-editor-cover-info">
+                <span v-if="coverEditorDimensionsLoading" class="book-editor-cover-info-muted">Reading cover size…</span>
+                <template v-else-if="coverEditorDimensions">
+                  <span class="book-editor-cover-info-size">
+                    {{ coverEditorDimensions.width }} × {{ coverEditorDimensions.height }} px
+                  </span>
+                  <span
+                    v-if="coverEditorMaxDimension < BOOK_COVER_MAX_DIMENSION"
+                    class="book-editor-cover-info-warn"
+                  >
+                    Below max storage size ({{ BOOK_COVER_MAX_DIMENSION }} px). A higher-resolution source may improve quality.
+                  </span>
+                </template>
+                <span v-else-if="coverEditorDimensionsError" class="book-editor-cover-info-muted">
+                  Could not read cover size
+                </span>
+              </div>
 
               <div class="book-editor-cover-actions">
                 <label class="book-editor-file-btn">
@@ -1693,6 +1860,43 @@ onUnmounted(() => {
   opacity: 0.55;
 }
 
+.book-editor-prepare-cancel-btn,
+.book-editor-prepare-confirm-btn {
+  flex-shrink: 0;
+  min-height: 34px;
+  border-radius: 2px;
+  padding: 7px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.book-editor-prepare-cancel-btn {
+  border: 1px solid var(--border2);
+  background: var(--surface2);
+  color: var(--text-muted);
+}
+
+.book-editor-prepare-confirm-btn {
+  border: 1px solid rgb(var(--accent-rgb) / 0.45);
+  background: rgb(var(--accent-rgb) / 0.18);
+  color: var(--accent-light);
+}
+
+.book-editor-prepare-cancel-btn:disabled,
+.book-editor-prepare-confirm-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.book-prepare-confirm-text {
+  margin: 6px 0 0;
+  color: #f59e0b;
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 600;
+}
+
 .book-editor-textarea {
   min-height: 96px;
   resize: vertical;
@@ -1794,6 +1998,29 @@ onUnmounted(() => {
   font-size: 11px;
   font-weight: 700;
   text-align: center;
+}
+
+.book-editor-cover-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.book-editor-cover-info-size {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.book-editor-cover-info-muted {
+  color: var(--text-muted);
+}
+
+.book-editor-cover-info-warn {
+  color: #f59e0b;
+  font-weight: 600;
 }
 
 .book-editor-cover-actions {
