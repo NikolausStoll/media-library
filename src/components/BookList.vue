@@ -166,6 +166,7 @@ function bookMatchesSearch(book, query) {
   if (!query.trim()) return true
   return fuzzyMatch(book.title, query)
     || fuzzyMatch(book.alternateTitle ?? '', query)
+    || fuzzyMatch(book.seriesName ?? '', query)
 }
 
 function fuzzyMatch(str, query) {

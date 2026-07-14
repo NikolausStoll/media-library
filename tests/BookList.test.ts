@@ -134,6 +134,27 @@ describe('BookList – Read Next', () => {
   })
 })
 
+describe('BookList – Search', () => {
+  it('findet Bücher nach Serienname', async () => {
+    const wrapper = await mountBookApp({
+      books: [
+        { ...HOBBIT, seriesName: 'Middle-earth' },
+        DUNE,
+      ],
+    })
+
+    await wrapper.find('.search-input').setValue('middle')
+    await nextTick()
+
+    const cards = wrapper.findAll('.game-card')
+    expect(cards.length).toBe(1)
+    expect(cards[0].text()).toContain('Hobbit')
+    expect(wrapper.text()).not.toContain('Dune')
+
+    wrapper.unmount()
+  })
+})
+
 describe('BookList – Status overlay labels', () => {
   it('zeigt Library in Status-Buttons', async () => {
     const wrapper = await mountBookApp({ books: [HOBBIT] })
