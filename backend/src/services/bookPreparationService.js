@@ -76,7 +76,7 @@ You receive one JSON object with:
 - languageHint: optional "de" or "en"
 - openLibrary: compact Open Library edition/work/books-api data, deterministic fallbackDraft, and pre-extracted seriesHints
 - dnb: optional compact Deutsche Nationalbibliothek fallback data when Open Library was weak
-- descriptionLanguageHint: optional "translate-to-de" when a German edition has a non-German description candidate
+- descriptionLanguageHint: optional "keep" (preserve description text/language) or "translate-to-de" (German book with English description)
 
 Task:
 - Return exactly one JSON object matching the provided schema.
@@ -87,9 +87,11 @@ Task:
 - Keep title and author names clean, without edition noise.
 - Correct obvious title capitalization when evidence points to the same title, e.g. work title vs edition title casing.
 - Return publishedDate only as "YYYY-MM-DD", "YYYY-MM", "YYYY", or null. Use "YYYY-MM-DD" when day/month/year are known, "YYYY-MM" when only month/year are known, and "YYYY" when only the year is known.
-- Normalize language to "de", "en", or null.
-- When the book is German (languageHint "de", fallbackDraft.language "de", edition language keys, or dnb.language "de") and the best available description is clearly in English, translate that description into natural German for draft.description. Do not translate title or author names. Add a warning that the description was translated by AI and set confidence.description to "medium" or "low", not "high".
-- When descriptionLanguageHint is "translate-to-de", you must translate the English description to German rather than returning the English text.
+- Normalize language to "de", "en", or null. Prefer languageHint / Open Library edition language when present; do not invent a different language.
+- Description language must match the book's language (draft.language / languageHint). Do not translate or rewrite a description into another language when it already matches.
+- When descriptionLanguageHint is "keep", copy the best available description with only light cleanup (whitespace/typos). Do not paraphrase, expand, shorten, or translate it.
+- When descriptionLanguageHint is "translate-to-de", or when the book is German and the best available description is clearly English, translate that description into natural German for draft.description. Do not translate title or author names. Add a warning that the description was translated by AI and set confidence.description to "medium" or "low", not "high".
+- Never translate an English book's description into German.
 - Extract seriesName and seriesPosition only when there is clear evidence.
 - If seriesName is known but seriesPosition is missing, you may use your general literary knowledge to infer seriesPosition. When you do, add a warning that the series position was inferred by AI and set confidence.seriesPosition to "medium" or "low", not "high".
 - Do not change sourceName or sourceUrl. Keep the source information from fallbackDraft/sourceUrls unchanged.
@@ -107,13 +109,17 @@ You receive one JSON object with:
 - languageHint: optional "de" or "en"
 - openLibrary: sparse Open Library data that was not enough for a useful draft
 - dnb: optional Deutsche Nationalbibliothek fallback data already fetched before this step
+- descriptionLanguageHint: optional "keep" (preserve description text/language) or "translate-to-de"
 
 Task:
 - Use web search to identify the ISBN-specific book edition.
 - Return exactly one JSON object matching the provided schema.
 - Prefer edition-specific facts for publisher, publish date, page count, ISBN, and language.
 - When dnb already provides reliable German bibliographic facts, prefer them over conflicting web guesses.
-- When the book is German and you provide a description, prefer a German description. Translate to German when needed and add a warning that the description was translated by AI.
+- Prefer languageHint / Open Library / DNB language evidence. Description language must match the book's language.
+- When descriptionLanguageHint is "keep", preserve an existing matching description; do not paraphrase or translate it.
+- When the book is German and you provide a description that starts from English source text, translate to German and add a warning that the description was translated by AI.
+- Never translate an English book's description into German.
 - Keep title and author names clean, without edition noise.
 - Set coverUrl only when you have a direct, stable cover image URL from Open Library Covers for this ISBN or exact edition. If you would have to infer, guess, pick a generic image result, or use an unrelated shop/page image, return null.
 - Return publishedDate only as "YYYY-MM-DD", "YYYY-MM", "YYYY", or null. Use "YYYY-MM-DD" when day/month/year are known, "YYYY-MM" when only month/year are known, and "YYYY" when only the year is known.
@@ -297,13 +303,24 @@ function isWeakOpenLibrarySource(source) {
   return countPresentFields(draft) < 4
 }
 
-function looksLikeEnglishDescription(text) {
+function descriptionLanguageSignals(text) {
   const sample = String(text ?? '').trim().slice(0, 600)
-  if (!sample) return false
+  if (!sample) return { germanHints: 0, englishHints: 0 }
   const germanHints = sample.match(/\b(und|der|die|das|ein|eine|ist|sind|wird|nicht|auch|mit|für|auf|einem|einer|eines)\b/gi) ?? []
   const englishHints = sample.match(/\b(the|and|with|their|when|from|this|that|into|about|after|before|between)\b/gi) ?? []
-  if (englishHints.length >= 3 && englishHints.length > germanHints.length) return true
-  return englishHints.length >= 5
+  return { germanHints: germanHints.length, englishHints: englishHints.length }
+}
+
+function looksLikeEnglishDescription(text) {
+  const { germanHints, englishHints } = descriptionLanguageSignals(text)
+  if (englishHints >= 3 && englishHints > germanHints) return true
+  return englishHints >= 5
+}
+
+function looksLikeGermanDescription(text) {
+  const { germanHints, englishHints } = descriptionLanguageSignals(text)
+  if (germanHints >= 3 && germanHints > englishHints) return true
+  return germanHints >= 5
 }
 
 function effectiveBookLanguage(source, languageHint) {
@@ -326,10 +343,13 @@ function descriptionCandidate(source) {
   return source.fallbackDraft?.description ?? workDesc ?? source.dnb?.fallbackDraft?.description ?? null
 }
 
-function buildDescriptionLanguageHint(source, languageHint) {
+export function buildDescriptionLanguageHint(source, languageHint) {
   const language = effectiveBookLanguage(source, languageHint)
   const description = descriptionCandidate(source)
+  if (!language || !description) return null
   if (language === 'de' && looksLikeEnglishDescription(description)) return 'translate-to-de'
+  if (language === 'en' && looksLikeEnglishDescription(description)) return 'keep'
+  if (language === 'de' && looksLikeGermanDescription(description)) return 'keep'
   return null
 }
 

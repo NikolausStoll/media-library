@@ -1,7 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { parseDnbMarcXml } from '../src/services/dnbService.js'
-import { mergeDnbIntoOpenLibrarySource } from '../src/services/bookPreparationService.js'
+import {
+  mergeDnbIntoOpenLibrarySource,
+  buildDescriptionLanguageHint,
+} from '../src/services/bookPreparationService.js'
 
 const BLYTON_MARC_SNIPPET = `<?xml version="1.0" encoding="UTF-8"?>
 <searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
@@ -86,4 +89,35 @@ test('mergeDnbIntoOpenLibrarySource does not overwrite existing Open Library tit
 
   assert.equal(merged.fallbackDraft.title, 'Artemis Fowl')
   assert.equal(merged.fallbackDraft.publisher, 'List')
+})
+
+test('buildDescriptionLanguageHint keeps English description for English books', () => {
+  const source = {
+    fallbackDraft: {
+      language: 'en',
+      description: 'When the detective arrives from the city, this story about their case begins after the crime.',
+    },
+  }
+  assert.equal(buildDescriptionLanguageHint(source, null), 'keep')
+  assert.equal(buildDescriptionLanguageHint(source, 'en'), 'keep')
+})
+
+test('buildDescriptionLanguageHint translates English description for German books', () => {
+  const source = {
+    fallbackDraft: {
+      language: 'de',
+      description: 'When the detective arrives from the city, this story about their case begins after the crime.',
+    },
+  }
+  assert.equal(buildDescriptionLanguageHint(source, null), 'translate-to-de')
+})
+
+test('buildDescriptionLanguageHint keeps German description for German books', () => {
+  const source = {
+    fallbackDraft: {
+      language: 'de',
+      description: 'Als der Detektiv aus der Stadt ankommt, beginnt die Geschichte mit einem Fall und einer Spur.',
+    },
+  }
+  assert.equal(buildDescriptionLanguageHint(source, 'de'), 'keep')
 })
