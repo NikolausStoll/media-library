@@ -600,6 +600,14 @@ const coverEditorMaxDimension = computed(() => {
   return Math.max(dims.width, dims.height)
 })
 
+const coverEditorSizeTone = computed(() => {
+  const max = coverEditorMaxDimension.value
+  if (!max) return ''
+  if (max < 600) return 'low'
+  if (max < BOOK_COVER_MAX_DIMENSION) return 'medium'
+  return ''
+})
+
 const bookEditorHasCover = computed(() => {
   const draft = bookEditor.value
   if (!draft) return false
@@ -740,12 +748,24 @@ function applyPreparedDraft(prepared) {
 function draftHasPreparedMetadata() {
   const draft = bookEditor.value
   if (!draft) return false
+  // Already prepared in this editor session.
   if (bookPrepareAnalysis.value) return true
 
-  const sourceName = String(draft.sourceName ?? '').trim()
-  if (sourceName && sourceName !== 'Manual') return true
+  // Confirm only when Prepare would overwrite meaningful draft fields.
+  // Stub sources like "ISBN scan" alone must not trigger confirmation.
+  if (String(draft.title ?? '').trim()) return true
+  if (String(draft.alternateTitle ?? '').trim()) return true
+  if (String(draft.authorsText ?? '').trim()) return true
+  if (String(draft.description ?? '').trim()) return true
+  if (draft.pageCount != null && String(draft.pageCount).trim() !== '') return true
+  if (String(draft.publishedDate ?? '').trim()) return true
+  if (String(draft.seriesName ?? '').trim()) return true
+  if (String(draft.seriesPosition ?? '').trim()) return true
+  if (String(draft.publisher ?? '').trim()) return true
+  if (String(draft.language ?? '').trim()) return true
+  if (bookEditorHasCover.value) return true
 
-  return Boolean(String(draft.sourceUrl ?? '').trim())
+  return false
 }
 
 function requestPrepareCurrentBookDraft() {
@@ -1429,7 +1449,16 @@ onUnmounted(() => {
 
                   <label class="book-editor-field">
                     <span>Series</span>
-                    <input v-model="bookEditor.seriesName" class="book-editor-input" type="text" />
+                    <input
+                      v-model="bookEditor.seriesName"
+                      class="book-editor-input"
+                      type="text"
+                      list="book-editor-series-suggestions"
+                      autocomplete="off"
+                    />
+                    <datalist id="book-editor-series-suggestions">
+                      <option v-for="series in availableSeries" :key="series" :value="series" />
+                    </datalist>
                   </label>
 
                   <label class="book-editor-field">
@@ -1465,22 +1494,37 @@ onUnmounted(() => {
               <div class="overlay-section-label">Cover</div>
 
               <div class="book-editor-cover-row">
-                <div
-                  v-if="bookEditorHasCover"
-                  class="book-editor-cover-frame"
-                >
-                  <img :src="bookEditorCoverPreviewSrc" alt="" />
-                  <button
-                    type="button"
-                    class="book-editor-cover-remove"
-                    aria-label="Remove cover"
-                    title="Remove cover"
-                    @click="clearDraftCover"
+                <div class="book-editor-cover-visual">
+                  <div
+                    v-if="bookEditorHasCover"
+                    class="book-editor-cover-frame"
                   >
-                    ✕
-                  </button>
+                    <img :src="bookEditorCoverPreviewSrc" alt="" />
+                    <button
+                      type="button"
+                      class="book-editor-cover-remove"
+                      aria-label="Remove cover"
+                      title="Remove cover"
+                      @click="clearDraftCover"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <div v-else class="book-editor-cover-placeholder">No cover</div>
+
+                  <div v-if="coverEditorInfoSrc" class="book-editor-cover-meta book-editor-cover-meta-desktop">
+                    <span v-if="coverEditorDimensionsLoading" class="book-editor-cover-info-muted">Reading size…</span>
+                    <span
+                      v-else-if="coverEditorDimensions"
+                      :class="['book-editor-cover-info-size', coverEditorSizeTone && `is-${coverEditorSizeTone}`]"
+                    >
+                      {{ coverEditorDimensions.width }} × {{ coverEditorDimensions.height }} px
+                    </span>
+                    <span v-else-if="coverEditorDimensionsError" class="book-editor-cover-info-muted">
+                      Size unknown
+                    </span>
+                  </div>
                 </div>
-                <div v-else class="book-editor-cover-placeholder">No cover</div>
 
                 <div class="book-editor-cover-side">
                   <div class="book-editor-cover-actions">
@@ -1497,20 +1541,14 @@ onUnmounted(() => {
                     </button>
                   </div>
 
-                  <div v-if="coverEditorInfoSrc" class="book-editor-cover-meta">
+                  <div v-if="coverEditorInfoSrc" class="book-editor-cover-meta book-editor-cover-meta-mobile">
                     <span v-if="coverEditorDimensionsLoading" class="book-editor-cover-info-muted">Reading size…</span>
-                    <template v-else-if="coverEditorDimensions">
-                      <span class="book-editor-cover-info-size">
-                        {{ coverEditorDimensions.width }} × {{ coverEditorDimensions.height }} px
-                      </span>
-                      <span
-                        v-if="coverEditorMaxDimension < BOOK_COVER_MAX_DIMENSION"
-                        class="book-editor-cover-info-warn"
-                        title="Below max storage size (1200 px). A higher-resolution source may improve quality."
-                      >
-                        &lt; {{ BOOK_COVER_MAX_DIMENSION }} px · higher-res recommended
-                      </span>
-                    </template>
+                    <span
+                      v-else-if="coverEditorDimensions"
+                      :class="['book-editor-cover-info-size', coverEditorSizeTone && `is-${coverEditorSizeTone}`]"
+                    >
+                      {{ coverEditorDimensions.width }} × {{ coverEditorDimensions.height }} px
+                    </span>
                     <span v-else-if="coverEditorDimensionsError" class="book-editor-cover-info-muted">
                       Size unknown
                     </span>
@@ -2067,6 +2105,13 @@ onUnmounted(() => {
   gap: 10px;
 }
 
+.book-editor-cover-visual {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
 .book-editor-cover-frame {
   position: relative;
   width: 100%;
@@ -2130,18 +2175,29 @@ onUnmounted(() => {
   line-height: 1.3;
 }
 
+.book-editor-cover-meta-desktop {
+  text-align: center;
+}
+
+.book-editor-cover-meta-mobile {
+  display: none;
+}
+
 .book-editor-cover-info-size {
   color: var(--text);
   font-weight: 600;
 }
 
-.book-editor-cover-info-muted {
-  color: var(--text-muted);
+.book-editor-cover-info-size.is-medium {
+  color: #f59e0b;
 }
 
-.book-editor-cover-info-warn {
-  color: #f59e0b;
-  font-weight: 600;
+.book-editor-cover-info-size.is-low {
+  color: #ef4444;
+}
+
+.book-editor-cover-info-muted {
+  color: var(--text-muted);
 }
 
 .book-editor-cover-actions {
@@ -2378,11 +2434,24 @@ onUnmounted(() => {
     align-items: stretch;
   }
 
-  .book-editor-cover-frame,
-  .book-editor-cover-placeholder {
+  .book-editor-cover-visual {
     grid-column: 1;
     grid-row: 1;
     align-self: end;
+    gap: 0;
+  }
+
+  .book-editor-cover-frame,
+  .book-editor-cover-placeholder {
+    width: 100%;
+  }
+
+  .book-editor-cover-meta-desktop {
+    display: none;
+  }
+
+  .book-editor-cover-meta-mobile {
+    display: flex;
   }
 
   .book-editor-cover-side {
@@ -2392,7 +2461,7 @@ onUnmounted(() => {
     justify-content: space-between;
   }
 
-  .book-editor-cover-meta {
+  .book-editor-cover-meta-mobile {
     margin-top: auto;
   }
 

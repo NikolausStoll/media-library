@@ -12,7 +12,7 @@ This is the source of truth for AI assistants working in this repository. Keep i
 - Local dev frontend: Vite on `localhost:5173`.
 - Local dev backend: `npm run dev:backend`, should use `PORT=8098` because `vite.config.js` proxies `/api` to `http://localhost:8098`.
 - Container/Home Assistant backend: defaults to `PORT=8099`, `DB_PATH=/data/backend.db`, `STATIC_DIR=/app/public`.
-- Current package/add-on version: `1.19.0`.
+- Current package/add-on version: `1.20.0`.
 
 ## High-Level Features
 
@@ -391,7 +391,7 @@ Main file: `src/components/BookList.vue`.
 - Optional `alternateTitle` stores a second title (e.g. original English title for a German edition). Cards show it on a second line when the main title fits on one line; for two-line main titles, a `(...)` hint and tap toggle switch between titles until reload. Detail overlay shows both titles.
 - Add overlay accepts manual title/ISBN entry, can search Open Library by title, can load filtered edition candidates for a selected work, and uses `src/components/books/BarcodeScanner.vue` for mobile ISBN scanning.
 - Google Books has been removed from the Book flow. Do not reintroduce an `externalId` requirement for books.
-- Book editor has a `Prepare` action next to ISBN. It calls `/api/books/prepare`, overwrites the editor draft with returned values, and still requires the user to review/save.
+- Book editor has a `Prepare` action next to ISBN. It calls `/api/books/prepare`, overwrites the editor draft with returned values, and still requires the user to review/save. Re-prepare asks for confirmation only when the draft already has meaningful metadata (or a prepare analysis from this session) that would be overwritten; stub sources like barcode/`ISBN scan` alone do not.
 - Open Library should be treated as raw evidence, not source of truth. Prefer ISBN edition data for edition-specific fields; use LLM output only as an editable draft with warnings.
 - Moving a Read Next book out of `backlog` removes it from `/api/next?type=book`.
 
