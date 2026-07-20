@@ -4,6 +4,7 @@ import { parseDnbMarcXml } from '../src/services/dnbService.js'
 import {
   mergeDnbIntoOpenLibrarySource,
   buildDescriptionLanguageHint,
+  enforceDescriptionLanguageMatch,
 } from '../src/services/bookPreparationService.js'
 
 const BLYTON_MARC_SNIPPET = `<?xml version="1.0" encoding="UTF-8"?>
@@ -120,4 +121,33 @@ test('buildDescriptionLanguageHint keeps German description for German books', (
     },
   }
   assert.equal(buildDescriptionLanguageHint(source, 'de'), 'keep')
+})
+
+test('buildDescriptionLanguageHint requires English description for English books without candidate', () => {
+  const source = {
+    fallbackDraft: {
+      language: 'en',
+    },
+  }
+  assert.equal(buildDescriptionLanguageHint(source, null), 'require-en')
+})
+
+test('buildDescriptionLanguageHint requires English when English book has German candidate', () => {
+  const source = {
+    fallbackDraft: {
+      language: 'en',
+      description: 'Als der Detektiv aus der Stadt ankommt, beginnt die Geschichte mit einem Fall und einer Spur.',
+    },
+  }
+  assert.equal(buildDescriptionLanguageHint(source, 'en'), 'require-en')
+})
+
+test('enforceDescriptionLanguageMatch removes German description for English edition', () => {
+  const draft = {
+    language: 'en',
+    description: 'Als der Detektiv aus der Stadt ankommt, beginnt die Geschichte mit einem Fall und einer Spur.',
+  }
+  const result = enforceDescriptionLanguageMatch(draft, 'en')
+  assert.equal(result.draft.description, null)
+  assert.equal(result.warnings.length, 1)
 })

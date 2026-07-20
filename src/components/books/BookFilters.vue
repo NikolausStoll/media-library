@@ -18,6 +18,7 @@ defineProps({
   filterSectionsOpen: { type: Object, required: true },
   viewMode: { type: String, required: true },
   gridDensity: { type: String, default: 'normal' },
+  allowDenseGrid: { type: Boolean, default: true },
   darkMode: { type: Boolean, required: true },
   searchQuery: { type: String, default: '' },
 })
@@ -29,6 +30,7 @@ const emit = defineEmits([
   'toggle-filter',
   'toggle-filter-section',
   'sort-title',
+  'sort-author',
   'sort-rating',
   'sort-pages',
   'sort-series',
@@ -79,6 +81,9 @@ const configVersion = configVersionMatch?.[1] ?? 'unbekannt'
       <div v-show="filterSectionsOpen.sort" class="filter-options filter-options-single">
         <button :class="['filter-btn', { active: sortBy === 'title' }]" @click="emit('sort-title')">
           Title <span v-if="sortBy === 'title'" class="sort-dir">{{ sortDirection === 'asc' ? 'A→Z' : 'Z→A' }}</span>
+        </button>
+        <button :class="['filter-btn', { active: sortBy === 'author' }]" @click="emit('sort-author')">
+          Author <span v-if="sortBy === 'author'" class="sort-dir">{{ sortDirection === 'asc' ? 'A→Z' : 'Z→A' }}</span>
         </button>
         <button :class="['filter-btn', { active: sortBy === 'rating' }]" @click="emit('sort-rating')">
           My Rating <span v-if="sortBy === 'rating'" class="sort-dir">{{ sortDirection === 'desc' ? '↓' : '↑' }}</span>
@@ -160,7 +165,11 @@ const configVersion = configVersionMatch?.[1] ?? 'unbekannt'
       <div v-if="viewMode === 'grid'" class="view-toggle">
         <button :class="['view-btn', { active: gridDensity === 'normal' }]" @click="emit('set-grid-density', 'normal')">3 cols</button>
         <button :class="['view-btn', { active: gridDensity === 'compact' }]" @click="emit('set-grid-density', 'compact')">6 cols</button>
-        <button :class="['view-btn', { active: gridDensity === 'dense' }]" @click="emit('set-grid-density', 'dense')">9 cols</button>
+        <button
+          v-if="allowDenseGrid"
+          :class="['view-btn', { active: gridDensity === 'dense' }]"
+          @click="emit('set-grid-density', 'dense')"
+        >9 cols</button>
       </div>
       <button class="theme-toggle-btn" @click="emit('toggle-dark-mode')" style="margin-top: 8px">
         {{ darkMode ? 'Light Mode' : 'Dark Mode' }}

@@ -76,7 +76,8 @@ You receive one JSON object with:
 - languageHint: optional "de" or "en"
 - openLibrary: compact Open Library edition/work/books-api data, deterministic fallbackDraft, and pre-extracted seriesHints
 - dnb: optional compact Deutsche Nationalbibliothek fallback data when Open Library was weak
-- descriptionLanguageHint: optional "keep" (preserve description text/language) or "translate-to-de" (German book with English description)
+- descriptionLanguageHint: optional "keep" (preserve description text/language), "require-en" (description must be English), or "translate-to-de" (German book with English description)
+- descriptionTargetLanguage: optional "de" or "en" — when set, draft.description must match this language
 
 Task:
 - Return exactly one JSON object matching the provided schema.
@@ -90,6 +91,7 @@ Task:
 - Normalize language to "de", "en", or null. Prefer languageHint / Open Library edition language when present; do not invent a different language.
 - Description language must match the book's language (draft.language / languageHint). Do not translate or rewrite a description into another language when it already matches.
 - When descriptionLanguageHint is "keep", copy the best available description with only light cleanup (whitespace/typos). Do not paraphrase, expand, shorten, or translate it.
+- When descriptionLanguageHint is "require-en", or descriptionTargetLanguage is "en", draft.description must be in English only. Prefer English edition sources. Ignore German description candidates from dnb/openLibrary. Do not translate into German.
 - When descriptionLanguageHint is "translate-to-de", or when the book is German and the best available description is clearly English, translate that description into natural German for draft.description. Do not translate title or author names. Add a warning that the description was translated by AI and set confidence.description to "medium" or "low", not "high".
 - Never translate an English book's description into German.
 - Extract seriesName and seriesPosition only when there is clear evidence.
@@ -109,7 +111,8 @@ You receive one JSON object with:
 - languageHint: optional "de" or "en"
 - openLibrary: sparse Open Library data that was not enough for a useful draft
 - dnb: optional Deutsche Nationalbibliothek fallback data already fetched before this step
-- descriptionLanguageHint: optional "keep" (preserve description text/language) or "translate-to-de"
+- descriptionLanguageHint: optional "keep" (preserve description text/language), "require-en" (description must be English), or "translate-to-de"
+- descriptionTargetLanguage: optional "de" or "en" — when set, draft.description must match this language
 
 Task:
 - Use web search to identify the ISBN-specific book edition.
@@ -117,7 +120,9 @@ Task:
 - Prefer edition-specific facts for publisher, publish date, page count, ISBN, and language.
 - When dnb already provides reliable German bibliographic facts, prefer them over conflicting web guesses.
 - Prefer languageHint / Open Library / DNB language evidence. Description language must match the book's language.
+- When descriptionTargetLanguage is "en", draft.language must be "en" and draft.description must be English. Prefer English web sources for the description. Ignore German dnb/openLibrary description text.
 - When descriptionLanguageHint is "keep", preserve an existing matching description; do not paraphrase or translate it.
+- When descriptionLanguageHint is "require-en", draft.description must be in English only.
 - When the book is German and you provide a description that starts from English source text, translate to German and add a warning that the description was translated by AI.
 - Never translate an English book's description into German.
 - Keep title and author names clean, without edition noise.
@@ -346,11 +351,72 @@ function descriptionCandidate(source) {
 export function buildDescriptionLanguageHint(source, languageHint) {
   const language = effectiveBookLanguage(source, languageHint)
   const description = descriptionCandidate(source)
-  if (!language || !description) return null
-  if (language === 'de' && looksLikeEnglishDescription(description)) return 'translate-to-de'
-  if (language === 'en' && looksLikeEnglishDescription(description)) return 'keep'
-  if (language === 'de' && looksLikeGermanDescription(description)) return 'keep'
+  if (!language) return null
+
+  if (language === 'en') {
+    if (!description) return 'require-en'
+    if (looksLikeEnglishDescription(description)) return 'keep'
+    if (looksLikeGermanDescription(description)) return 'require-en'
+    return 'require-en'
+  }
+
+  if (language === 'de') {
+    if (!description) return null
+    if (looksLikeEnglishDescription(description)) return 'translate-to-de'
+    if (looksLikeGermanDescription(description)) return 'keep'
+  }
+
   return null
+}
+
+function descriptionForTargetLanguage(text, targetLanguage) {
+  if (!text || !targetLanguage) return text ?? null
+  if (targetLanguage === 'en' && looksLikeGermanDescription(text)) return null
+  return text
+}
+
+function compactOpenLibraryPayloadForPrepare(source, descriptionTargetLanguage) {
+  const payload = compactOpenLibraryPayload(source)
+  if (descriptionTargetLanguage !== 'en') return payload
+
+  return {
+    ...payload,
+    fallbackDraft: {
+      ...payload.fallbackDraft,
+      description: descriptionForTargetLanguage(payload.fallbackDraft.description, 'en'),
+    },
+    work: {
+      ...payload.work,
+      description: descriptionForTargetLanguage(payload.work.description, 'en'),
+    },
+  }
+}
+
+function compactDnbPayloadForPrepare(dnb, descriptionTargetLanguage) {
+  const payload = compactDnbPayload(dnb)
+  if (!payload || descriptionTargetLanguage !== 'en') return payload
+
+  return {
+    ...payload,
+    fallbackDraft: {
+      ...payload.fallbackDraft,
+      description: descriptionForTargetLanguage(payload.fallbackDraft.description, 'en'),
+    },
+  }
+}
+
+export function enforceDescriptionLanguageMatch(draft, targetLanguage) {
+  const language = targetLanguage || draft.language
+  if (!draft.description || !language) return { draft, warnings: [] }
+
+  if (language === 'en' && looksLikeGermanDescription(draft.description)) {
+    return {
+      draft: { ...draft, description: null },
+      warnings: ['Removed German description for English edition. Add an English blurb manually or run Prepare again.'],
+    }
+  }
+
+  return { draft, warnings: [] }
 }
 
 export function mergeDnbIntoOpenLibrarySource(source, dnb) {
@@ -431,11 +497,13 @@ async function enrichSourceWithDnbIfNeeded(source) {
 
 function buildPreparationPayload(source, languageHint) {
   const normalizedHint = ['de', 'en'].includes(languageHint) ? languageHint : null
+  const descriptionTargetLanguage = effectiveBookLanguage(source, normalizedHint)
   return {
     isbn: source.isbn,
     languageHint: normalizedHint,
-    openLibrary: compactOpenLibraryPayload(source),
-    dnb: compactDnbPayload(source.dnb),
+    descriptionTargetLanguage,
+    openLibrary: compactOpenLibraryPayloadForPrepare(source, descriptionTargetLanguage),
+    dnb: compactDnbPayloadForPrepare(source.dnb, descriptionTargetLanguage),
     descriptionLanguageHint: buildDescriptionLanguageHint(source, normalizedHint),
   }
 }
@@ -555,17 +623,23 @@ async function runNormalPreparation(aiClient, source, payload) {
 
   const parsed = JSON.parse(extractJsonObject(text))
   const cleaned = cleanDraft(parsed.draft, source.isbn)
-  const draft = {
+  let draft = {
     ...cleaned,
     coverUrl: cleaned.coverUrl ?? source.fallbackDraft?.coverUrl ?? source.fallbackDraft?.imageUrl ?? null,
     sourceName: source.fallbackDraft?.sourceName ?? 'Open Library',
     sourceUrl: openLibrarySourceUrl(source),
   }
+  const languageMatch = enforceDescriptionLanguageMatch(draft, payload.descriptionTargetLanguage)
+  draft = languageMatch.draft
 
   const result = {
     draft,
     confidence: parsed.confidence ?? fallbackConfidence(cleaned),
-    warnings: mergeSeriesInferenceWarning(parsed.warnings, source, draft),
+    warnings: mergeSeriesInferenceWarning(
+      [...(Array.isArray(parsed.warnings) ? parsed.warnings : []), ...languageMatch.warnings],
+      source,
+      draft,
+    ),
     raw: {
       openLibrary: source,
       dnb: source.dnb ?? null,
@@ -621,14 +695,16 @@ async function runWebSearchPreparation(aiClient, source, payload) {
   const parsed = JSON.parse(extractJsonObject(text))
   const cleaned = cleanDraft(parsed.draft, source.isbn)
   const coverUrl = isTrustedWebSearchCoverUrl(cleaned.coverUrl) ? cleaned.coverUrl : null
-  const draft = {
+  let draft = {
     ...cleaned,
     coverUrl,
     sourceName: cleaned.sourceName || 'Web Search',
     sourceUrl: cleaned.sourceUrl ?? source.sourceUrls?.isbn ?? null,
   }
+  const languageMatch = enforceDescriptionLanguageMatch(draft, payload.descriptionTargetLanguage)
+  draft = languageMatch.draft
 
-  const warnings = Array.isArray(parsed.warnings) ? [...parsed.warnings] : []
+  const warnings = Array.isArray(parsed.warnings) ? [...parsed.warnings, ...languageMatch.warnings] : [...languageMatch.warnings]
   warnings.push('Metadata was enriched using web search.')
   if (cleaned.coverUrl && !coverUrl) {
     warnings.push('Cover URL from web search was ignored because it was not a trusted Open Library cover URL.')

@@ -586,6 +586,17 @@ body.light-mode {
   grid-template-columns: repeat(9, 1fr);
 }
 
+/* Below 1400px: 9-col dense collapses to 6-col compact */
+@media (max-width: 1399px) {
+  .game-list-container.grid-dense {
+    max-width: 1020px;
+  }
+
+  .grid-dense .game-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
 /* Mobile: 2 Spalten im Grid Mode */
 @media (max-width: 768px) {
   .game-list-container {

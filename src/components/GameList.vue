@@ -25,6 +25,7 @@ import GameCard from './games/GameCard.vue'
 import StatusOverlay from './games/StatusOverlay.vue'
 import GameSearchOverlay from './games/GameSearchOverlay.vue'
 import GameFilters from './games/GameFilters.vue'
+import { allowsDenseGrid, readStoredGridDensity } from '../utils/gridDensity.js'
 
 const API_BASE = '/api'
 
@@ -45,6 +46,7 @@ const addSuccess     = ref(false)
 
 const MOBILE_BREAKPOINT = 768
 const isMobileLayout = ref(typeof window !== 'undefined' ? window.innerWidth <= MOBILE_BREAKPOINT : false)
+const allowDenseGrid = ref(allowsDenseGrid())
 
 // UI
 const sidebarOpen        = ref(!isMobileLayout.value)
@@ -97,7 +99,7 @@ const statusOptions = [
 ]
 
 const viewMode = ref(localStorage.getItem('viewMode') || 'grid')
-const gridDensity = ref(localStorage.getItem('gridDensity') || 'normal')
+const gridDensity = ref(readStoredGridDensity())
 
 const tagFilter = ref([])
 
@@ -663,6 +665,9 @@ watch(isMobileLayout, (mobile) => {
 
 function handleResize() {
   isMobileLayout.value = window.innerWidth <= MOBILE_BREAKPOINT
+  allowDenseGrid.value = allowsDenseGrid()
+  if (!allowDenseGrid.value && gridDensity.value === 'dense')
+    gridDensity.value = 'compact'
 }
 
 onMounted(async () => {
@@ -840,6 +845,7 @@ onUnmounted(() => {
           :filterSectionsOpen="filterSectionsOpen"
           :viewMode="viewMode"
           :gridDensity="gridDensity"
+          :allowDenseGrid="allowDenseGrid"
           :darkMode="darkMode"
           :searchQuery="searchQuery"
           @switch-media="(value) => emit('switch-media', value)"

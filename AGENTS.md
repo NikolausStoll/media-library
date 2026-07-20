@@ -12,7 +12,7 @@ This is the source of truth for AI assistants working in this repository. Keep i
 - Local dev frontend: Vite on `localhost:5173`.
 - Local dev backend: `npm run dev:backend`, should use `PORT=8098` because `vite.config.js` proxies `/api` to `http://localhost:8098`.
 - Container/Home Assistant backend: defaults to `PORT=8099`, `DB_PATH=/data/backend.db`, `STATIC_DIR=/app/public`.
-- Current package/add-on version: `1.20.0`.
+- Current package/add-on version: `1.21.0`.
 
 ## High-Level Features
 
@@ -245,7 +245,7 @@ DELETE /api/books/:id
 - Valid formats: `hardcover`, `paperback`, `ebook`, `audiobook`, `other`.
 - `GET /api/books/search` searches Open Library works by title and returns compact candidates with ISBN candidates. It can bias by language and newer editions, but it does not filter availability.
 - `GET /api/books/editions` loads ISBN-bearing editions for one Open Library work. It paginates Open Library editions up to a bounded scan limit, filters by language and `hardcover`/`paperback`/`ebook`, treats German `Taschenbuch` as paperback and `gebunden` variants as hardcover, then uses the chosen edition ISBN to run `/api/books/prepare`.
-- `POST /api/books/prepare` fetches Open Library data by ISBN and optionally uses OpenAI structured JSON output to normalize an editable draft. It never saves automatically. If Open Library is too sparse for title/author/core fields, it uses the Responses API web-search fallback with `BOOK_PREP_WEB_SEARCH_MODEL` (default `gpt-4o-mini`) and returns `analysis` with method, web search count, token usage, Open Library field count, and filled/changed fields for the editor UI. Description language follows edition/language evidence: `descriptionLanguageHint` is `keep` when description already matches `de`/`en`, and `translate-to-de` only for German books with an English description candidate. English books must not get German descriptions.
+- `POST /api/books/prepare` fetches Open Library data by ISBN and optionally uses OpenAI structured JSON output to normalize an editable draft. It never saves automatically. If Open Library is too sparse for title/author/core fields, it uses the Responses API web-search fallback with `BOOK_PREP_WEB_SEARCH_MODEL` (default `gpt-4o-mini`) and returns `analysis` with method, web search count, token usage, Open Library field count, and filled/changed fields for the editor UI. Description language follows edition/language evidence: `descriptionLanguageHint` is `keep` when description already matches `de`/`en`, `require-en` for English editions (including web-search fallback), and `translate-to-de` only for German books with an English description candidate. German DNB description text is omitted from the LLM payload for English editions; mismatched LLM output is discarded with a warning.
 - Book `publishedDate` is persisted only as `YYYY-MM-DD`, `YYYY-MM`, `YYYY`, or `null`. Prepare prompts, save routes, and admin import should normalize to that shape. Detail UI displays full dates as `DD.MM.YYYY`, month precision as `Month YYYY`, and year precision as `YYYY`.
 - `coverUrl` fetches an HTTP(S) image. `coverFile` accepts a base64 Data URL from the frontend.
 - Covers are converted to WebP, preserving aspect ratio. Images larger than `IMAGE_MAX_DIMENSION_THUMB` get separate original and thumbnail files; smaller images reuse the same WebP file for `coverPath` and `coverThumbPath`.

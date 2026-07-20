@@ -22,6 +22,7 @@ import BookFilters from './books/BookFilters.vue'
 import BookSearchOverlay from './books/BookSearchOverlay.vue'
 import BookStatusOverlay from './books/BookStatusOverlay.vue'
 import BookCardTitle from './books/BookCardTitle.vue'
+import { allowsDenseGrid, readStoredGridDensity } from '../utils/gridDensity.js'
 
 const bookList      = ref([])
 const readNextList  = ref([])
@@ -31,6 +32,7 @@ const loading       = ref(true)
 const MOBILE_BREAKPOINT = 768
 const BOOK_COVER_MAX_DIMENSION = 1200
 const isMobileLayout = ref(typeof window !== 'undefined' ? window.innerWidth <= MOBILE_BREAKPOINT : false)
+const allowDenseGrid = ref(allowsDenseGrid())
 
 const sidebarOpen        = ref(!isMobileLayout.value)
 const darkMode = ref(localStorage.getItem('darkMode') !== 'false')
@@ -78,7 +80,7 @@ const sortDirection   = ref('asc')
 const searchError     = ref('')
 
 const viewMode = ref(localStorage.getItem('viewMode') || 'grid')
-const gridDensity = ref(localStorage.getItem('gridDensity') || 'normal')
+const gridDensity = ref(readStoredGridDensity())
 
 watch(viewMode, val => localStorage.setItem('viewMode', val))
 watch(gridDensity, val => localStorage.setItem('gridDensity', val))
@@ -187,6 +189,13 @@ function parseSeriesPosition(value) {
   return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY
 }
 
+function primaryAuthorName(book) {
+  const authors = book?.authors
+  if (Array.isArray(authors) && authors.length)
+    return String(authors[0] ?? '').trim()
+  return String(authors ?? '').trim()
+}
+
 function applyBookFilters(base, { includeNoRating = false } = {}) {
   if (formatFilter.value.length)
     base = base.filter(b => b.formats.some(f => formatFilter.value.includes(f.format ?? f)))
@@ -211,6 +220,13 @@ function applySort(list) {
 
   if (sortBy.value === 'title')
     return [...list].sort((a, b) => (a.title ?? '').localeCompare(b.title ?? '') * dir)
+
+  if (sortBy.value === 'author')
+    return [...list].sort((a, b) => {
+      const authorCmp = primaryAuthorName(a).localeCompare(primaryAuthorName(b))
+      if (authorCmp !== 0) return authorCmp * dir
+      return (a.title ?? '').localeCompare(b.title ?? '') * dir
+    })
 
   if (sortBy.value === 'rating')
     return [...list].sort((a, b) => {
@@ -320,6 +336,10 @@ function onSwipeEnd(e) {
 // Sort toggles
 function toggleTitleSort() {
   if (sortBy.value !== 'title') { sortBy.value = 'title'; sortDirection.value = 'asc' }
+  else { sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc' }
+}
+function toggleAuthorSort() {
+  if (sortBy.value !== 'author') { sortBy.value = 'author'; sortDirection.value = 'asc' }
   else { sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc' }
 }
 function toggleRatingSort() {
@@ -1086,6 +1106,9 @@ watch(isMobileLayout, (mobile) => {
 
 function handleResize() {
   isMobileLayout.value = window.innerWidth <= MOBILE_BREAKPOINT
+  allowDenseGrid.value = allowsDenseGrid()
+  if (!allowDenseGrid.value && gridDensity.value === 'dense')
+    gridDensity.value = 'compact'
 }
 
 onMounted(async () => {
@@ -1288,6 +1311,7 @@ onUnmounted(() => {
           :filterSectionsOpen="filterSectionsOpen"
           :viewMode="viewMode"
           :gridDensity="gridDensity"
+          :allowDenseGrid="allowDenseGrid"
           :darkMode="darkMode"
           :searchQuery="searchQuery"
           @switch-media="(value) => emit('switch-media', value)"
@@ -1297,6 +1321,7 @@ onUnmounted(() => {
           @toggle-no-rating="noRatingFilter = !noRatingFilter"
           @toggle-filter-section="(sec) => filterSectionsOpen[sec] = !filterSectionsOpen[sec]"
           @sort-title="toggleTitleSort"
+          @sort-author="toggleAuthorSort"
           @sort-rating="toggleRatingSort"
           @sort-pages="togglePagesSort"
           @sort-series="toggleSeriesSort"
@@ -1759,6 +1784,46 @@ onUnmounted(() => {
   overflow: hidden;
   justify-content: flex-start;
   gap: 6px;
+}
+
+/* List view: match global compact row cards (thumbnail + text), not tall covers */
+.theme-book .list-view .game-card {
+  height: auto;
+  overflow: visible;
+}
+
+.theme-book .list-view .card-cover-wrap {
+  flex: 0 0 63.25px;
+  width: 63.25px;
+  aspect-ratio: auto;
+  align-self: stretch;
+}
+
+.theme-book .list-view .card-cover {
+  width: 63.25px;
+  height: 94.875px;
+  aspect-ratio: unset;
+}
+
+.theme-book .list-view .card-info {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+  padding: 4px 10px;
+  gap: 1px;
+  justify-content: center;
+}
+
+@media (max-width: 768px) {
+  .theme-book .list-view .card-cover-wrap {
+    flex: 0 0 55px;
+    width: 55px;
+  }
+
+  .theme-book .list-view .card-cover {
+    width: 55px;
+    height: 82.5px;
+  }
 }
 
 .theme-book .card-row {

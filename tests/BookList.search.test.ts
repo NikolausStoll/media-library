@@ -144,4 +144,39 @@ describe('BookList – Filters & sort', () => {
 
     wrapper.unmount()
   })
+
+  it('Author-Sort ordnet nach erstem Autor A→Z', async () => {
+    const wrapper = await mountBookApp({ books: [HOBBIT, FOUNDATION, EBOOK_BOOK] })
+
+    const authorBtn = wrapper.findAll('button').find(b => b.text().includes('Author'))
+    expect(authorBtn).toBeDefined()
+    await authorBtn!.trigger('click')
+    await nextTick()
+
+    const cards = wrapper.findAll('.game-card')
+    expect(cards[0].text()).toContain('Project Hail Mary')
+    expect(cards[1].text()).toContain('Foundation')
+    expect(cards[2].text()).toContain('Hobbit')
+
+    wrapper.unmount()
+  })
+
+  it('List-View nutzt kompakte Karten mit sichtbarem Titel und Autor', async () => {
+    const wrapper = await mountBookApp({ books: [HOBBIT] })
+
+    const listBtn = wrapper.findAll('button').find(b => b.text() === 'List' || b.text().includes('List'))
+    expect(listBtn).toBeDefined()
+    await listBtn!.trigger('click')
+    await nextTick()
+
+    expect(wrapper.find('.game-list-container').classes()).toContain('list-view')
+    const card = wrapper.find('.game-card')
+    expect(card.exists()).toBe(true)
+    expect(card.text()).toContain('Hobbit')
+    expect(card.text()).toContain('Tolkien')
+    expect(card.find('.card-info').exists()).toBe(true)
+    expect(card.find('.card-cover-wrap').exists()).toBe(true)
+
+    wrapper.unmount()
+  })
 })

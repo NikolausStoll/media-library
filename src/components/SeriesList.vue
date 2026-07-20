@@ -5,6 +5,7 @@ import CompletionDateEditor from './shared/CompletionDateEditor.vue'
 import MediaSwitcher from './shared/MediaSwitcher.vue'
 import MediaCard from './shared/MediaCard.vue'
 import { formatReleaseDate } from '../utils/releaseDate.js'
+import { allowsDenseGrid, readStoredGridDensity } from '../utils/gridDensity.js'
 import configText from '../../media-library/config.yaml?raw'
 
 defineProps({ mediaType: { type: String, default: 'series' } })
@@ -46,10 +47,11 @@ const statusOptions = [
 // UI
 const MOBILE_BREAKPOINT = 768
 const isMobileLayout = ref(typeof window !== 'undefined' ? window.innerWidth <= MOBILE_BREAKPOINT : false)
+const allowDenseGrid = ref(allowsDenseGrid())
 const sidebarOpen = ref(!isMobileLayout.value)
 const darkMode = ref(localStorage.getItem('darkMode') !== 'false')
 const viewMode = ref(localStorage.getItem('viewMode') || 'grid')
-const gridDensity = ref(localStorage.getItem('gridDensity') || 'normal')
+const gridDensity = ref(readStoredGridDensity())
 const showAiAssistant = ref(false)
 
 const configVersionMatch = configText.match(/version:\s*["']([^"']+)["']/)
@@ -65,6 +67,9 @@ const sortDirection = ref('asc')
 
 function handleResize() {
   isMobileLayout.value = window.innerWidth <= MOBILE_BREAKPOINT
+  allowDenseGrid.value = allowsDenseGrid()
+  if (!allowDenseGrid.value && gridDensity.value === 'dense')
+    gridDensity.value = 'compact'
 }
 
 // Overlay
@@ -827,7 +832,11 @@ function handleGlobalKeydown(e) {
           <div v-if="viewMode === 'grid'" class="view-toggle">
             <button :class="['view-btn', { active: gridDensity === 'normal' }]" @click="gridDensity = 'normal'">3 cols</button>
             <button :class="['view-btn', { active: gridDensity === 'compact' }]" @click="gridDensity = 'compact'">6 cols</button>
-            <button :class="['view-btn', { active: gridDensity === 'dense' }]" @click="gridDensity = 'dense'">9 cols</button>
+            <button
+              v-if="allowDenseGrid"
+              :class="['view-btn', { active: gridDensity === 'dense' }]"
+              @click="gridDensity = 'dense'"
+            >9 cols</button>
           </div>
           <button class="theme-toggle-btn" @click="toggleDarkMode" style="margin-top: 8px">
             {{ darkMode ? 'Light Mode' : 'Dark Mode' }}

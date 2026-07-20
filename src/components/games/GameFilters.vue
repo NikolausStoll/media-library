@@ -17,6 +17,7 @@ defineProps({
   filterSectionsOpen: { type: Object, required: true },
   viewMode: { type: String, required: true },
   gridDensity: { type: String, default: 'normal' },
+  allowDenseGrid: { type: Boolean, default: true },
   darkMode: { type: Boolean, required: true },
   searchQuery: { type: String, default: '' },
 })
@@ -167,7 +168,11 @@ const configVersion = configVersionMatch?.[1] ?? 'unbekannt'
       <div v-if="viewMode === 'grid'" class="view-toggle">
         <button :class="['view-btn', { active: gridDensity === 'normal' }]" @click="emit('set-grid-density', 'normal')">3 cols</button>
         <button :class="['view-btn', { active: gridDensity === 'compact' }]" @click="emit('set-grid-density', 'compact')">6 cols</button>
-        <button :class="['view-btn', { active: gridDensity === 'dense' }]" @click="emit('set-grid-density', 'dense')">9 cols</button>
+        <button
+          v-if="allowDenseGrid"
+          :class="['view-btn', { active: gridDensity === 'dense' }]"
+          @click="emit('set-grid-density', 'dense')"
+        >9 cols</button>
       </div>
       <button class="theme-toggle-btn" @click="emit('toggle-dark-mode')" style="margin-top: 8px">
         {{ darkMode ? 'Light Mode' : 'Dark Mode' }}
