@@ -25,7 +25,11 @@ import GameCard from './games/GameCard.vue'
 import StatusOverlay from './games/StatusOverlay.vue'
 import GameSearchOverlay from './games/GameSearchOverlay.vue'
 import GameFilters from './games/GameFilters.vue'
-import { allowsDenseGrid, readStoredGridDensity } from '../utils/gridDensity.js'
+import { allowsCompactGrid, allowsDenseGrid, readStoredGridDensity } from '../utils/gridDensity.js'
+import {
+  isMobileLayout as checkMobileLayout,
+  isSidebarOverlayLayout,
+} from '../utils/breakpoints.js'
 
 const API_BASE = '/api'
 
@@ -44,12 +48,13 @@ const addLoading     = ref(false)
 const addError       = ref('')
 const addSuccess     = ref(false)
 
-const MOBILE_BREAKPOINT = 768
-const isMobileLayout = ref(typeof window !== 'undefined' ? window.innerWidth <= MOBILE_BREAKPOINT : false)
+const isMobileLayout = ref(checkMobileLayout())
+const isSidebarOverlay = ref(isSidebarOverlayLayout())
+const allowCompactGrid = ref(allowsCompactGrid())
 const allowDenseGrid = ref(allowsDenseGrid())
 
 // UI
-const sidebarOpen        = ref(!isMobileLayout.value)
+const sidebarOpen        = ref(!isSidebarOverlay.value)
 const darkMode = ref(localStorage.getItem('darkMode') !== 'false')
 const filterSectionsOpen = ref({ platformStorefront: true, sort: true })
 const showAiAssistant = ref(false)
@@ -659,15 +664,23 @@ function handleGlobalKeydown(e) {
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
-watch(isMobileLayout, (mobile) => {
-  if (mobile) sidebarOpen.value = false
+watch(isSidebarOverlay, (overlay) => {
+  if (overlay) sidebarOpen.value = false
 })
 
-function handleResize() {
-  isMobileLayout.value = window.innerWidth <= MOBILE_BREAKPOINT
+function clampDensityToViewport() {
+  allowCompactGrid.value = allowsCompactGrid()
   allowDenseGrid.value = allowsDenseGrid()
-  if (!allowDenseGrid.value && gridDensity.value === 'dense')
+  if (!allowCompactGrid.value && gridDensity.value !== 'normal')
+    gridDensity.value = 'normal'
+  else if (!allowDenseGrid.value && gridDensity.value === 'dense')
     gridDensity.value = 'compact'
+}
+
+function handleResize() {
+  isMobileLayout.value = checkMobileLayout()
+  isSidebarOverlay.value = isSidebarOverlayLayout()
+  clampDensityToViewport()
 }
 
 onMounted(async () => {
@@ -817,7 +830,7 @@ onUnmounted(() => {
     </div>
 
     <div
-      v-if="sidebarOpen && isMobileLayout"
+      v-if="sidebarOpen && isSidebarOverlay"
       class="sidebar-backdrop"
       @click="sidebarOpen = false"
     ></div>
@@ -845,6 +858,7 @@ onUnmounted(() => {
           :filterSectionsOpen="filterSectionsOpen"
           :viewMode="viewMode"
           :gridDensity="gridDensity"
+          :allowCompactGrid="allowCompactGrid"
           :allowDenseGrid="allowDenseGrid"
           :darkMode="darkMode"
           :searchQuery="searchQuery"

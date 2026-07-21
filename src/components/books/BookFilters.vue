@@ -18,6 +18,7 @@ defineProps({
   filterSectionsOpen: { type: Object, required: true },
   viewMode: { type: String, required: true },
   gridDensity: { type: String, default: 'normal' },
+  allowCompactGrid: { type: Boolean, default: true },
   allowDenseGrid: { type: Boolean, default: true },
   darkMode: { type: Boolean, required: true },
   searchQuery: { type: String, default: '' },
@@ -164,7 +165,11 @@ const configVersion = configVersionMatch?.[1] ?? 'unbekannt'
       </div>
       <div v-if="viewMode === 'grid'" class="view-toggle">
         <button :class="['view-btn', { active: gridDensity === 'normal' }]" @click="emit('set-grid-density', 'normal')">3 cols</button>
-        <button :class="['view-btn', { active: gridDensity === 'compact' }]" @click="emit('set-grid-density', 'compact')">6 cols</button>
+        <button
+          v-if="allowCompactGrid"
+          :class="['view-btn', { active: gridDensity === 'compact' }]"
+          @click="emit('set-grid-density', 'compact')"
+        >6 cols</button>
         <button
           v-if="allowDenseGrid"
           :class="['view-btn', { active: gridDensity === 'dense' }]"

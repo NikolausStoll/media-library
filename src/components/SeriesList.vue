@@ -5,7 +5,11 @@ import CompletionDateEditor from './shared/CompletionDateEditor.vue'
 import MediaSwitcher from './shared/MediaSwitcher.vue'
 import MediaCard from './shared/MediaCard.vue'
 import { formatReleaseDate } from '../utils/releaseDate.js'
-import { allowsDenseGrid, readStoredGridDensity } from '../utils/gridDensity.js'
+import { allowsCompactGrid, allowsDenseGrid, readStoredGridDensity } from '../utils/gridDensity.js'
+import {
+  isMobileLayout as checkMobileLayout,
+  isSidebarOverlayLayout,
+} from '../utils/breakpoints.js'
 import configText from '../../media-library/config.yaml?raw'
 
 defineProps({ mediaType: { type: String, default: 'series' } })
@@ -45,10 +49,11 @@ const statusOptions = [
 ]
 
 // UI
-const MOBILE_BREAKPOINT = 768
-const isMobileLayout = ref(typeof window !== 'undefined' ? window.innerWidth <= MOBILE_BREAKPOINT : false)
+const isMobileLayout = ref(checkMobileLayout())
+const isSidebarOverlay = ref(isSidebarOverlayLayout())
+const allowCompactGrid = ref(allowsCompactGrid())
 const allowDenseGrid = ref(allowsDenseGrid())
-const sidebarOpen = ref(!isMobileLayout.value)
+const sidebarOpen = ref(!isSidebarOverlay.value)
 const darkMode = ref(localStorage.getItem('darkMode') !== 'false')
 const viewMode = ref(localStorage.getItem('viewMode') || 'grid')
 const gridDensity = ref(readStoredGridDensity())
@@ -65,11 +70,19 @@ const noRatingFilter = ref(false)
 const sortBy = ref('title') // title | year | rating
 const sortDirection = ref('asc')
 
-function handleResize() {
-  isMobileLayout.value = window.innerWidth <= MOBILE_BREAKPOINT
+function clampDensityToViewport() {
+  allowCompactGrid.value = allowsCompactGrid()
   allowDenseGrid.value = allowsDenseGrid()
-  if (!allowDenseGrid.value && gridDensity.value === 'dense')
+  if (!allowCompactGrid.value && gridDensity.value !== 'normal')
+    gridDensity.value = 'normal'
+  else if (!allowDenseGrid.value && gridDensity.value === 'dense')
     gridDensity.value = 'compact'
+}
+
+function handleResize() {
+  isMobileLayout.value = checkMobileLayout()
+  isSidebarOverlay.value = isSidebarOverlayLayout()
+  clampDensityToViewport()
 }
 
 // Overlay
@@ -98,8 +111,8 @@ const seriesProgress = ref({})
 watch(viewMode, val => localStorage.setItem('viewMode', val))
 watch(gridDensity, val => localStorage.setItem('gridDensity', val))
 watch(darkMode, val => localStorage.setItem('darkMode', val))
-watch(isMobileLayout, (mobile) => {
-  if (mobile) sidebarOpen.value = false
+watch(isSidebarOverlay, (overlay) => {
+  if (overlay) sidebarOpen.value = false
 })
 
 onMounted(async () => {
@@ -732,7 +745,7 @@ function handleGlobalKeydown(e) {
     </div>
 
     <div
-      v-if="sidebarOpen && isMobileLayout"
+      v-if="sidebarOpen && isSidebarOverlay"
       class="sidebar-backdrop"
       @click="sidebarOpen = false"
     ></div>
@@ -831,7 +844,11 @@ function handleGlobalKeydown(e) {
           </div>
           <div v-if="viewMode === 'grid'" class="view-toggle">
             <button :class="['view-btn', { active: gridDensity === 'normal' }]" @click="gridDensity = 'normal'">3 cols</button>
-            <button :class="['view-btn', { active: gridDensity === 'compact' }]" @click="gridDensity = 'compact'">6 cols</button>
+            <button
+              v-if="allowCompactGrid"
+              :class="['view-btn', { active: gridDensity === 'compact' }]"
+              @click="gridDensity = 'compact'"
+            >6 cols</button>
             <button
               v-if="allowDenseGrid"
               :class="['view-btn', { active: gridDensity === 'dense' }]"

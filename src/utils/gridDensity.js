@@ -1,18 +1,25 @@
-/** Dense (9-col) grid only makes sense on wider viewports. */
-export const DENSE_GRID_MIN_WIDTH = 1400
+import {
+  allowsCompactGrid,
+  allowsDenseGrid,
+  currentViewportWidth,
+} from './breakpoints.js'
 
-export function allowsDenseGrid(width = typeof window !== 'undefined' ? window.innerWidth : DENSE_GRID_MIN_WIDTH) {
-  return width >= DENSE_GRID_MIN_WIDTH
-}
+export {
+  COMPACT_GRID_MIN_WIDTH,
+  DENSE_GRID_MIN_WIDTH,
+  allowsCompactGrid,
+  allowsDenseGrid,
+} from './breakpoints.js'
 
-export function clampGridDensity(density, allowDense = allowsDenseGrid()) {
-  if (density === 'dense' && !allowDense) return 'compact'
+export function clampGridDensity(density, width = currentViewportWidth()) {
+  if (!allowsCompactGrid(width)) return 'normal'
+  if (density === 'dense' && !allowsDenseGrid(width)) return 'compact'
   if (density === 'dense' || density === 'compact') return density
   return 'normal'
 }
 
-export function readStoredGridDensity() {
-  const clamped = clampGridDensity(localStorage.getItem('gridDensity') || 'normal')
+export function readStoredGridDensity(width = currentViewportWidth()) {
+  const clamped = clampGridDensity(localStorage.getItem('gridDensity') || 'normal', width)
   if (localStorage.getItem('gridDensity') !== clamped)
     localStorage.setItem('gridDensity', clamped)
   return clamped

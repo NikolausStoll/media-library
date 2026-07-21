@@ -12,7 +12,7 @@ This is the source of truth for AI assistants working in this repository. Keep i
 - Local dev frontend: Vite on `localhost:5173`.
 - Local dev backend: `npm run dev:backend`, should use `PORT=8098` because `vite.config.js` proxies `/api` to `http://localhost:8098`.
 - Container/Home Assistant backend: defaults to `PORT=8099`, `DB_PATH=/data/backend.db`, `STATIC_DIR=/app/public`.
-- Current package/add-on version: `1.21.0`.
+- Current package/add-on version: `1.22.0`.
 
 ## High-Level Features
 
@@ -363,6 +363,24 @@ Valid UI media values:
 - `movie`
 - `series`
 
+### Layout Breakpoints
+
+Canonical JS source: `src/utils/breakpoints.js` (also re-exported helpers via `src/utils/gridDensity.js`).
+Keep matching CSS `@media` values in `src/assets/global.css` and scoped book styles in sync.
+
+| Name | Width | Behavior |
+| --- | --- | --- |
+| Mobile | `≤ 768` | Bottom media switcher, swipe tabs, grid always 2 cols, list 1 col, density toggles hidden, book editor uses mobile cover layout |
+| Sidebar overlay / tablet | `≤ 1079` | Sidebar overlays cards (no `margin-right` push) with backdrop; list uses **2** columns with container `max-width: 680px` (~340px items, same as 1/3-col); grid density capped to **3 cols** (`normal`); 6/9 buttons hidden |
+| Compact grid | `≥ 1080` | 6-col grid allowed; list uses **3** columns (`max-width: 1020px`) |
+| Dense grid | `≥ 1400` | 9-col grid allowed |
+
+Notes:
+
+- `gridDensity` is persisted in `localStorage` (`normal` / `compact` / `dense`). On load/resize it is clamped to the viewport (`dense`→`compact` under 1400, anything denser than `normal`→`normal` under 1080).
+- CSS also collapses denser grids as a safety net if JS state lags behind resize.
+- Applies to games, books, movies, and series.
+
 ### Games
 
 Main file: `src/components/GameList.vue`.
@@ -388,10 +406,11 @@ Main file: `src/components/BookList.vue`.
 - Formats are `hardcover`, `paperback`, `ebook`, `audiobook`, and `other`.
 - Local files and cover URLs save WebP covers under `/uploads/books/`; larger images get separate original and thumbnail files, while images already at or below thumbnail size reuse one file for both paths.
 - Book cards use thumbnails; the book detail overlay prefers the original cover.
-- Optional `alternateTitle` stores a second title (e.g. original English title for a German edition). Cards show it on a second line when the main title fits on one line; for two-line main titles, a `(...)` hint and tap toggle switch between titles until reload. Detail overlay shows both titles.
+- Optional `alternateTitle` stores a second title (e.g. original English title for a German edition). Cards show it on a second line when the main title fits on one line; for two-line main titles, a `↔` hint and tap toggle switch between titles until reload. Detail overlay shows both titles.
 - Add overlay accepts manual title/ISBN entry, can search Open Library by title, can load filtered edition candidates for a selected work, and uses `src/components/books/BarcodeScanner.vue` for mobile ISBN scanning.
 - Google Books has been removed from the Book flow. Do not reintroduce an `externalId` requirement for books.
 - Book editor has a `Prepare` action next to ISBN. It calls `/api/books/prepare`, overwrites the editor draft with returned values, and still requires the user to review/save. Re-prepare asks for confirmation only when the draft already has meaningful metadata (or a prepare analysis from this session) that would be overwritten; stub sources like barcode/`ISBN scan` alone do not.
+- Book editor switches to the mobile cover layout at `≤ 768` (same as the main mobile breakpoint).
 - Open Library should be treated as raw evidence, not source of truth. Prefer ISBN edition data for edition-specific fields; use LLM output only as an editable draft with warnings.
 - Moving a Read Next book out of `backlog` removes it from `/api/next?type=book`.
 

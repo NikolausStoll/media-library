@@ -1,6 +1,7 @@
 <!-- src/components/books/BookSearchOverlay.vue -->
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, defineAsyncComponent } from 'vue'
+import { MOBILE_MAX_WIDTH } from '../../utils/breakpoints.js'
 
 const BarcodeScanner = defineAsyncComponent(() => import('./BarcodeScanner.vue'))
 
@@ -26,11 +27,10 @@ const showScanner = ref(false)
 const searchLanguage = ref('any')
 const searchFormat = ref('any')
 const searchSort = ref('relevance')
-const MOBILE_BREAKPOINT = 768
-const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= MOBILE_BREAKPOINT : false)
+const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= MOBILE_MAX_WIDTH : false)
 
 function handleResize() {
-  isMobile.value = window.innerWidth <= MOBILE_BREAKPOINT
+  isMobile.value = window.innerWidth <= MOBILE_MAX_WIDTH
   if (!isMobile.value) showScanner.value = false
 }
 

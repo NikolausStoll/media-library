@@ -120,9 +120,14 @@ body.light-mode {
   display: none;
 }
 
-@media (max-width: 768px) {
+/* Tablet + mobile: sidebar overlays content instead of shrinking the card area */
+@media (max-width: 1079px) {
   .sidebar-backdrop {
     display: block;
+  }
+
+  .main-content {
+    margin-right: 0;
   }
 }
 
@@ -594,6 +599,19 @@ body.light-mode {
 
   .grid-dense .game-grid {
     grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+/* Below 1080px: 6/9-col grids collapse to 3-col (sidebar also overlays; see above) */
+@media (max-width: 1079px) {
+  .game-list-container.grid-compact,
+  .game-list-container.grid-dense {
+    max-width: 510px;
+  }
+
+  .grid-compact .game-grid,
+  .grid-dense .game-grid {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
@@ -1745,6 +1763,17 @@ body.light-mode {
   flex-direction: column;
   gap: 0px;
   background: transparent;
+}
+
+/* Tablet (<1080): 2 list columns, keep ~340px item width like 1/3-col */
+@media (max-width: 1079px) {
+  .list-view .game-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .list-view.game-list-container {
+    max-width: 680px;
+  }
 }
 
 /* Mobile: 1 Element pro Zeile in List View */

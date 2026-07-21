@@ -22,19 +22,24 @@ import BookFilters from './books/BookFilters.vue'
 import BookSearchOverlay from './books/BookSearchOverlay.vue'
 import BookStatusOverlay from './books/BookStatusOverlay.vue'
 import BookCardTitle from './books/BookCardTitle.vue'
-import { allowsDenseGrid, readStoredGridDensity } from '../utils/gridDensity.js'
+import { allowsCompactGrid, allowsDenseGrid, readStoredGridDensity } from '../utils/gridDensity.js'
+import {
+  isMobileLayout as checkMobileLayout,
+  isSidebarOverlayLayout,
+} from '../utils/breakpoints.js'
 
 const bookList      = ref([])
 const readNextList  = ref([])
 const activeTab     = ref('backlog')
 const loading       = ref(true)
 
-const MOBILE_BREAKPOINT = 768
 const BOOK_COVER_MAX_DIMENSION = 1200
-const isMobileLayout = ref(typeof window !== 'undefined' ? window.innerWidth <= MOBILE_BREAKPOINT : false)
+const isMobileLayout = ref(checkMobileLayout())
+const isSidebarOverlay = ref(isSidebarOverlayLayout())
+const allowCompactGrid = ref(allowsCompactGrid())
 const allowDenseGrid = ref(allowsDenseGrid())
 
-const sidebarOpen        = ref(!isMobileLayout.value)
+const sidebarOpen        = ref(!isSidebarOverlay.value)
 const darkMode = ref(localStorage.getItem('darkMode') !== 'false')
 const filterSectionsOpen = ref({ formatFilter: true, sort: true })
 
@@ -1100,15 +1105,23 @@ function handleGlobalKeydown(e) {
   }
 }
 
-watch(isMobileLayout, (mobile) => {
-  if (mobile) sidebarOpen.value = false
+watch(isSidebarOverlay, (overlay) => {
+  if (overlay) sidebarOpen.value = false
 })
 
-function handleResize() {
-  isMobileLayout.value = window.innerWidth <= MOBILE_BREAKPOINT
+function clampDensityToViewport() {
+  allowCompactGrid.value = allowsCompactGrid()
   allowDenseGrid.value = allowsDenseGrid()
-  if (!allowDenseGrid.value && gridDensity.value === 'dense')
+  if (!allowCompactGrid.value && gridDensity.value !== 'normal')
+    gridDensity.value = 'normal'
+  else if (!allowDenseGrid.value && gridDensity.value === 'dense')
     gridDensity.value = 'compact'
+}
+
+function handleResize() {
+  isMobileLayout.value = checkMobileLayout()
+  isSidebarOverlay.value = isSidebarOverlayLayout()
+  clampDensityToViewport()
 }
 
 onMounted(async () => {
@@ -1284,7 +1297,7 @@ onUnmounted(() => {
     </div>
 
     <div
-      v-if="sidebarOpen && isMobileLayout"
+      v-if="sidebarOpen && isSidebarOverlay"
       class="sidebar-backdrop"
       @click="sidebarOpen = false"
     ></div>
@@ -1311,6 +1324,7 @@ onUnmounted(() => {
           :filterSectionsOpen="filterSectionsOpen"
           :viewMode="viewMode"
           :gridDensity="gridDensity"
+          :allowCompactGrid="allowCompactGrid"
           :allowDenseGrid="allowDenseGrid"
           :darkMode="darkMode"
           :searchQuery="searchQuery"
@@ -2462,7 +2476,7 @@ onUnmounted(() => {
   margin-top: 8px;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .book-editor-content {
     width: min(680px, calc(100vw - 20px));
   }
