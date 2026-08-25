@@ -1832,7 +1832,7 @@ body.light-mode {
     margin: 0;
     border-top: 1px solid var(--border2);
     border-bottom: 0;
-    background: rgb(13 17 23 / 0.96);
+    background: var(--surface);
     box-shadow: 0 -10px 24px rgb(0 0 0 / 0.28);
     backdrop-filter: blur(14px);
   }
