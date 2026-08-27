@@ -122,7 +122,6 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS hltbcache (
     id               TEXT PRIMARY KEY,
     name             TEXT,
-    imageUrl         TEXT,
     gameplayMain     REAL,
     gameplayExtra    REAL,
     gameplayComplete REAL,
@@ -131,7 +130,16 @@ db.exec(`
     dlcs             TEXT,
     gameType         TEXT DEFAULT 'game',
     releaseDateEu    TEXT,
-    updatedAt        INTEGER
+    updatedAt        INTEGER,
+    imagePath        TEXT,
+    imageThumbPath   TEXT,
+    sourceImageUrl   TEXT,
+    imageHash        TEXT,
+    imageETag        TEXT,
+    imageLastModified TEXT,
+    imageCheckedAt   INTEGER,
+    imageCheckIntervalMs INTEGER,
+    imageUnchangedChecks INTEGER DEFAULT 0
   );
 
   CREATE TABLE IF NOT EXISTS tmdbcache (
@@ -139,7 +147,6 @@ db.exec(`
     mediaType          TEXT NOT NULL CHECK(mediaType IN ('movie','series')),
     titleEn            TEXT,
     titleDe            TEXT,
-    imageUrl           TEXT,
     year               TEXT,
     certification      TEXT,
     rating             REAL,
@@ -154,6 +161,15 @@ db.exec(`
     updatedAt          INTEGER,
     videos             TEXT,
     ttlMs              INTEGER DEFAULT 604800000,
+    imagePath          TEXT,
+    imageThumbPath     TEXT,
+    sourceImageUrl     TEXT,
+    imageHash          TEXT,
+    imageETag          TEXT,
+    imageLastModified  TEXT,
+    imageCheckedAt     INTEGER,
+    imageCheckIntervalMs INTEGER,
+    imageUnchangedChecks INTEGER DEFAULT 0,
     PRIMARY KEY(id, mediaType)
   );
 
@@ -279,6 +295,80 @@ ensureColumn('books', 'language TEXT')
 ensureColumn('books', 'sourceName TEXT')
 ensureColumn('books', 'sourceUrl TEXT')
 ensureColumn('books', 'alternateTitle TEXT')
+ensureColumn('hltbcache', 'imagePath TEXT')
+ensureColumn('hltbcache', 'imageThumbPath TEXT')
+ensureColumn('hltbcache', 'sourceImageUrl TEXT')
+ensureColumn('hltbcache', 'imageHash TEXT')
+ensureColumn('hltbcache', 'imageETag TEXT')
+ensureColumn('hltbcache', 'imageLastModified TEXT')
+ensureColumn('hltbcache', 'imageCheckedAt INTEGER')
+ensureColumn('hltbcache', 'imageCheckIntervalMs INTEGER')
+ensureColumn('hltbcache', 'imageUnchangedChecks INTEGER DEFAULT 0')
+ensureColumn('tmdbcache', 'imagePath TEXT')
+ensureColumn('tmdbcache', 'imageThumbPath TEXT')
+ensureColumn('tmdbcache', 'sourceImageUrl TEXT')
+ensureColumn('tmdbcache', 'imageHash TEXT')
+ensureColumn('tmdbcache', 'imageETag TEXT')
+ensureColumn('tmdbcache', 'imageLastModified TEXT')
+ensureColumn('tmdbcache', 'imageCheckedAt INTEGER')
+ensureColumn('tmdbcache', 'imageCheckIntervalMs INTEGER')
+ensureColumn('tmdbcache', 'imageUnchangedChecks INTEGER DEFAULT 0')
+
+function hasColumn(table, column) {
+  return db.prepare(`PRAGMA table_info(${table})`).all().some(info => info.name === column)
+}
+
+function migrateCacheTableWithoutLegacyImageUrl(table, createSql, columns) {
+  const hasLegacyImageUrl = hasColumn(table, 'imageUrl')
+  const hasLegacySourceImageUrl = hasColumn(table, 'imageSourceUrl')
+  if (!hasLegacyImageUrl && !hasLegacySourceImageUrl) return
+
+  const sourceCandidates = ['sourceImageUrl']
+  if (hasLegacySourceImageUrl) sourceCandidates.push('imageSourceUrl')
+  if (hasLegacyImageUrl) sourceCandidates.push('imageUrl')
+  const sourceExpression = `COALESCE(${sourceCandidates.join(', ')})`
+
+  db.transaction(() => {
+    db.exec(`DROP TABLE IF EXISTS ${table}_new`)
+    db.exec(createSql)
+    db.prepare(`
+      INSERT INTO ${table}_new (${columns.join(', ')})
+      SELECT ${columns.map(column => column === 'sourceImageUrl' ? sourceExpression : column).join(', ')}
+      FROM ${table}
+    `).run()
+    db.exec(`DROP TABLE ${table}`)
+    db.exec(`ALTER TABLE ${table}_new RENAME TO ${table}`)
+  })()
+}
+
+migrateCacheTableWithoutLegacyImageUrl(
+  'hltbcache',
+  `CREATE TABLE hltbcache_new (
+    id TEXT PRIMARY KEY, name TEXT, gameplayMain REAL, gameplayExtra REAL,
+    gameplayComplete REAL, gameplayAll REAL, rating REAL, dlcs TEXT,
+    gameType TEXT DEFAULT 'game', releaseDateEu TEXT, updatedAt INTEGER,
+    imagePath TEXT, imageThumbPath TEXT, sourceImageUrl TEXT, imageHash TEXT,
+    imageETag TEXT, imageLastModified TEXT, imageCheckedAt INTEGER,
+    imageCheckIntervalMs INTEGER, imageUnchangedChecks INTEGER DEFAULT 0
+  )`,
+  ['id', 'name', 'gameplayMain', 'gameplayExtra', 'gameplayComplete', 'gameplayAll', 'rating', 'dlcs', 'gameType', 'releaseDateEu', 'updatedAt', 'imagePath', 'imageThumbPath', 'sourceImageUrl', 'imageHash', 'imageETag', 'imageLastModified', 'imageCheckedAt', 'imageCheckIntervalMs', 'imageUnchangedChecks'],
+)
+
+migrateCacheTableWithoutLegacyImageUrl(
+  'tmdbcache',
+  `CREATE TABLE tmdbcache_new (
+    id TEXT NOT NULL, mediaType TEXT NOT NULL CHECK(mediaType IN ('movie','series')),
+    titleEn TEXT, titleDe TEXT, year TEXT, certification TEXT, rating REAL,
+    runtime INTEGER, seasons INTEGER, episodes INTEGER, genres TEXT,
+    streamingProviders TEXT, linkUrl TEXT, releaseDateDe TEXT, originalLang TEXT,
+    updatedAt INTEGER, videos TEXT, ttlMs INTEGER DEFAULT 604800000,
+    imagePath TEXT, imageThumbPath TEXT, sourceImageUrl TEXT, imageHash TEXT,
+    imageETag TEXT, imageLastModified TEXT, imageCheckedAt INTEGER,
+    imageCheckIntervalMs INTEGER, imageUnchangedChecks INTEGER DEFAULT 0,
+    PRIMARY KEY(id, mediaType)
+  )`,
+  ['id', 'mediaType', 'titleEn', 'titleDe', 'year', 'certification', 'rating', 'runtime', 'seasons', 'episodes', 'genres', 'streamingProviders', 'linkUrl', 'releaseDateDe', 'originalLang', 'updatedAt', 'videos', 'ttlMs', 'imagePath', 'imageThumbPath', 'sourceImageUrl', 'imageHash', 'imageETag', 'imageLastModified', 'imageCheckedAt', 'imageCheckIntervalMs', 'imageUnchangedChecks'],
+)
 
 try {
   db.prepare('DROP TABLE IF EXISTS googlebookscache').run()

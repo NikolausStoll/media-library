@@ -1,7 +1,8 @@
 import { Router } from 'express'
 import { db, getMediaWithProviders } from '../db/library.js'
-import { getFromCache, getStaleFromCache, saveToCache, getEpisodesFromCache, saveEpisodesToCache, deleteFromCache, deleteEpisodesFromCache, updateSeriesRuntimeInCache } from '../services/tmdbCache.js'
+import { getFromCache, getStaleFromCache, saveToCache, updateImageMetadata, getEpisodesFromCache, saveEpisodesToCache, deleteFromCache, deleteEpisodesFromCache, updateSeriesRuntimeInCache } from '../services/tmdbCache.js'
 import { getSeries, fetchEpisodes } from '../services/tmdbService.js'
+import { imageFullUrlFromCache, imageUrlFromCache, syncImage } from '../services/imageCache.js'
 
 const router = Router()
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/
@@ -46,12 +47,27 @@ async function aggregateSeries(series) {
   if (!tmdb) {
     try {
       tmdb = await getSeries(series.externalId)
-      if (!tmdb.imageUrl && staleTmdb?.imageUrl)
-        tmdb = { ...tmdb, imageUrl: staleTmdb.imageUrl }
+      if (!tmdb.imageUrl && staleTmdb?.sourceImageUrl)
+        tmdb = { ...tmdb, imageUrl: staleTmdb.sourceImageUrl }
       saveToCache(tmdb)
     } catch (err) {
       console.error(`TMDB fetch fehlgeschlagen für ${series.externalId}:`, err.message)
       tmdb = staleTmdb
+    }
+  }
+  if (tmdb) {
+    try {
+      const image = await syncImage({
+        mediaType: 'series',
+        externalId: series.externalId,
+        sourceUrl: tmdb.imageUrl ?? tmdb.sourceImageUrl,
+        existing: tmdb,
+        releaseDate: tmdb.releaseDateDe,
+      })
+      updateImageMetadata(series.externalId, 'series', image)
+      tmdb = { ...tmdb, ...image }
+    } catch (err) {
+      console.error(`Lokales TMDB-Bild fehlgeschlagen für ${series.externalId}:`, err.message)
     }
   }
   let runtime = tmdb?.runtime ?? null
@@ -71,7 +87,8 @@ async function aggregateSeries(series) {
     providers:          series.providers ?? [],
     title:              tmdb?.titleEn ?? tmdb?.titleDe ?? series.externalId,
     titleDe:            tmdb?.titleDe ?? null,
-    imageUrl:           tmdb?.imageUrl ?? null,
+    imageUrl:           imageUrlFromCache(tmdb, tmdb?.sourceImageUrl ?? tmdb?.imageUrl ?? null),
+    imageFullUrl:        imageFullUrlFromCache(tmdb, tmdb?.sourceImageUrl ?? tmdb?.imageUrl ?? null),
     year:               tmdb?.year ?? null,
     releaseDateDe:      tmdb?.releaseDateDe ?? null,
     certification:      tmdb?.certification ?? null,
@@ -222,6 +239,28 @@ router.delete('/:id/cache', (req, res) => {
     res.json({ success: true })
   } catch (err) {
     res.status(500).json({ error: err.message })
+  }
+})
+
+router.post('/:id/cache/image', async (req, res) => {
+  const series = db.prepare('SELECT * FROM series WHERE id = ?').get(Number(req.params.id))
+  if (!series) return res.status(404).json({ error: 'Serie nicht gefunden' })
+  const cached = getStaleFromCache(series.externalId, 'series')
+  if (!cached?.sourceImageUrl) return res.status(404).json({ error: 'Keine Bildquelle im TMDB-Cache vorhanden' })
+
+  try {
+    const image = await syncImage({
+      mediaType: 'series',
+      externalId: series.externalId,
+      sourceUrl: cached.sourceImageUrl,
+      existing: cached,
+      force: true,
+    })
+    updateImageMetadata(series.externalId, 'series', image)
+    const merged = { ...cached, ...image }
+    res.json({ success: true, imageUrl: imageUrlFromCache(merged), imageFullUrl: imageFullUrlFromCache(merged) })
+  } catch (err) {
+    res.status(502).json({ error: err.message })
   }
 })
 

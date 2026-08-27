@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { randomUUID } from 'crypto'
-import { mkdirSync } from 'fs'
+import { existsSync, mkdirSync, renameSync } from 'fs'
 import { dirname, join } from 'path'
 import fetch from 'node-fetch'
 import sharp from 'sharp'
@@ -17,10 +17,51 @@ const VALID_FORMATS = ['hardcover', 'paperback', 'ebook', 'audiobook', 'other']
 const dbPath = process.env.DB_PATH ?? join(process.cwd(), 'backend.db')
 const uploadsRoot = process.env.UPLOAD_DIR ?? join(dirname(dbPath), 'uploads')
 const bookUploadsDir = join(uploadsRoot, 'books')
+const canonicalBookUploadsDir = join(uploadsRoot, 'images', 'books')
 const IMAGE_QUALITY = parseInt(process.env.IMAGE_QUALITY ?? '80', 10)
 const IMAGE_MAX_DIMENSION = parseInt(process.env.IMAGE_MAX_DIMENSION ?? '1200', 10)
 const IMAGE_QUALITY_THUMB = parseInt(process.env.IMAGE_QUALITY_THUMB ?? '80', 10)
 const IMAGE_MAX_DIMENSION_THUMB = parseInt(process.env.IMAGE_MAX_DIMENSION_THUMB ?? '600', 10)
+
+function migrateBookCoverPath(pathValue) {
+  if (!pathValue?.startsWith('/uploads/books/')) return pathValue ?? null
+
+  const filename = pathValue.slice('/uploads/books/'.length)
+  if (!filename || filename.includes('/') || filename.includes('\\')) return pathValue
+
+  const oldPath = join(bookUploadsDir, filename)
+  const newPath = join(canonicalBookUploadsDir, filename)
+  try {
+    if (!existsSync(newPath) && existsSync(oldPath)) {
+      mkdirSync(canonicalBookUploadsDir, { recursive: true })
+      renameSync(oldPath, newPath)
+    }
+    return `/uploads/images/books/${filename}`
+  } catch (error) {
+    console.error(`Buch-Cover konnte nicht migriert werden (${filename}):`, error.message)
+    return pathValue
+  }
+}
+
+function migrateBookCovers() {
+  const books = db.prepare('SELECT id, coverPath, coverThumbPath FROM books').all()
+  const updates = []
+  for (const book of books) {
+    const coverPath = migrateBookCoverPath(book.coverPath)
+    const coverThumbPath = book.coverThumbPath === book.coverPath
+      ? coverPath
+      : migrateBookCoverPath(book.coverThumbPath)
+    if (coverPath !== book.coverPath || coverThumbPath !== book.coverThumbPath)
+      updates.push({ id: book.id, coverPath, coverThumbPath })
+  }
+
+  const update = db.prepare('UPDATE books SET coverPath = ?, coverThumbPath = ? WHERE id = ?')
+  db.transaction(() => {
+    for (const item of updates) update.run(item.coverPath, item.coverThumbPath, item.id)
+  })()
+}
+
+migrateBookCovers()
 
 function parseJsonArray(value) {
   if (Array.isArray(value)) return value
@@ -81,7 +122,7 @@ async function saveCoverFromBuffer(bytes, contentType = '') {
   if (contentType && !contentType.startsWith('image/'))
     throw new Error('Cover-Datei ist kein Bild')
 
-  mkdirSync(bookUploadsDir, { recursive: true })
+  mkdirSync(canonicalBookUploadsDir, { recursive: true })
   const id = randomUUID()
   const originalFilename = `${id}.webp`
   const thumbFilename = `${id}-thumb.webp`
@@ -101,8 +142,8 @@ async function saveCoverFromBuffer(bytes, contentType = '') {
 
   if (maxSourceDimension > 0 && maxSourceDimension <= IMAGE_MAX_DIMENSION_THUMB) {
     return {
-      coverPath: `/uploads/books/${originalFilename}`,
-      coverThumbPath: `/uploads/books/${originalFilename}`,
+      coverPath: `/uploads/images/books/${originalFilename}`,
+      coverThumbPath: `/uploads/images/books/${originalFilename}`,
     }
   }
 
@@ -118,8 +159,8 @@ async function saveCoverFromBuffer(bytes, contentType = '') {
     .toFile(join(bookUploadsDir, thumbFilename))
 
   return {
-    coverPath: `/uploads/books/${originalFilename}`,
-    coverThumbPath: `/uploads/books/${thumbFilename}`,
+    coverPath: `/uploads/images/books/${originalFilename}`,
+    coverThumbPath: `/uploads/images/books/${thumbFilename}`,
   }
 }
 

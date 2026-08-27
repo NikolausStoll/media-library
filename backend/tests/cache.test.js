@@ -25,11 +25,20 @@ test.after(() => {
   rmSync(testDir, { recursive: true, force: true })
 })
 
+test('stores only sourceImageUrl for external cache images', () => {
+  for (const table of ['hltbcache', 'tmdbcache']) {
+    const columns = db.prepare(`PRAGMA table_info(${table})`).all().map(column => column.name)
+    assert.ok(columns.includes('sourceImageUrl'))
+    assert.ok(!columns.includes('imageUrl'))
+    assert.ok(!columns.includes('imageSourceUrl'))
+  }
+})
+
 test('preserves an existing TMDB cover when a refresh has no image', () => {
   saveToCache(movieCache({ id: 'cache-movie', titleEn: 'Movie', imageUrl: 'https://image.test/cover.jpg' }))
   saveToCache(movieCache({ id: 'cache-movie', titleEn: 'Movie refreshed' }))
 
-  assert.equal(getFromCache('cache-movie', 'movie').imageUrl, 'https://image.test/cover.jpg')
+  assert.equal(getFromCache('cache-movie', 'movie').sourceImageUrl, 'https://image.test/cover.jpg')
 })
 
 test('exposes expired TMDB metadata as a fallback', () => {
@@ -38,5 +47,5 @@ test('exposes expired TMDB metadata as a fallback', () => {
     .run(Date.now() - 31 * 24 * 60 * 60 * 1000, 'stale-movie', 'movie')
 
   assert.equal(getFromCache('stale-movie', 'movie'), null)
-  assert.equal(getStaleFromCache('stale-movie', 'movie').imageUrl, 'https://image.test/stale.jpg')
+  assert.equal(getStaleFromCache('stale-movie', 'movie').sourceImageUrl, 'https://image.test/stale.jpg')
 })

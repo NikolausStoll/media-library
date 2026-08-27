@@ -2,8 +2,9 @@ import { Router } from 'express'
 import {
   db, getGameWithPlatforms, mapGameStatusFromDb, mapGameStatusForDb,
 } from '../db/library.js'
-import { getFromCache, getStaleFromCache, saveToCache, deleteFromCache } from '../services/hltbCache.js'
+import { getFromCache, getStaleFromCache, saveToCache, updateImageMetadata, deleteFromCache } from '../services/hltbCache.js'
 import { getGame as fetchFromHltb } from '../services/hltbService.js'
+import { imageFullUrlFromCache, imageUrlFromCache, syncImage } from '../services/imageCache.js'
 
 const router = Router()
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/
@@ -31,8 +32,8 @@ async function aggregateGame(game) {
   if (!hltb) {
     try {
       hltb = await fetchFromHltb(game.externalId)
-      if (!hltb.imageUrl && staleHltb?.imageUrl)
-        hltb = { ...hltb, imageUrl: staleHltb.imageUrl }
+      if (!hltb.imageUrl && staleHltb?.sourceImageUrl)
+        hltb = { ...hltb, imageUrl: staleHltb.sourceImageUrl }
       saveToCache(hltb)
     } catch (err) {
       console.error(`HLTB fetch fehlgeschlagen für ${game.externalId}:`, err.message)
@@ -40,11 +41,28 @@ async function aggregateGame(game) {
     }
   }
 
+  if (hltb) {
+    try {
+      const image = await syncImage({
+        mediaType: 'game',
+        externalId: game.externalId,
+        sourceUrl: hltb.imageUrl ?? hltb.sourceImageUrl,
+        existing: hltb,
+        releaseDate: hltb.releaseDateEu,
+      })
+      updateImageMetadata(game.externalId, image)
+      hltb = { ...hltb, ...image }
+    } catch (err) {
+      console.error(`Lokales HLTB-Bild fehlgeschlagen für ${game.externalId}:`, err.message)
+    }
+  }
+
   return {
     id: String(game.id),
     externalId: game.externalId,
     name: hltb?.name ?? game.externalId,
-    imageUrl: hltb?.imageUrl ?? null,
+    imageUrl: imageUrlFromCache(hltb, hltb?.sourceImageUrl ?? hltb?.imageUrl ?? null),
+    imageFullUrl: imageFullUrlFromCache(hltb, hltb?.sourceImageUrl ?? hltb?.imageUrl ?? null),
     status: mapGameStatusFromDb(game.status),
     platforms: game.platforms,
     tags: game.tags ?? [],
@@ -93,6 +111,31 @@ router.delete('/:id/cache', (req, res) => {
     res.json({ success: true, message: `Cache für ${game.externalId} invalidiert` })
   } catch (err) {
     res.status(500).json({ error: err.message })
+  }
+})
+
+router.post('/:id/cache/image', async (req, res) => {
+  const game = db.prepare('SELECT * FROM games WHERE id = ?').get(Number(req.params.id))
+  if (!game) return res.status(404).json({ error: 'Spiel nicht gefunden' })
+  const cached = getStaleFromCache(game.externalId)
+  if (!cached?.sourceImageUrl) return res.status(404).json({ error: 'Kein Bildquelle im HLTB-Cache vorhanden' })
+
+  try {
+    const image = await syncImage({
+      mediaType: 'game',
+      externalId: game.externalId,
+      sourceUrl: cached.sourceImageUrl,
+      existing: cached,
+      force: true,
+    })
+    updateImageMetadata(game.externalId, image)
+    res.json({
+      success: true,
+      imageUrl: imageUrlFromCache({ ...cached, ...image }),
+      imageFullUrl: imageFullUrlFromCache({ ...cached, ...image }),
+    })
+  } catch (err) {
+    res.status(502).json({ error: err.message })
   }
 })
 

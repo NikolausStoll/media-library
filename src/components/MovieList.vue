@@ -4,6 +4,7 @@ import AiAssistant from './shared/AiAssistant.vue'
 import CompletionDateEditor from './shared/CompletionDateEditor.vue'
 import MediaSwitcher from './shared/MediaSwitcher.vue'
 import MediaCard from './shared/MediaCard.vue'
+import MediaImageViewer from './shared/MediaImageViewer.vue'
 import { formatReleaseDate, isFutureRelease } from '../utils/releaseDate.js'
 import { allowsCompactGrid, allowsDenseGrid, readStoredGridDensity } from '../utils/gridDensity.js'
 import {
@@ -339,9 +340,28 @@ async function handleDelete() {
 async function clearMovieCache() {
   if (!overlayMovie.value) return
   try {
-    await fetch(`/api/movies/${overlayMovie.value.id}/cache`, { method: 'DELETE' })
+    const res = await fetch(`/api/movies/${overlayMovie.value.id}/cache`, { method: 'DELETE' })
+    if (!res.ok) throw new Error(`clearCache failed: ${res.status}`)
+    closeOverlay()
+    movieList.value = await loadMovies()
   } catch (err) {
     console.error('failed to clear movie cache', err)
+  }
+}
+
+async function refreshMovieImage() {
+  if (!overlayMovie.value) return
+  try {
+    const res = await fetch(`/api/movies/${overlayMovie.value.id}/cache/image`, { method: 'POST' })
+    if (!res.ok) throw new Error(`refreshImage failed: ${res.status}`)
+    const updated = { ...overlayMovie.value, ...await res.json() }
+    const idx = movieList.value.findIndex(m => String(m.id) === String(updated.id))
+    if (idx !== -1) movieList.value[idx] = updated
+    overlayMovie.value = updated
+    closeOverlay()
+    movieList.value = await loadMovies()
+  } catch (err) {
+    console.error('refreshMovieImage:', err)
   }
 }
 
@@ -825,7 +845,10 @@ function handleGlobalKeydown(e) {
               {{ nextList.includes(String(overlayMovie.id)) ? '★ Watch Next' : '☆ Watch Next' }}
             </button>
           <div class="overlay-danger-zone">
-            <button class="clear-cache-btn" @click="clearMovieCache">Clear Cache</button>
+            <div class="cache-actions">
+              <button class="clear-cache-btn" @click="clearMovieCache">Clear Cache</button>
+              <button class="clear-cache-btn" @click="refreshMovieImage">Refresh Image</button>
+            </div>
             
 
             <template v-if="!deleteConfirm">
@@ -843,8 +866,8 @@ function handleGlobalKeydown(e) {
 
         <template v-else-if="overlayTab === 'details'">
           <div class="movie-detail-page">
-            <div v-if="overlayMovie.imageUrl" class="movie-detail-cover-large">
-              <img :src="overlayMovie.imageUrl" :alt="overlayMovie.title" />
+            <div v-if="overlayMovie.imageFullUrl || overlayMovie.imageUrl" class="movie-detail-cover-large">
+              <MediaImageViewer :src="overlayMovie.imageFullUrl || overlayMovie.imageUrl" :alt="overlayMovie.title" />
             </div>
             <div class="movie-detail-genres">
               <span class="detail-label" v-if="overlayMovie.genres?.length">Genres</span>

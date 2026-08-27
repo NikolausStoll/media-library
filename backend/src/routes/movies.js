@@ -1,7 +1,8 @@
 import { Router } from 'express'
 import { db, getMediaWithProviders } from '../db/library.js'
-import { getFromCache, getStaleFromCache, saveToCache, deleteFromCache } from '../services/tmdbCache.js'
+import { getFromCache, getStaleFromCache, saveToCache, updateImageMetadata, deleteFromCache } from '../services/tmdbCache.js'
 import { getMovie } from '../services/tmdbService.js'
+import { imageFullUrlFromCache, imageUrlFromCache, syncImage } from '../services/imageCache.js'
 
 const router = Router()
 const VALID_STATUS = ['watchlist', 'watching', 'finished']
@@ -29,12 +30,27 @@ async function aggregateMovie(movie) {
   if (!tmdb) {
     try {
       tmdb = await getMovie(movie.externalId)
-      if (!tmdb.imageUrl && staleTmdb?.imageUrl)
-        tmdb = { ...tmdb, imageUrl: staleTmdb.imageUrl }
+      if (!tmdb.imageUrl && staleTmdb?.sourceImageUrl)
+        tmdb = { ...tmdb, imageUrl: staleTmdb.sourceImageUrl }
       saveToCache(tmdb)
     } catch (err) {
       console.error(`TMDB fetch fehlgeschlagen für ${movie.externalId}:`, err.message)
       tmdb = staleTmdb
+    }
+  }
+  if (tmdb) {
+    try {
+      const image = await syncImage({
+        mediaType: 'movie',
+        externalId: movie.externalId,
+        sourceUrl: tmdb.imageUrl ?? tmdb.sourceImageUrl,
+        existing: tmdb,
+        releaseDate: tmdb.releaseDateDe,
+      })
+      updateImageMetadata(movie.externalId, 'movie', image)
+      tmdb = { ...tmdb, ...image }
+    } catch (err) {
+      console.error(`Lokales TMDB-Bild fehlgeschlagen für ${movie.externalId}:`, err.message)
     }
   }
   const videos = Array.isArray(tmdb?.videos)
@@ -55,7 +71,8 @@ async function aggregateMovie(movie) {
     providers:          movie.providers ?? [],
     title:              tmdb?.titleEn ?? tmdb?.titleDe ?? movie.externalId,
     titleDe:            tmdb?.titleDe ?? null,
-    imageUrl:           tmdb?.imageUrl ?? null,
+    imageUrl:           imageUrlFromCache(tmdb, tmdb?.sourceImageUrl ?? tmdb?.imageUrl ?? null),
+    imageFullUrl:        imageFullUrlFromCache(tmdb, tmdb?.sourceImageUrl ?? tmdb?.imageUrl ?? null),
     year:               tmdb?.year ?? null,
     certification:      tmdb?.certification ?? null,
     rating:             tmdb?.rating ?? null,
@@ -169,6 +186,28 @@ router.delete('/:id/cache', (req, res) => {
     res.json({ success: true })
   } catch (err) {
     res.status(500).json({ error: err.message })
+  }
+})
+
+router.post('/:id/cache/image', async (req, res) => {
+  const movie = db.prepare('SELECT * FROM movies WHERE id = ?').get(Number(req.params.id))
+  if (!movie) return res.status(404).json({ error: 'Film nicht gefunden' })
+  const cached = getStaleFromCache(movie.externalId, 'movie')
+  if (!cached?.sourceImageUrl) return res.status(404).json({ error: 'Keine Bildquelle im TMDB-Cache vorhanden' })
+
+  try {
+    const image = await syncImage({
+      mediaType: 'movie',
+      externalId: movie.externalId,
+      sourceUrl: cached.sourceImageUrl,
+      existing: cached,
+      force: true,
+    })
+    updateImageMetadata(movie.externalId, 'movie', image)
+    const merged = { ...cached, ...image }
+    res.json({ success: true, imageUrl: imageUrlFromCache(merged), imageFullUrl: imageFullUrlFromCache(merged) })
+  } catch (err) {
+    res.status(502).json({ error: err.message })
   }
 })
 

@@ -7,7 +7,6 @@ function mapRow(row) {
   return {
     id:              row.id,
     name:            row.name,
-    imageUrl:        row.imageUrl,
     gameplayMain:    row.gameplayMain,
     gameplayExtra:   row.gameplayExtra,
     gameplayComplete: row.gameplayComplete,
@@ -16,6 +15,15 @@ function mapRow(row) {
     dlcs:            JSON.parse(row.dlcs ?? '[]'),
     gameType:        row.gameType ?? 'game',
     releaseDateEu:   row.releaseDateEu ?? null,
+    imagePath:       row.imagePath ?? null,
+    imageThumbPath:  row.imageThumbPath ?? null,
+    sourceImageUrl:  row.sourceImageUrl ?? null,
+    imageHash:       row.imageHash ?? null,
+    imageETag:       row.imageETag ?? null,
+    imageLastModified: row.imageLastModified ?? null,
+    imageCheckedAt:  row.imageCheckedAt ?? null,
+    imageCheckIntervalMs: row.imageCheckIntervalMs ?? null,
+    imageUnchangedChecks: row.imageUnchangedChecks ?? 0,
   }
 }
 
@@ -33,23 +41,59 @@ export function getFromCache(id) {
 export function saveToCache(game) {
   db.prepare(`
     INSERT INTO hltbcache
-      (id, name, imageUrl, gameplayMain, gameplayExtra, gameplayComplete, gameplayAll, rating, dlcs, gameType, releaseDateEu, updatedAt)
+      (id, name, gameplayMain, gameplayExtra, gameplayComplete, gameplayAll, rating, dlcs, gameType, releaseDateEu, updatedAt,
+       imagePath, imageThumbPath, sourceImageUrl, imageHash, imageETag, imageLastModified, imageCheckedAt, imageCheckIntervalMs, imageUnchangedChecks)
     VALUES
-      (@id, @name, @imageUrl, @gameplayMain, @gameplayExtra, @gameplayComplete, @gameplayAll, @rating, @dlcs, @gameType, @releaseDateEu, @updatedAt)
+      (@id, @name, @gameplayMain, @gameplayExtra, @gameplayComplete, @gameplayAll, @rating, @dlcs, @gameType, @releaseDateEu, @updatedAt,
+       @imagePath, @imageThumbPath, @sourceImageUrl, @imageHash, @imageETag, @imageLastModified, @imageCheckedAt, @imageCheckIntervalMs, @imageUnchangedChecks)
     ON CONFLICT(id) DO UPDATE SET
-      name=excluded.name, imageUrl=COALESCE(excluded.imageUrl, hltbcache.imageUrl),
+      name=excluded.name,
       gameplayMain=excluded.gameplayMain, gameplayExtra=excluded.gameplayExtra,
       gameplayComplete=excluded.gameplayComplete, gameplayAll=excluded.gameplayAll,
-      rating=excluded.rating, dlcs=excluded.dlcs, gameType=excluded.gameType, releaseDateEu=excluded.releaseDateEu, updatedAt=excluded.updatedAt
+      rating=excluded.rating, dlcs=excluded.dlcs, gameType=excluded.gameType, releaseDateEu=excluded.releaseDateEu, updatedAt=excluded.updatedAt,
+      imagePath=COALESCE(excluded.imagePath, hltbcache.imagePath),
+      imageThumbPath=COALESCE(excluded.imageThumbPath, hltbcache.imageThumbPath),
+      sourceImageUrl=COALESCE(excluded.sourceImageUrl, hltbcache.sourceImageUrl),
+      imageHash=COALESCE(excluded.imageHash, hltbcache.imageHash),
+      imageETag=COALESCE(excluded.imageETag, hltbcache.imageETag),
+      imageLastModified=COALESCE(excluded.imageLastModified, hltbcache.imageLastModified),
+      imageCheckedAt=COALESCE(excluded.imageCheckedAt, hltbcache.imageCheckedAt),
+      imageCheckIntervalMs=COALESCE(excluded.imageCheckIntervalMs, hltbcache.imageCheckIntervalMs),
+      imageUnchangedChecks=COALESCE(excluded.imageUnchangedChecks, hltbcache.imageUnchangedChecks)
   `).run({
     ...game,
     dlcs: JSON.stringify(game.dlcs ?? []),
     gameType: game.gameType ?? 'game',
     releaseDateEu: game.releaseDateEu ?? null,
+    imagePath: game.imagePath ?? null,
+    imageThumbPath: game.imageThumbPath ?? null,
+    sourceImageUrl: game.sourceImageUrl ?? game.imageUrl ?? null,
+    imageHash: game.imageHash ?? null,
+    imageETag: game.imageETag ?? null,
+    imageLastModified: game.imageLastModified ?? null,
+    imageCheckedAt: game.imageCheckedAt ?? null,
+    imageCheckIntervalMs: game.imageCheckIntervalMs ?? null,
+    imageUnchangedChecks: game.imageUnchangedChecks ?? 0,
     updatedAt: Date.now(),
   })
 }
 
 export function deleteFromCache(id) {
   db.prepare('DELETE FROM hltbcache WHERE id = ?').run(id)
+}
+
+export function updateImageMetadata(id, metadata) {
+  db.prepare(`
+    UPDATE hltbcache SET
+      imagePath = @imagePath,
+      imageThumbPath = @imageThumbPath,
+      sourceImageUrl = @sourceImageUrl,
+      imageHash = @imageHash,
+      imageETag = @imageETag,
+      imageLastModified = @imageLastModified,
+      imageCheckedAt = @imageCheckedAt,
+      imageCheckIntervalMs = @imageCheckIntervalMs,
+      imageUnchangedChecks = @imageUnchangedChecks
+    WHERE id = @id
+  `).run({ id, ...metadata })
 }

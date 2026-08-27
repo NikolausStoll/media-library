@@ -20,7 +20,6 @@ function mapRow(row) {
     mediaType:          row.mediaType,
     titleEn:            row.titleEn,
     titleDe:            row.titleDe,
-    imageUrl:           row.imageUrl,
     year:               row.year,
     certification:      row.certification,
     rating:             row.rating,
@@ -34,6 +33,15 @@ function mapRow(row) {
     originalLang:       row.originalLang,
     ttlMs:              row.ttlMs ?? SEVEN_DAYS_MS,
     videos:             JSON.parse(row.videos ?? '[]'),
+    imagePath:          row.imagePath ?? null,
+    imageThumbPath:     row.imageThumbPath ?? null,
+    sourceImageUrl:     row.sourceImageUrl ?? null,
+    imageHash:          row.imageHash ?? null,
+    imageETag:          row.imageETag ?? null,
+    imageLastModified:  row.imageLastModified ?? null,
+    imageCheckedAt:     row.imageCheckedAt ?? null,
+    imageCheckIntervalMs: row.imageCheckIntervalMs ?? null,
+    imageUnchangedChecks: row.imageUnchangedChecks ?? 0,
   }
 }
 
@@ -53,32 +61,68 @@ export function saveToCache(item) {
   const ttlMs = randomTtlMs()
   db.prepare(`
     INSERT INTO tmdbcache
-      (id, mediaType, titleEn, titleDe, imageUrl, year, certification, rating,
-       runtime, seasons, episodes, genres, streamingProviders, linkUrl, releaseDateDe, originalLang, videos, updatedAt, ttlMs)
+      (id, mediaType, titleEn, titleDe, year, certification, rating,
+       runtime, seasons, episodes, genres, streamingProviders, linkUrl, releaseDateDe, originalLang, videos, updatedAt, ttlMs,
+      imagePath, imageThumbPath, sourceImageUrl, imageHash, imageETag, imageLastModified, imageCheckedAt, imageCheckIntervalMs, imageUnchangedChecks)
     VALUES
-      (@id, @mediaType, @titleEn, @titleDe, @imageUrl, @year, @certification, @rating,
-       @runtime, @seasons, @episodes, @genres, @streamingProviders, @linkUrl, @releaseDateDe, @originalLang, @videos, @updatedAt, @ttlMs)
+      (@id, @mediaType, @titleEn, @titleDe, @year, @certification, @rating,
+       @runtime, @seasons, @episodes, @genres, @streamingProviders, @linkUrl, @releaseDateDe, @originalLang, @videos, @updatedAt, @ttlMs,
+      @imagePath, @imageThumbPath, @sourceImageUrl, @imageHash, @imageETag, @imageLastModified, @imageCheckedAt, @imageCheckIntervalMs, @imageUnchangedChecks)
     ON CONFLICT(id, mediaType) DO UPDATE SET
       titleEn=excluded.titleEn, titleDe=excluded.titleDe,
-      imageUrl=COALESCE(excluded.imageUrl, tmdbcache.imageUrl), year=excluded.year,
+      year=excluded.year,
       certification=excluded.certification, rating=excluded.rating,
       runtime=excluded.runtime, seasons=excluded.seasons,
       episodes=excluded.episodes, genres=excluded.genres,
       streamingProviders=excluded.streamingProviders,
       linkUrl=excluded.linkUrl, releaseDateDe=excluded.releaseDateDe, originalLang=excluded.originalLang,
       updatedAt=excluded.updatedAt,
-      ttlMs=excluded.ttlMs
+      ttlMs=excluded.ttlMs,
+      imagePath=COALESCE(excluded.imagePath, tmdbcache.imagePath),
+      imageThumbPath=COALESCE(excluded.imageThumbPath, tmdbcache.imageThumbPath),
+      sourceImageUrl=COALESCE(excluded.sourceImageUrl, tmdbcache.sourceImageUrl),
+      imageHash=COALESCE(excluded.imageHash, tmdbcache.imageHash),
+      imageETag=COALESCE(excluded.imageETag, tmdbcache.imageETag),
+      imageLastModified=COALESCE(excluded.imageLastModified, tmdbcache.imageLastModified),
+      imageCheckedAt=COALESCE(excluded.imageCheckedAt, tmdbcache.imageCheckedAt),
+      imageCheckIntervalMs=COALESCE(excluded.imageCheckIntervalMs, tmdbcache.imageCheckIntervalMs),
+      imageUnchangedChecks=COALESCE(excluded.imageUnchangedChecks, tmdbcache.imageUnchangedChecks)
   `).run({
     ...item,
     releaseDateDe: item.releaseDateDe ?? null,
     videos: JSON.stringify(item.videos ?? []),
     updatedAt: Date.now(),
     ttlMs,
+    imagePath: item.imagePath ?? null,
+    imageThumbPath: item.imageThumbPath ?? null,
+    sourceImageUrl: item.sourceImageUrl ?? item.imageUrl ?? null,
+    imageHash: item.imageHash ?? null,
+    imageETag: item.imageETag ?? null,
+    imageLastModified: item.imageLastModified ?? null,
+    imageCheckedAt: item.imageCheckedAt ?? null,
+    imageCheckIntervalMs: item.imageCheckIntervalMs ?? null,
+    imageUnchangedChecks: item.imageUnchangedChecks ?? 0,
   })
 }
 
 export function deleteFromCache(id, mediaType) {
   db.prepare('DELETE FROM tmdbcache WHERE id = ? AND mediaType = ?').run(id, mediaType)
+}
+
+export function updateImageMetadata(id, mediaType, metadata) {
+  db.prepare(`
+    UPDATE tmdbcache SET
+      imagePath = @imagePath,
+      imageThumbPath = @imageThumbPath,
+      sourceImageUrl = @sourceImageUrl,
+      imageHash = @imageHash,
+      imageETag = @imageETag,
+      imageLastModified = @imageLastModified,
+      imageCheckedAt = @imageCheckedAt,
+      imageCheckIntervalMs = @imageCheckIntervalMs,
+      imageUnchangedChecks = @imageUnchangedChecks
+    WHERE id = @id AND mediaType = @mediaType
+  `).run({ id, mediaType, ...metadata })
 }
 
 // ─── Episode Cache ────────────────────────────────────────────────────────────

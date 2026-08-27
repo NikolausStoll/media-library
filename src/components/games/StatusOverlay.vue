@@ -3,6 +3,7 @@
 import { computed, ref, watch, toRefs } from 'vue'
 import { formatReleaseDate } from '../../utils/releaseDate.js'
 import CompletionDateEditor from '../shared/CompletionDateEditor.vue'
+import MediaImageViewer from '../shared/MediaImageViewer.vue'
 
 const props = defineProps({
   game: { type: Object, default: null },
@@ -26,6 +27,7 @@ const emit = defineEmits([
   'toggle-tag',
   'toggle-play-next',
   'clear-cache',
+  'refresh-image',
   'delete-trigger',
   'delete-confirm',
   'delete-cancel',
@@ -136,7 +138,10 @@ const formatDlcRating = (rating) => (rating == null ? '—' : `${rating}%`)
 
         <!-- Danger Zone -->
         <div class="overlay-danger-zone">
-          <button class="clear-cache-btn" @click="emit('clear-cache', game)">Clear Cache</button>
+          <div class="cache-actions">
+            <button class="clear-cache-btn" @click="emit('clear-cache', game)">Clear Cache</button>
+            <button class="clear-cache-btn" @click="emit('refresh-image', game)">Refresh Image</button>
+          </div>
 
           <template v-if="!deleteConfirm">
             <button class="delete-trigger-btn" @click="emit('delete-trigger')">Delete</button>
@@ -153,8 +158,8 @@ const formatDlcRating = (rating) => (rating == null ? '—' : `${rating}%`)
 
       <template v-else>
         <div class="overlay-detail-page">
-          <div v-if="game?.imageUrl" class="detail-cover">
-            <img :src="game.imageUrl" :alt="game?.name" />
+          <div v-if="game?.imageFullUrl || game?.imageUrl" class="detail-cover">
+            <MediaImageViewer :src="game.imageFullUrl || game.imageUrl" :alt="game?.name" />
           </div>
           <div class="detail-info">
             <div class="detail-metrics">

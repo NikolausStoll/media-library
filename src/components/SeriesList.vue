@@ -4,6 +4,7 @@ import AiAssistant from './shared/AiAssistant.vue'
 import CompletionDateEditor from './shared/CompletionDateEditor.vue'
 import MediaSwitcher from './shared/MediaSwitcher.vue'
 import MediaCard from './shared/MediaCard.vue'
+import MediaImageViewer from './shared/MediaImageViewer.vue'
 import { formatReleaseDate } from '../utils/releaseDate.js'
 import { allowsCompactGrid, allowsDenseGrid, readStoredGridDensity } from '../utils/gridDensity.js'
 import {
@@ -421,9 +422,28 @@ async function handleDelete() {
 async function clearSeriesCache() {
   if (!overlayItem.value) return
   try {
-    await fetch(`/api/series/${overlayItem.value.id}/cache`, { method: 'DELETE' })
+    const res = await fetch(`/api/series/${overlayItem.value.id}/cache`, { method: 'DELETE' })
+    if (!res.ok) throw new Error(`clearCache failed: ${res.status}`)
+    closeOverlay()
+    await refreshSeriesList()
   } catch (err) {
     console.error('clear series cache failed', err)
+  }
+}
+
+async function refreshSeriesImage() {
+  if (!overlayItem.value) return
+  try {
+    const res = await fetch(`/api/series/${overlayItem.value.id}/cache/image`, { method: 'POST' })
+    if (!res.ok) throw new Error(`refreshImage failed: ${res.status}`)
+    const updated = { ...overlayItem.value, ...await res.json() }
+    const idx = seriesList.value.findIndex(s => String(s.id) === String(updated.id))
+    if (idx !== -1) seriesList.value[idx] = updated
+    overlayItem.value = updated
+    closeOverlay()
+    await refreshSeriesList()
+  } catch (err) {
+    console.error('refreshSeriesImage:', err)
   }
 }
 
@@ -935,7 +955,10 @@ function handleGlobalKeydown(e) {
               {{ nextList.includes(String(overlayItem.id)) ? '★ Watch Next' : '☆ Watch Next' }}
             </button>
           <div class="overlay-danger-zone">
-            <button class="clear-cache-btn" @click="clearSeriesCache">Clear Cache</button>
+            <div class="cache-actions">
+              <button class="clear-cache-btn" @click="clearSeriesCache">Clear Cache</button>
+              <button class="clear-cache-btn" @click="refreshSeriesImage">Refresh Image</button>
+            </div>
             <template v-if="!deleteConfirm">
               <button class="delete-trigger-btn" @click="deleteConfirm = true">Delete</button>
             </template>
@@ -951,8 +974,8 @@ function handleGlobalKeydown(e) {
 
         <template v-else-if="overlayTab === 'details'">
           <div class="series-detail-page">
-            <div v-if="overlayItem.imageUrl" class="series-detail-cover-large">
-              <img :src="overlayItem.imageUrl" :alt="overlayItem.title" />
+            <div v-if="overlayItem.imageFullUrl || overlayItem.imageUrl" class="series-detail-cover-large">
+              <MediaImageViewer :src="overlayItem.imageFullUrl || overlayItem.imageUrl" :alt="overlayItem.title" />
             </div>
             <div class="series-detail-genres">
               <span class="detail-label" v-if="overlayItem.genres?.length">Genres</span>

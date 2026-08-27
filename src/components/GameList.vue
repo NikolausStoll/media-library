@@ -515,8 +515,34 @@ async function clearGameCache(game) {
   try {
     const res = await fetch(`${API_BASE}/hltb/cache/${game.externalId}`, { method: 'DELETE' })
     if (!res.ok) throw new Error(`clearCache failed: ${res.status}`)
+    showOverlay.value = false
+    overlayGame.value = null
+    const [games, sortOrder, playNext] = await Promise.all([
+      loadGames(), loadSortOrder(), loadNext(),
+    ])
+    gameList.value = games
+    startedOrder.value = sortOrder
+    playNextList.value = playNext
   } catch (err) {
     console.error('clearGameCache:', err)
+  }
+}
+
+async function refreshGameImage(game) {
+  try {
+    const res = await fetch(`${API_BASE}/games/${game.id}/cache/image`, { method: 'POST' })
+    if (!res.ok) throw new Error(`refreshImage failed: ${res.status}`)
+    Object.assign(game, await res.json())
+    showOverlay.value = false
+    overlayGame.value = null
+    const [games, sortOrder, playNext] = await Promise.all([
+      loadGames(), loadSortOrder(), loadNext(),
+    ])
+    gameList.value = games
+    startedOrder.value = sortOrder
+    playNextList.value = playNext
+  } catch (err) {
+    console.error('refreshGameImage:', err)
   }
 }
 
@@ -919,6 +945,7 @@ onUnmounted(() => {
       @toggle-tag="toggleTag"
       @toggle-play-next="overlayGame && (playNextList.includes(String(overlayGame.id)) ? removeFromPlayNext(overlayGame.id) : addToPlayNext(overlayGame))"
       @clear-cache="clearGameCache"
+      @refresh-image="refreshGameImage"
       @delete-trigger="deleteConfirm = true"
       @delete-confirm="handleDeleteGame"
       @delete-cancel="deleteConfirm = false"

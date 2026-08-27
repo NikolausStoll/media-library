@@ -1040,6 +1040,15 @@ body.light-mode {
   gap: 3px;
 }
 
+.cache-actions {
+  display: flex;
+  gap: 3px;
+}
+
+.cache-actions .clear-cache-btn {
+  flex: 1;
+}
+
 .clear-cache-btn {
   width: 100%;
   padding: 7px;
