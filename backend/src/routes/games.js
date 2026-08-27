@@ -2,7 +2,7 @@ import { Router } from 'express'
 import {
   db, getGameWithPlatforms, mapGameStatusFromDb, mapGameStatusForDb,
 } from '../db/library.js'
-import { getFromCache, saveToCache, deleteFromCache } from '../services/hltbCache.js'
+import { getFromCache, getStaleFromCache, saveToCache, deleteFromCache } from '../services/hltbCache.js'
 import { getGame as fetchFromHltb } from '../services/hltbService.js'
 
 const router = Router()
@@ -26,14 +26,17 @@ function resolveCompletedAt(existing, requested, status, today) {
 
 async function aggregateGame(game) {
   let hltb = getFromCache(game.externalId)
+  const staleHltb = hltb ?? getStaleFromCache(game.externalId)
 
   if (!hltb) {
     try {
       hltb = await fetchFromHltb(game.externalId)
+      if (!hltb.imageUrl && staleHltb?.imageUrl)
+        hltb = { ...hltb, imageUrl: staleHltb.imageUrl }
       saveToCache(hltb)
     } catch (err) {
       console.error(`HLTB fetch fehlgeschlagen für ${game.externalId}:`, err.message)
-      hltb = null
+      hltb = staleHltb
     }
   }
 

@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { db, getMediaWithProviders } from '../db/library.js'
-import { getFromCache, saveToCache, deleteFromCache } from '../services/tmdbCache.js'
+import { getFromCache, getStaleFromCache, saveToCache, deleteFromCache } from '../services/tmdbCache.js'
 import { getMovie } from '../services/tmdbService.js'
 
 const router = Router()
@@ -25,13 +25,16 @@ function resolveCompletedAt(existing, requested, status, today) {
 
 async function aggregateMovie(movie) {
   let tmdb = getFromCache(movie.externalId, 'movie')
+  const staleTmdb = tmdb ?? getStaleFromCache(movie.externalId, 'movie')
   if (!tmdb) {
     try {
       tmdb = await getMovie(movie.externalId)
+      if (!tmdb.imageUrl && staleTmdb?.imageUrl)
+        tmdb = { ...tmdb, imageUrl: staleTmdb.imageUrl }
       saveToCache(tmdb)
     } catch (err) {
       console.error(`TMDB fetch fehlgeschlagen für ${movie.externalId}:`, err.message)
-      tmdb = null
+      tmdb = staleTmdb
     }
   }
   const videos = Array.isArray(tmdb?.videos)

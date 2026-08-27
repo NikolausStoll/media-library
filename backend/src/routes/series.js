@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { db, getMediaWithProviders } from '../db/library.js'
-import { getFromCache, saveToCache, getEpisodesFromCache, saveEpisodesToCache, deleteFromCache, deleteEpisodesFromCache, updateSeriesRuntimeInCache } from '../services/tmdbCache.js'
+import { getFromCache, getStaleFromCache, saveToCache, getEpisodesFromCache, saveEpisodesToCache, deleteFromCache, deleteEpisodesFromCache, updateSeriesRuntimeInCache } from '../services/tmdbCache.js'
 import { getSeries, fetchEpisodes } from '../services/tmdbService.js'
 
 const router = Router()
@@ -42,13 +42,16 @@ function computeRuntimeFromEpisodes(episodes) {
 
 async function aggregateSeries(series) {
   let tmdb = getFromCache(series.externalId, 'series')
+  const staleTmdb = tmdb ?? getStaleFromCache(series.externalId, 'series')
   if (!tmdb) {
     try {
       tmdb = await getSeries(series.externalId)
+      if (!tmdb.imageUrl && staleTmdb?.imageUrl)
+        tmdb = { ...tmdb, imageUrl: staleTmdb.imageUrl }
       saveToCache(tmdb)
     } catch (err) {
       console.error(`TMDB fetch fehlgeschlagen für ${series.externalId}:`, err.message)
-      tmdb = null
+      tmdb = staleTmdb
     }
   }
   let runtime = tmdb?.runtime ?? null

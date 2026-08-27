@@ -13,11 +13,8 @@ function randomTtlMs() {
 
 // ─── TMDB Basis-Cache ────────────────────────────────────────────────────────
 
-export function getFromCache(id, mediaType) {
-  const row = db.prepare('SELECT * FROM tmdbcache WHERE id = ? AND mediaType = ?').get(id, mediaType)
+function mapRow(row) {
   if (!row) return null
-  const ttlMs = row.ttlMs ?? SEVEN_DAYS_MS
-  if (Date.now() - row.updatedAt > ttlMs) return null
   return {
     id:                 row.id,
     mediaType:          row.mediaType,
@@ -40,6 +37,18 @@ export function getFromCache(id, mediaType) {
   }
 }
 
+export function getStaleFromCache(id, mediaType) {
+  return mapRow(db.prepare('SELECT * FROM tmdbcache WHERE id = ? AND mediaType = ?').get(id, mediaType))
+}
+
+export function getFromCache(id, mediaType) {
+  const row = db.prepare('SELECT * FROM tmdbcache WHERE id = ? AND mediaType = ?').get(id, mediaType)
+  if (!row) return null
+  const ttlMs = row.ttlMs ?? SEVEN_DAYS_MS
+  if (Date.now() - row.updatedAt > ttlMs) return null
+  return mapRow(row)
+}
+
 export function saveToCache(item) {
   const ttlMs = randomTtlMs()
   db.prepare(`
@@ -51,7 +60,7 @@ export function saveToCache(item) {
        @runtime, @seasons, @episodes, @genres, @streamingProviders, @linkUrl, @releaseDateDe, @originalLang, @videos, @updatedAt, @ttlMs)
     ON CONFLICT(id, mediaType) DO UPDATE SET
       titleEn=excluded.titleEn, titleDe=excluded.titleDe,
-      imageUrl=excluded.imageUrl, year=excluded.year,
+      imageUrl=COALESCE(excluded.imageUrl, tmdbcache.imageUrl), year=excluded.year,
       certification=excluded.certification, rating=excluded.rating,
       runtime=excluded.runtime, seasons=excluded.seasons,
       episodes=excluded.episodes, genres=excluded.genres,

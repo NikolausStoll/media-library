@@ -2,10 +2,8 @@ import { db } from '../db/library.js'
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
 
-export function getFromCache(id) {
-  const row = db.prepare('SELECT * FROM hltbcache WHERE id = ?').get(id)
+function mapRow(row) {
   if (!row) return null
-  if (Date.now() - row.updatedAt > SEVEN_DAYS_MS) return null
   return {
     id:              row.id,
     name:            row.name,
@@ -21,6 +19,17 @@ export function getFromCache(id) {
   }
 }
 
+export function getStaleFromCache(id) {
+  return mapRow(db.prepare('SELECT * FROM hltbcache WHERE id = ?').get(id))
+}
+
+export function getFromCache(id) {
+  const row = db.prepare('SELECT * FROM hltbcache WHERE id = ?').get(id)
+  if (!row) return null
+  if (Date.now() - row.updatedAt > SEVEN_DAYS_MS) return null
+  return mapRow(row)
+}
+
 export function saveToCache(game) {
   db.prepare(`
     INSERT INTO hltbcache
@@ -28,7 +37,7 @@ export function saveToCache(game) {
     VALUES
       (@id, @name, @imageUrl, @gameplayMain, @gameplayExtra, @gameplayComplete, @gameplayAll, @rating, @dlcs, @gameType, @releaseDateEu, @updatedAt)
     ON CONFLICT(id) DO UPDATE SET
-      name=excluded.name, imageUrl=excluded.imageUrl,
+      name=excluded.name, imageUrl=COALESCE(excluded.imageUrl, hltbcache.imageUrl),
       gameplayMain=excluded.gameplayMain, gameplayExtra=excluded.gameplayExtra,
       gameplayComplete=excluded.gameplayComplete, gameplayAll=excluded.gameplayAll,
       rating=excluded.rating, dlcs=excluded.dlcs, gameType=excluded.gameType, releaseDateEu=excluded.releaseDateEu, updatedAt=excluded.updatedAt
