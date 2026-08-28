@@ -75,6 +75,12 @@ async function aggregateGame(game) {
     gameType: hltb?.gameType ?? 'game',
     dlcs: hltb?.dlcs ?? [],
     releaseDateEu: hltb?.releaseDateEu ?? null,
+    summary: hltb?.summary ?? null,
+    platform: hltb?.platform ?? null,
+    genre: hltb?.genre ?? null,
+    developer: hltb?.developer ?? null,
+    publisher: hltb?.publisher ?? null,
+    hltbFetchedAt: hltb?.updatedAt ?? null,
     completedAt: game.completedAt ?? null,
     lastTouched: game.lastTouched ?? null,
   }

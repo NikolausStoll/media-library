@@ -130,6 +130,11 @@ db.exec(`
     dlcs             TEXT,
     gameType         TEXT DEFAULT 'game',
     releaseDateEu    TEXT,
+    summary          TEXT,
+    platform         TEXT,
+    genre            TEXT,
+    developer       TEXT,
+    publisher       TEXT,
     updatedAt        INTEGER,
     imagePath        TEXT,
     imageThumbPath   TEXT,
@@ -229,6 +234,11 @@ ensureColumn('movies', 'lastTouched TEXT')
 ensureColumn('series', 'completedAt TEXT')
 ensureColumn('series', 'lastTouched TEXT')
 ensureColumn('episodeprogress', 'lastTouched TEXT')
+ensureColumn('hltbcache', 'summary TEXT')
+ensureColumn('hltbcache', 'platform TEXT')
+ensureColumn('hltbcache', 'genre TEXT')
+ensureColumn('hltbcache', 'developer TEXT')
+ensureColumn('hltbcache', 'publisher TEXT')
 
 const today = new Date().toISOString().slice(0, 10)
 db.prepare('UPDATE games SET completedAt = COALESCE(completedAt, ?), lastTouched = COALESCE(lastTouched, ?) WHERE status = ?')
@@ -346,12 +356,14 @@ migrateCacheTableWithoutLegacyImageUrl(
   `CREATE TABLE hltbcache_new (
     id TEXT PRIMARY KEY, name TEXT, gameplayMain REAL, gameplayExtra REAL,
     gameplayComplete REAL, gameplayAll REAL, rating REAL, dlcs TEXT,
-    gameType TEXT DEFAULT 'game', releaseDateEu TEXT, updatedAt INTEGER,
+    gameType TEXT DEFAULT 'game', releaseDateEu TEXT,
+    summary TEXT, platform TEXT, genre TEXT,
+    developer TEXT, publisher TEXT, updatedAt INTEGER,
     imagePath TEXT, imageThumbPath TEXT, sourceImageUrl TEXT, imageHash TEXT,
     imageETag TEXT, imageLastModified TEXT, imageCheckedAt INTEGER,
     imageCheckIntervalMs INTEGER, imageUnchangedChecks INTEGER DEFAULT 0
   )`,
-  ['id', 'name', 'gameplayMain', 'gameplayExtra', 'gameplayComplete', 'gameplayAll', 'rating', 'dlcs', 'gameType', 'releaseDateEu', 'updatedAt', 'imagePath', 'imageThumbPath', 'sourceImageUrl', 'imageHash', 'imageETag', 'imageLastModified', 'imageCheckedAt', 'imageCheckIntervalMs', 'imageUnchangedChecks'],
+  ['id', 'name', 'gameplayMain', 'gameplayExtra', 'gameplayComplete', 'gameplayAll', 'rating', 'dlcs', 'gameType', 'releaseDateEu', 'summary', 'platform', 'genre', 'developer', 'publisher', 'updatedAt', 'imagePath', 'imageThumbPath', 'sourceImageUrl', 'imageHash', 'imageETag', 'imageLastModified', 'imageCheckedAt', 'imageCheckIntervalMs', 'imageUnchangedChecks'],
 )
 
 migrateCacheTableWithoutLegacyImageUrl(

@@ -33,6 +33,13 @@ function normalizeReleaseDate(value) {
   return normalized
 }
 
+function normalizeText(value) {
+  if (Array.isArray(value)) return value.filter(Boolean).join(', ')
+  if (value == null) return null
+  const normalized = String(value).trim()
+  return normalized || null
+}
+
 function mapDlcEntry(entry) {
   if (!entry) return null
   return {
@@ -205,5 +212,10 @@ export async function getGame(id) {
     gameType: normalizeType(game.game_type ?? game.category ?? 'game', 'game'),
     dlcs: relationships.map(mapDlcEntry).filter(Boolean),
     releaseDateEu: normalizeReleaseDate(game.release_eu),
+    summary: normalizeText(game.profile_summary),
+    platform: normalizeText(game.profile_platform),
+    genre: normalizeText(game.profile_genre),
+    developer: normalizeText(game.profile_dev),
+    publisher: normalizeText(game.profile_pub),
   }
 }

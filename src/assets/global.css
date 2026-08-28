@@ -917,7 +917,6 @@ body.light-mode {
   font-size: 11px;
   color: var(--text);
   padding: 3px 0;
-  border-bottom: 1px solid var(--border2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1646,9 +1645,7 @@ body.light-mode {
 }
 
 .overlay-tags {
-  margin-bottom: 14px;
   padding-bottom: 14px;
-  border-bottom: 1px solid var(--surface2);
 }
 
 .overlay-section-label {

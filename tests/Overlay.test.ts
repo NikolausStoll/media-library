@@ -50,6 +50,48 @@ describe('Overlay – Game-Detail', () => {
     wrapper.unmount()
   })
 
+  it('zeigt Cover und Aktionen auf Options sowie HLTB-Profilinfos auf Details', async () => {
+    const game = {
+      ...ZELDA,
+      imageFullUrl: '/uploads/images/games/zelda.webp',
+      gameplayMain: 50,
+      gameplayExtra: 75,
+      gameplayComplete: 120,
+      gameplayAll: 80,
+      summary: 'A large adventure.',
+      platform: 'Switch, PC',
+      genre: 'Adventure',
+      developer: 'Nintendo',
+      publisher: 'Nintendo',
+      releaseDateEu: '2017-03-03',
+      hltbFetchedAt: '2026-08-27T12:30:00.000Z',
+    }
+    const wrapper = await mountApp({ games: [game] })
+    await clickTab(wrapper, 'Collection')
+
+    await wrapper.find('.game-card').trigger('click')
+    await nextTick()
+
+    expect(wrapper.find('.game-options-top').exists()).toBe(true)
+    expect(wrapper.find('.options-cover img').attributes('src')).toBe(game.imageFullUrl)
+    expect(wrapper.find('.game-options-actions .status-btn').exists()).toBe(true)
+    expect(wrapper.find('.game-options-actions .overlay-section-label').text()).toBe('Status')
+
+    await wrapper.findAll('.tab').find(button => button.text() === 'Details')!.trigger('click')
+    await nextTick()
+
+    expect(wrapper.find('.metric-box-all').text()).toContain('80 h')
+    expect(wrapper.find('.metric-row').text()).toContain('Main + Sides')
+    expect(wrapper.find('.hltb-description').text()).toContain(game.summary)
+    expect(wrapper.find('.hltb-fields').text()).toContain('Nintendo')
+    expect(wrapper.find('.hltb-fields').text()).toContain(game.platform)
+    expect(wrapper.find('.detail-section-title').text()).toContain('HowLongToBeat')
+    expect(wrapper.find('.hltb-fields').text()).toContain('HLTB abgerufen')
+    expect(wrapper.find('.hltb-fields').text()).not.toContain('EU')
+
+    wrapper.unmount()
+  })
+
   it('schließt Overlay beim Klick auf den Backdrop', async () => {
     const wrapper = await mountApp()
     await clickTab(wrapper, 'Collection')
