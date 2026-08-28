@@ -2033,6 +2033,7 @@ onUnmounted(() => {
   font-size: 12px;
   text-transform: none;
   letter-spacing: 0;
+  font-weight: 450;
 }
 
 .book-editor-inline-row {
