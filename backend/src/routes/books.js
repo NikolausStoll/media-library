@@ -138,7 +138,7 @@ async function saveCoverFromBuffer(bytes, contentType = '') {
       withoutEnlargement: true,
     })
     .webp({ quality: IMAGE_QUALITY })
-    .toFile(join(bookUploadsDir, originalFilename))
+    .toFile(join(canonicalBookUploadsDir, originalFilename))
 
   if (maxSourceDimension > 0 && maxSourceDimension <= IMAGE_MAX_DIMENSION_THUMB) {
     return {
@@ -156,7 +156,7 @@ async function saveCoverFromBuffer(bytes, contentType = '') {
       withoutEnlargement: true,
     })
     .webp({ quality: IMAGE_QUALITY_THUMB })
-    .toFile(join(bookUploadsDir, thumbFilename))
+    .toFile(join(canonicalBookUploadsDir, thumbFilename))
 
   return {
     coverPath: `/uploads/images/books/${originalFilename}`,
