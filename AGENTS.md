@@ -12,7 +12,7 @@ This is the source of truth for AI assistants working in this repository. Keep i
 - Local dev frontend: Vite on `localhost:5173`.
 - Local dev backend: `npm run dev:backend`, should use `PORT=8098` because `vite.config.js` proxies `/api` to `http://localhost:8098`.
 - Container/Home Assistant backend: defaults to `PORT=8099`, `DB_PATH=/data/backend.db`, `STATIC_DIR=/app/public`.
-- Current package/add-on version: `1.24.2`.
+- Current package/add-on version: `1.25.0`.
 
 ## High-Level Features
 
@@ -21,7 +21,7 @@ This is the source of truth for AI assistants working in this repository. Keep i
 - Movies: TMDB metadata, DE/EN data handling, German release/certification/provider data, videos/trailers, watchlist queue.
 - Series: TMDB metadata plus episode list cache, per-episode watched progress, progress summary, season bulk toggles.
 - Shared: separate Next queues per media type, user ratings, completion dates, `lastTouched`, search/filter/sort, grid/list/density settings, dark mode.
-- AI assistant: available for games, movies, and series; supports `whats-next` and `new-recommendation`; falls back locally when `AI_API_KEY` is missing.
+- AI assistant: available for games, movies, and series; supports `whats-next` and `new-recommendation`; falls back locally when `AI_API_KEY` is missing. **Currently under review — the sidebar button is commented out in `GameFilters.vue`, `MovieList.vue`, and `SeriesList.vue`; all backend routes and the `AiAssistant.vue` component remain in place.**
 - Admin page: JSON export/import of user-owned library state, HLTB/TMDB cache clearing, bulk game import.
 
 ## Important Commands
@@ -424,7 +424,7 @@ Main file: `src/components/MovieList.vue`.
 - Future releases are split into a separate not-yet-released section on watchlist.
 - Provider filter uses TMDB provider IDs and local provider logos.
 - Moving a Watch Next movie out of `watchlist` removes it from `/api/next?type=movie`.
-- AI assistant is available from the sidebar.
+- AI assistant is available from the sidebar. **Currently under review — button is commented out, code remains.**
 
 ### Series
 
@@ -439,7 +439,7 @@ Main file: `src/components/SeriesList.vue`.
 - Episode overlay loads episodes and progress, then stores watched state as a `Set` of keys like `season-episode`.
 - Always replace `episodeProgress.value` with a new `Set`; do not mutate and leave it in place.
 - Season bulk toggle watches all episodes when any are unwatched, otherwise unwatches the season.
-- AI assistant is available from the sidebar.
+- AI assistant is available from the sidebar. **Currently under review — button is commented out, code remains.**
 
 ### Completion Dates
 

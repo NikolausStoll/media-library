@@ -250,7 +250,7 @@ const formatFetchedAt = (value) => {
   display: grid;
   grid-template-columns: minmax(130px, 190px) 1fr;
   gap: 18px;
-  align-items: center;
+  align-items: start;
   margin-bottom: 16px;
 }
 
@@ -306,7 +306,7 @@ const formatFetchedAt = (value) => {
 .game-options-actions {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .game-options-actions .status-buttons {

@@ -70,6 +70,16 @@ async function aggregateSeries(series) {
       console.error(`Lokales TMDB-Bild fehlgeschlagen für ${series.externalId}:`, err.message)
     }
   }
+  const videos = Array.isArray(tmdb?.videos)
+    ? tmdb.videos
+    : (() => {
+      try {
+        return JSON.parse(tmdb?.videos ?? '[]')
+      } catch {
+        return []
+      }
+    })()
+
   let runtime = tmdb?.runtime ?? null
   if (runtime == null) {
     const cachedEpisodes = getEpisodesFromCache(series.externalId)
@@ -101,6 +111,11 @@ async function aggregateSeries(series) {
     genres:             JSON.parse(tmdb?.genres ?? '[]'),
     streamingProviders: JSON.parse(tmdb?.streamingProviders ?? '[]'),
     linkUrl:            tmdb?.linkUrl ?? null,
+    overview:           tmdb?.overview ?? null,
+    creators:           tmdb?.creators ?? [],
+    productionStatus:   tmdb?.productionStatus ?? null,
+    cast:               tmdb?.cast ?? [],
+    videos,
     completedAt:        series.completedAt ?? null,
     lastTouched:        series.lastTouched ?? null,
   }

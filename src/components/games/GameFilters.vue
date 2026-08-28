@@ -157,11 +157,13 @@ const configVersion = configVersionMatch?.[1] ?? 'unbekannt'
 
     <!-- AI Assistant + View & Theme -->
     <div class="sidebar-footer">
+      <!-- AI recommendation (under review, temporarily hidden)
       <div class="sidebar-section-label">AI Assistant</div>
       <button class="ai-assistant-btn" type="button" @click="emit('open-ai-assistant')">
         Recommendation
       </button>
-      <div class="sidebar-section-label" style="margin-top: 12px">VIEW</div>
+      -->
+      <div class="sidebar-section-label">VIEW</div>
       <div class="view-toggle">
         <button :class="['view-btn', { active: viewMode === 'grid' }]" @click="emit('set-view-mode', 'grid')">Grid</button>
         <button :class="['view-btn', { active: viewMode === 'list' }]" @click="emit('set-view-mode', 'list')">List</button>

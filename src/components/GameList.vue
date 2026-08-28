@@ -56,7 +56,7 @@ const allowDenseGrid = ref(allowsDenseGrid())
 // UI
 const sidebarOpen        = ref(!isSidebarOverlay.value)
 const darkMode = ref(localStorage.getItem('darkMode') !== 'false')
-const filterSectionsOpen = ref({ platformStorefront: true, sort: true })
+const filterSectionsOpen = ref({ platformStorefront: false, sort: true })
 const showAiAssistant = ref(false)
 
 // Overlays

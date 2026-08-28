@@ -33,6 +33,11 @@ function mapRow(row) {
     originalLang:       row.originalLang,
     ttlMs:              row.ttlMs ?? SEVEN_DAYS_MS,
     videos:             JSON.parse(row.videos ?? '[]'),
+    overview:           row.overview ?? null,
+    directors:          JSON.parse(row.directors ?? '[]'),
+    cast:               JSON.parse(row.cast ?? '[]'),
+    creators:           JSON.parse(row.creators ?? '[]'),
+    productionStatus:   row.productionStatus ?? null,
     imagePath:          row.imagePath ?? null,
     imageThumbPath:     row.imageThumbPath ?? null,
     sourceImageUrl:     row.sourceImageUrl ?? null,
@@ -62,12 +67,16 @@ export function saveToCache(item) {
   db.prepare(`
     INSERT INTO tmdbcache
       (id, mediaType, titleEn, titleDe, year, certification, rating,
-       runtime, seasons, episodes, genres, streamingProviders, linkUrl, releaseDateDe, originalLang, videos, updatedAt, ttlMs,
-      imagePath, imageThumbPath, sourceImageUrl, imageHash, imageETag, imageLastModified, imageCheckedAt, imageCheckIntervalMs, imageUnchangedChecks)
+       runtime, seasons, episodes, genres, streamingProviders, linkUrl, releaseDateDe, originalLang,
+       videos, updatedAt, ttlMs,
+       overview, directors, cast, creators, productionStatus,
+       imagePath, imageThumbPath, sourceImageUrl, imageHash, imageETag, imageLastModified, imageCheckedAt, imageCheckIntervalMs, imageUnchangedChecks)
     VALUES
       (@id, @mediaType, @titleEn, @titleDe, @year, @certification, @rating,
-       @runtime, @seasons, @episodes, @genres, @streamingProviders, @linkUrl, @releaseDateDe, @originalLang, @videos, @updatedAt, @ttlMs,
-      @imagePath, @imageThumbPath, @sourceImageUrl, @imageHash, @imageETag, @imageLastModified, @imageCheckedAt, @imageCheckIntervalMs, @imageUnchangedChecks)
+       @runtime, @seasons, @episodes, @genres, @streamingProviders, @linkUrl, @releaseDateDe, @originalLang,
+       @videos, @updatedAt, @ttlMs,
+       @overview, @directors, @cast, @creators, @productionStatus,
+       @imagePath, @imageThumbPath, @sourceImageUrl, @imageHash, @imageETag, @imageLastModified, @imageCheckedAt, @imageCheckIntervalMs, @imageUnchangedChecks)
     ON CONFLICT(id, mediaType) DO UPDATE SET
       titleEn=excluded.titleEn, titleDe=excluded.titleDe,
       year=excluded.year,
@@ -76,8 +85,11 @@ export function saveToCache(item) {
       episodes=excluded.episodes, genres=excluded.genres,
       streamingProviders=excluded.streamingProviders,
       linkUrl=excluded.linkUrl, releaseDateDe=excluded.releaseDateDe, originalLang=excluded.originalLang,
+      videos=excluded.videos,
       updatedAt=excluded.updatedAt,
       ttlMs=excluded.ttlMs,
+      overview=excluded.overview,
+      directors=excluded.directors, cast=excluded.cast, creators=excluded.creators, productionStatus=excluded.productionStatus,
       imagePath=COALESCE(excluded.imagePath, tmdbcache.imagePath),
       imageThumbPath=COALESCE(excluded.imageThumbPath, tmdbcache.imageThumbPath),
       sourceImageUrl=COALESCE(excluded.sourceImageUrl, tmdbcache.sourceImageUrl),
@@ -91,6 +103,11 @@ export function saveToCache(item) {
     ...item,
     releaseDateDe: item.releaseDateDe ?? null,
     videos: JSON.stringify(item.videos ?? []),
+    overview: item.overview ?? null,
+    directors: JSON.stringify(item.directors ?? []),
+    cast: JSON.stringify(item.cast ?? []),
+    creators: JSON.stringify(item.creators ?? []),
+    productionStatus: item.productionStatus ?? null,
     updatedAt: Date.now(),
     ttlMs,
     imagePath: item.imagePath ?? null,

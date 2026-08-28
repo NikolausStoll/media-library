@@ -21,10 +21,21 @@ function extractProviders(data) {
     })) ?? []
 }
 
-function isEnglishTrailer(video) {
-  if (!video) return false
-  const lang = String(video.iso_639_1 ?? '').toLowerCase()
-  return /^en/.test(lang) && String(video.type ?? '').toLowerCase() === 'trailer'
+function isEnglishVideo(video) {
+  return /^en/.test(String(video?.iso_639_1 ?? '').toLowerCase())
+}
+
+const PROMO_TITLE_RE = /\b(now streaming|on digital|on blu-?ray|available now|announcement|coming soon|in theaters|opening night|dvd|home ent|home video|4k ultra)\b/i
+
+function isPromoTitle(title) {
+  return PROMO_TITLE_RE.test(String(title ?? ''))
+}
+
+function videoPriority(v) {
+  if (v.type === 'Trailer' && v.official) return 0
+  if (v.type === 'Trailer') return 1
+  if (v.type === 'Teaser' && v.official) return 2
+  return 3
 }
 
 function buildVideoUrl(video) {
@@ -74,7 +85,7 @@ export async function getMovie(id) {
       language: 'de-DE',
     })),
     fetch(buildUrl(`/movie/${id}`, {
-      append_to_response: 'videos',
+      append_to_response: 'credits,videos',
       language: 'en-US',
     })),
   ])
@@ -88,14 +99,30 @@ export async function getMovie(id) {
 
   const isGerman = de.original_language === 'de'
 
-  const trailers = (en.videos?.results ?? [])
-    .filter(isEnglishTrailer)
-    .map(v => ({
-      id: v.id ?? `${id}-${v.key}`,
-      name: v.name ?? 'Trailer',
-      url: buildVideoUrl(v),
-    }))
+  const overview = en.overview ?? de.overview ?? null
+
+  const directors = (en.credits?.crew ?? [])
+    .filter(c => c.job === 'Director')
+    .map(c => c.name)
+    .slice(0, 3)
+
+  const cast = (en.credits?.cast ?? [])
+    .slice(0, 6)
+    .map(c => ({ name: c.name, character: c.character ?? null }))
+
+  const mapVideo = v => ({
+    id: v.id ?? `${id}-${v.key}`,
+    name: v.name ?? v.type,
+    url: buildVideoUrl(v),
+    type: v.type,
+    official: v.official ?? false,
+  })
+  const videos = (en.videos?.results ?? [])
+    .filter(v => isEnglishVideo(v) && (v.type === 'Trailer' || v.type === 'Teaser') && (v.official ?? false) && !isPromoTitle(v.name))
+    .map(mapVideo)
     .filter(v => v.url)
+    .sort((a, b) => videoPriority(a) - videoPriority(b))
+    .slice(0, 3)
 
   return {
     id:                 String(id),
@@ -114,7 +141,10 @@ export async function getMovie(id) {
     linkUrl:            `https://www.themoviedb.org/movie/${id}`,
     releaseDateDe:      de.release_date ?? null,
     originalLang:       de.original_language ?? null,
-    videos:             trailers,
+    overview,
+    directors,
+    cast,
+    videos,
   }
 }
 
@@ -125,6 +155,7 @@ export async function getSeries(id) {
       language: 'de-DE',
     })),
     fetch(buildUrl(`/tv/${id}`, {
+      append_to_response: 'credits,videos',
       language: 'en-US',
     })),
   ])
@@ -136,6 +167,32 @@ export async function getSeries(id) {
     ?.rating ?? null
 
   const isGerman = de.original_language === 'de'
+
+  const overview = en.overview ?? de.overview ?? null
+
+  const creators = (en.created_by ?? [])
+    .map(c => c.name)
+    .filter(Boolean)
+
+  const productionStatus = en.status ?? de.status ?? null
+
+  const cast = (en.credits?.cast ?? [])
+    .slice(0, 6)
+    .map(c => ({ name: c.name, character: c.character ?? null }))
+
+  const mapVideoS = v => ({
+    id: v.id ?? `${id}-${v.key}`,
+    name: v.name ?? v.type,
+    url: buildVideoUrl(v),
+    type: v.type,
+    official: v.official ?? false,
+  })
+  const videos = (en.videos?.results ?? [])
+    .filter(v => isEnglishVideo(v) && (v.type === 'Trailer' || v.type === 'Teaser') && (v.official ?? false) && !isPromoTitle(v.name))
+    .map(mapVideoS)
+    .filter(v => v.url)
+    .sort((a, b) => videoPriority(a) - videoPriority(b))
+    .slice(0, 3)
 
   return {
     id:                 String(id),
@@ -154,6 +211,11 @@ export async function getSeries(id) {
     streamingProviders: JSON.stringify(extractProviders(de)),
     linkUrl:            `https://www.themoviedb.org/tv/${id}`,
     originalLang:       de.original_language ?? null,
+    overview,
+    creators,
+    productionStatus,
+    cast,
+    videos,
   }
 }
 

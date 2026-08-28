@@ -166,6 +166,11 @@ db.exec(`
     updatedAt          INTEGER,
     videos             TEXT,
     ttlMs              INTEGER DEFAULT 604800000,
+    overview           TEXT,
+    directors          TEXT,
+    cast               TEXT,
+    creators           TEXT,
+    productionStatus   TEXT,
     imagePath          TEXT,
     imageThumbPath     TEXT,
     sourceImageUrl     TEXT,
@@ -323,6 +328,11 @@ ensureColumn('tmdbcache', 'imageLastModified TEXT')
 ensureColumn('tmdbcache', 'imageCheckedAt INTEGER')
 ensureColumn('tmdbcache', 'imageCheckIntervalMs INTEGER')
 ensureColumn('tmdbcache', 'imageUnchangedChecks INTEGER DEFAULT 0')
+ensureColumn('tmdbcache', 'overview TEXT')
+ensureColumn('tmdbcache', 'directors TEXT')
+ensureColumn('tmdbcache', 'cast TEXT')
+ensureColumn('tmdbcache', 'creators TEXT')
+ensureColumn('tmdbcache', 'productionStatus TEXT')
 
 function hasColumn(table, column) {
   return db.prepare(`PRAGMA table_info(${table})`).all().some(info => info.name === column)
@@ -374,12 +384,13 @@ migrateCacheTableWithoutLegacyImageUrl(
     runtime INTEGER, seasons INTEGER, episodes INTEGER, genres TEXT,
     streamingProviders TEXT, linkUrl TEXT, releaseDateDe TEXT, originalLang TEXT,
     updatedAt INTEGER, videos TEXT, ttlMs INTEGER DEFAULT 604800000,
+    overview TEXT, directors TEXT, cast TEXT, creators TEXT, productionStatus TEXT,
     imagePath TEXT, imageThumbPath TEXT, sourceImageUrl TEXT, imageHash TEXT,
     imageETag TEXT, imageLastModified TEXT, imageCheckedAt INTEGER,
     imageCheckIntervalMs INTEGER, imageUnchangedChecks INTEGER DEFAULT 0,
     PRIMARY KEY(id, mediaType)
   )`,
-  ['id', 'mediaType', 'titleEn', 'titleDe', 'year', 'certification', 'rating', 'runtime', 'seasons', 'episodes', 'genres', 'streamingProviders', 'linkUrl', 'releaseDateDe', 'originalLang', 'updatedAt', 'videos', 'ttlMs', 'imagePath', 'imageThumbPath', 'sourceImageUrl', 'imageHash', 'imageETag', 'imageLastModified', 'imageCheckedAt', 'imageCheckIntervalMs', 'imageUnchangedChecks'],
+  ['id', 'mediaType', 'titleEn', 'titleDe', 'year', 'certification', 'rating', 'runtime', 'seasons', 'episodes', 'genres', 'streamingProviders', 'linkUrl', 'releaseDateDe', 'originalLang', 'updatedAt', 'videos', 'ttlMs', 'overview', 'directors', 'cast', 'creators', 'productionStatus', 'imagePath', 'imageThumbPath', 'sourceImageUrl', 'imageHash', 'imageETag', 'imageLastModified', 'imageCheckedAt', 'imageCheckIntervalMs', 'imageUnchangedChecks'],
 )
 
 try {

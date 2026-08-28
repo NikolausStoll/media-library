@@ -1,10 +1,11 @@
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs'
+import { join, dirname } from 'path'
 import { Router } from 'express'
 import { db } from '../db/library.js'
 import { normalizeBookPublishedDate } from '../utils/bookDate.js'
 
-const VALID_GAME_STATUSES = ['backlog', 'wishlist', 'started', 'completed', 'dropped', 'shelved']
-const VALID_GAME_PLATFORMS = ['pc', 'xbox', 'switch', '3ds']
-const VALID_PC_STOREFRONTS = ['steam', 'epic', 'gog', 'battlenet', 'uplay', 'ea', 'xbox']
+const uploadsRoot = process.env.UPLOAD_DIR ?? join(dirname(db.name), 'uploads')
+
 const VALID_BOOK_FORMATS = ['hardcover', 'paperback', 'ebook', 'audiobook', 'other']
 
 const router = Router()
@@ -36,6 +37,28 @@ router.get('/export', (req, res) => {
       books:          db.prepare('SELECT * FROM books').all(),
       bookformats:    db.prepare('SELECT * FROM bookformats').all(),
     }
+    const bookImages = []
+    for (const b of data.books) {
+      if (!b.coverPath && !b.coverThumbPath) continue
+      const entry = { bookId: b.id }
+      if (b.coverPath) {
+        const fsPath = join(uploadsRoot, b.coverPath.replace(/^\/uploads\//, ''))
+        if (existsSync(fsPath)) {
+          entry.coverPath = b.coverPath
+          entry.coverData = readFileSync(fsPath).toString('base64')
+        }
+      }
+      if (b.coverThumbPath) {
+        const fsPath = join(uploadsRoot, b.coverThumbPath.replace(/^\/uploads\//, ''))
+        if (existsSync(fsPath)) {
+          entry.coverThumbPath = b.coverThumbPath
+          entry.coverThumbData = readFileSync(fsPath).toString('base64')
+        }
+      }
+      if (entry.coverData || entry.coverThumbData) bookImages.push(entry)
+    }
+    data.bookImages = bookImages
+
     res.setHeader('Content-Type', 'application/json')
     res.setHeader('Content-Disposition', `attachment; filename="medialibrary-backup-${Date.now()}.json"`)
     res.json(data)
@@ -47,7 +70,7 @@ router.get('/export', (req, res) => {
 // ─── IMPORT ───────────────────────────────────────────────────────────────────
 router.post('/import', (req, res) => {
   const data = req.body
-  if (!data?.games) return res.status(400).json({ error: 'Ungültiges Backup-Format' })
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return res.status(400).json({ error: 'Invalid backup format' })
   try {
     db.transaction(() => {
       // Alles löschen
@@ -167,6 +190,21 @@ router.post('/import', (req, res) => {
       for (const n of data.next ?? []) insertNext.run(n)
     })()
 
+    let bookImagesWritten = 0
+    for (const img of data.bookImages ?? []) {
+      if (img.coverData && img.coverPath) {
+        const fsPath = join(uploadsRoot, img.coverPath.replace(/^\/uploads\//, ''))
+        mkdirSync(dirname(fsPath), { recursive: true })
+        writeFileSync(fsPath, Buffer.from(img.coverData, 'base64'))
+        bookImagesWritten++
+      }
+      if (img.coverThumbData && img.coverThumbPath) {
+        const fsPath = join(uploadsRoot, img.coverThumbPath.replace(/^\/uploads\//, ''))
+        mkdirSync(dirname(fsPath), { recursive: true })
+        writeFileSync(fsPath, Buffer.from(img.coverThumbData, 'base64'))
+      }
+    }
+
     res.json({
       success: true,
       imported: {
@@ -181,67 +219,8 @@ router.post('/import', (req, res) => {
         episodeprogress: data.episodeprogress?.length ?? 0,
         books:          data.books?.length ?? 0,
         bookformats:    data.bookformats?.length ?? 0,
+        bookImages:     bookImagesWritten,
       }
-    })
-  } catch (err) {
-    res.status(500).json({ error: err.message })
-  }
-})
-
-router.post('/import-games', (req, res) => {
-  const { ids, platform = 'pc', status = 'backlog', storefront } = req.body ?? {}
-  if (!Array.isArray(ids) || ids.length === 0)
-    return res.status(400).json({ error: 'Mindestens eine External ID ist erforderlich.' })
-
-  const normalizedIds = Array.from(
-    new Set(
-      ids
-        .map(id => (typeof id === 'string' ? id : String(id)))
-        .map(id => id.trim())
-        .filter(Boolean),
-    ),
-  )
-
-  if (!normalizedIds.length)
-    return res.status(400).json({ error: 'Keine gültigen External IDs gefunden.' })
-
-  if (!VALID_GAME_STATUSES.includes(status))
-    return res.status(400).json({ error: `Ungültiger Status. Erlaubt: ${VALID_GAME_STATUSES.join(', ')}` })
-
-  if (platform && platform !== 'none' && !VALID_GAME_PLATFORMS.includes(platform))
-    return res.status(400).json({ error: `Ungültige Plattform. Erlaubt: ${VALID_GAME_PLATFORMS.join(', ')}` })
-
-  if (platform === 'pc' && storefront && !VALID_PC_STOREFRONTS.includes(storefront))
-    return res.status(400).json({ error: `Ungültiges Storefront. Erlaubt: ${VALID_PC_STOREFRONTS.join(', ')}` })
-
-  const inserted = []
-  const skipped = []
-
-  try {
-    db.transaction(() => {
-      const insertGame = db.prepare('INSERT INTO games (externalId, status) VALUES (?, ?)')
-      const insertPlatform = db.prepare('INSERT INTO gameplatforms (gameId, platform, storefront) VALUES (?, ?, ?)')
-
-      for (const externalId of normalizedIds) {
-        const existing = db.prepare('SELECT id FROM games WHERE externalId = ?').get(externalId)
-        if (existing) {
-          skipped.push({ externalId, reason: 'exists' })
-          continue
-        }
-
-        const { lastInsertRowid } = insertGame.run(externalId, status)
-        if (platform && platform !== 'none') {
-          insertPlatform.run(lastInsertRowid, platform, platform === 'pc' ? storefront ?? null : null)
-        }
-        inserted.push(externalId)
-      }
-    })()
-
-    res.status(201).json({
-      imported: inserted.length,
-      inserted,
-      skipped,
-      skippedCount: skipped.length,
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -260,6 +239,14 @@ router.post('/clear-hltb-cache', (req, res) => {
 router.post('/clear-tmdb-cache', (req, res) => {
   try {
     db.prepare('DELETE FROM tmdbcache').run()
+    res.json({ success: true })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+router.post('/clear-tmdb-episodes-cache', (req, res) => {
+  try {
     db.prepare('DELETE FROM tmdbcacheepisodes').run()
     res.json({ success: true })
   } catch (err) {
@@ -270,7 +257,7 @@ router.post('/clear-tmdb-cache', (req, res) => {
 // ─── ADMIN PAGE ───────────────────────────────────────────────────────────────
 router.get('/', (req, res) => {
   res.send(`<!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Media Library Admin</title>
@@ -281,7 +268,8 @@ router.get('/', (req, res) => {
     h2 { color: #aaa; font-size: 1rem; margin-bottom: 0.75rem; }
     .card { background: #1a1d26; border: 1px solid #2a2d3a; border-radius: 10px; padding: 1.5rem; margin-bottom: 1.5rem; max-width: 600px; }
     p { font-size: 0.88rem; color: #888; margin-bottom: 1rem; line-height: 1.5; }
-    button { background: #3b82f6; color: #fff; border: none; border-radius: 6px; padding: 0.6rem 1.4rem; cursor: pointer; font-size: 0.9rem; margin-right: 0.5rem; }
+    .btn-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    button { background: #3b82f6; color: #fff; border: none; border-radius: 6px; padding: 0.6rem 1.4rem; cursor: pointer; font-size: 0.9rem; }
     button:hover { background: #2563eb; }
     button.danger { background: #ef4444; }
     button.danger:hover { background: #dc2626; }
@@ -289,38 +277,6 @@ router.get('/', (req, res) => {
     .status { margin-top: 1rem; padding: 0.6rem 0.9rem; border-radius: 6px; font-size: 0.85rem; display: none; }
     .status.ok  { background: #14532d; color: #86efac; display: block; }
     .status.err { background: #450a0a; color: #fca5a5; display: block; }
-    textarea.bulk-input {
-      width: 100%;
-      min-height: 80px;
-      margin-top: 0.25rem;
-      margin-bottom: 0.75rem;
-      padding: 0.75rem;
-      border-radius: 6px;
-      border: 1px solid #2a2d3a;
-      background: #0f1117;
-      color: #e0e0e0;
-      font-family: inherit;
-      font-size: 0.9rem;
-    }
-    .bulk-row {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      margin-bottom: 0.5rem;
-      font-size: 0.85rem;
-      color: #c0c0c0;
-    }
-    .bulk-row label {
-      flex-shrink: 0;
-    }
-    select.bulk-select {
-      background: #0f1117;
-      color: #e0e0e0;
-      border: 1px solid #2a2d3a;
-      border-radius: 6px;
-      padding: 0.4rem 0.6rem;
-      font-size: 0.9rem;
-    }
     pre { background: #0f1117; border: 1px solid #2a2d3a; border-radius: 6px; padding: 0.75rem; font-size: 0.78rem; margin-top: 0.75rem; max-height: 200px; overflow: auto; }
   </style>
 </head>
@@ -329,75 +285,36 @@ router.get('/', (req, res) => {
 
   <div class="card">
     <h2>Export</h2>
-    <p>Exportiert alle selbst gepflegten Library-Daten als JSON-Datei. Caches werden nicht gesichert, da sie bei Bedarf neu geladen werden.</p>
-    <button onclick="exportDb()">Backup herunterladen</button>
+    <p>Exports all library data (games, movies, series, books, episode progress) as a JSON file. Caches are not included — they are re-fetched on demand.</p>
+    <button onclick="exportDb()">Download backup</button>
     <div id="exportStatus" class="status"></div>
   </div>
 
   <div class="card">
     <h2>Import</h2>
-    <p>Importiert ein bestehendes Backup.<br>
-      <strong style="color:#fca5a5">Die gesamte Datenbank wird vor dem Import geleert!</strong>
+    <p>Restores a previously exported backup.<br>
+      <strong style="color:#fca5a5">The entire database will be wiped before import!</strong>
     </p>
-    <button onclick="document.getElementById('fileInput').click()">JSON-Datei wählen</button>
+    <button onclick="document.getElementById('fileInput').click()">Choose JSON file</button>
     <input type="file" id="fileInput" accept=".json" onchange="previewImport(event)">
     <pre id="preview" style="display:none"></pre>
     <button id="confirmBtn" class="danger" style="display:none; margin-top:0.75rem" onclick="confirmImport()">
-      Jetzt importieren – DB überschreiben
+      Import now — overwrite database
     </button>
     <div id="importStatus" class="status"></div>
   </div>
 
   <div class="card">
-    <h2>Bulk-Spiele importieren</h2>
-    <p>Gib eine durch Kommas oder Semikolons getrennte Liste von HLTB-IDs ein, wähle die Plattform und importiere sie in einem Rutsch.</p>
-    <label for="bulkGamesInput" style="font-size:0.85rem; color:#c0c0c0">External IDs (z. B. 12345, 67890; 24680)</label>
-    <textarea id="bulkGamesInput" class="bulk-input" placeholder="12345, 67890; 24680"></textarea>
-     <div class="bulk-row">
-      <label for="bulkStatus">Status</label>
-      <select id="bulkStatus" class="bulk-select">
-        <option value="backlog">Backlog</option>
-        <option value="wishlist">Wishlist</option>
-        <option value="started">Started</option>
-        <option value="completed">Completed</option>
-        <option value="dropped">Dropped</option>
-        <option value="shelved">Shelved</option>
-      </select>
+    <h2>Manage caches</h2>
+    <p>Clears caches so fresh data is fetched on next load. Episode watch progress is <strong>not</strong> affected.</p>
+    <div class="btn-row">
+      <button class="danger" onclick="clearCache('clear-hltb-cache', 'hltbStatus')">Clear HLTB cache</button>
+      <button class="danger" onclick="clearCache('clear-tmdb-cache', 'tmdbStatus')">Clear TMDB metadata</button>
+      <button class="danger" onclick="clearCache('clear-tmdb-episodes-cache', 'tmdbEpStatus')">Clear episode cache</button>
     </div>
-    <div class="bulk-row">
-      <label for="bulkPlatform">Plattform</label>
-      <select id="bulkPlatform" class="bulk-select">
-        <option value="pc">PC</option>
-        <option value="xbox">Xbox</option>
-        <option value="switch">Switch</option>
-        <option value="3ds">3DS</option>
-        <option value="none">Keine Plattform</option>
-      </select>
-    </div>   
-    <div class="bulk-row" id="bulkStorefrontWrapper">
-      <label for="bulkStorefront">Storefront</label>
-      <select id="bulkStorefront" class="bulk-select">
-        <option value="steam">Steam</option>
-        <option value="epic">Epic</option>
-        <option value="gog">GOG</option>
-        <option value="battlenet">Battle.net</option>
-        <option value="uplay">Ubisoft</option>
-        <option value="ea">EA</option>
-        <option value="xbox">Xbox App</option>
-      </select>
-    </div>
-    <button id="bulkImportBtn" onclick="importBulkGames()">Import starten</button>
-    <div id="bulkImportStatus" class="status"></div>
-    <pre id="bulkImportSummary" style="display:none"></pre>
-  </div>
-
-  <div class="card">
-    <h2>Caches verwalten</h2>
-    <p>Leert den HLTB-Cache bzw. TMDB-Cache inklusive Episoden, damit beim nächsten Aufruf frische Daten geladen werden.</p>
-    <button class="danger" onclick="clearHltbCache()">HLTB-Cache löschen</button>
-    <button class="danger" onclick="clearTmdbCache()">Movie/Series + Episoden löschen</button>
-    <div id="hltbCacheStatus" class="status"></div>
-    <div id="tmdbCacheStatus" class="status"></div>
+    <div id="hltbStatus" class="status"></div>
+    <div id="tmdbStatus" class="status"></div>
+    <div id="tmdbEpStatus" class="status"></div>
   </div>
 
   <script>
@@ -412,7 +329,7 @@ router.get('/', (req, res) => {
     async function exportDb() {
       try {
         const res = await fetch('/api/admin/export')
-        if (!res.ok) throw new Error('Export fehlgeschlagen')
+        if (!res.ok) throw new Error('Export failed')
         const blob = await res.blob()
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
@@ -420,7 +337,7 @@ router.get('/', (req, res) => {
         a.download = \`medialibrary-backup-\${Date.now()}.json\`
         a.click()
         URL.revokeObjectURL(url)
-        showStatus('exportStatus', 'Backup heruntergeladen', true)
+        showStatus('exportStatus', 'Backup downloaded', true)
       } catch (err) {
         showStatus('exportStatus', err.message, false)
       }
@@ -434,23 +351,22 @@ router.get('/', (req, res) => {
         try {
           pendingImport = JSON.parse(e.target.result)
           const preview = {
-            exportedAt:     pendingImport.exportedAt,
-            games:          pendingImport.games?.length ?? 0,
-            movies:         pendingImport.movies?.length ?? 0,
-            series:         pendingImport.series?.length ?? 0,
-            mediaproviders: pendingImport.mediaproviders?.length ?? 0,
+            exportedAt:      pendingImport.exportedAt,
+            games:           pendingImport.games?.length ?? 0,
+            movies:          pendingImport.movies?.length ?? 0,
+            series:          pendingImport.series?.length ?? 0,
             episodeprogress: pendingImport.episodeprogress?.length ?? 0,
-            books:          pendingImport.books?.length ?? 0,
-            bookformats:    pendingImport.bookformats?.length ?? 0,
-            next:           pendingImport.next?.length ?? 0,
-            sortorder:      pendingImport.sortorder?.length ?? 0,
+            books:           pendingImport.books?.length ?? 0,
+            bookformats:     pendingImport.bookformats?.length ?? 0,
+            bookImages:      pendingImport.bookImages?.length ?? 0,
+            next:            pendingImport.next?.length ?? 0,
           }
           document.getElementById('preview').textContent = JSON.stringify(preview, null, 2)
           document.getElementById('preview').style.display = 'block'
           document.getElementById('confirmBtn').style.display = 'inline-block'
           document.getElementById('importStatus').className = 'status'
         } catch {
-          showStatus('importStatus', 'Ungültige JSON-Datei', false)
+          showStatus('importStatus', 'Invalid JSON file', false)
         }
       }
       reader.readAsText(file)
@@ -466,7 +382,8 @@ router.get('/', (req, res) => {
         })
         const data = await res.json()
         if (!res.ok) throw new Error(data.error)
-        showStatus('importStatus', 'Import erfolgreich: ' + JSON.stringify(data.imported), true)
+        const summary = Object.entries(data.imported).map(([k, v]) => \`\${k}: \${v}\`).join(', ')
+        showStatus('importStatus', 'Import successful · ' + summary, true)
         document.getElementById('confirmBtn').style.display = 'none'
         document.getElementById('preview').style.display = 'none'
         pendingImport = null
@@ -475,90 +392,13 @@ router.get('/', (req, res) => {
       }
     }
 
-    async function clearHltbCache() {
+    async function clearCache(endpoint, statusId) {
       try {
-        const res = await fetch('/api/admin/clear-hltb-cache', { method: 'POST' })
-        if (!res.ok) throw new Error('HLTB-Cache löschen fehlgeschlagen')
-        showStatus('hltbCacheStatus', 'HLTB-Cache geleert', true)
-      } catch (err) {
-        showStatus('hltbCacheStatus', err.message, false)
-      }
-    }
-
-    async function clearTmdbCache() {
-      try {
-        const res = await fetch('/api/admin/clear-tmdb-cache', { method: 'POST' })
-        if (!res.ok) throw new Error('TMDB-Cache löschen fehlgeschlagen')
-        showStatus('tmdbCacheStatus', 'TMDB + Episoden geleert', true)
-      } catch (err) {
-        showStatus('tmdbCacheStatus', err.message, false)
-      }
-    }
-
-    function toggleStorefrontField() {
-      const platform = document.getElementById('bulkPlatform')?.value
-      const wrapper = document.getElementById('bulkStorefrontWrapper')
-      if (!wrapper) return
-      wrapper.style.display = platform === 'pc' ? 'flex' : 'none'
-    }
-
-    document.getElementById('bulkPlatform')?.addEventListener('change', toggleStorefrontField)
-    toggleStorefrontField()
-
-    function parseBulkIds(text) {
-      return Array.from(
-        new Set(
-          text
-            .split(/[,;\\n\\r]+/)
-            .map(id => id.trim())
-            .filter(Boolean),
-        ),
-      )
-    }
-
-    async function importBulkGames() {
-      const input = document.getElementById('bulkGamesInput')
-      const platform = document.getElementById('bulkPlatform')?.value ?? 'pc'
-      const status = document.getElementById('bulkStatus')?.value ?? 'backlog'
-      const storefront = document.getElementById('bulkStorefront')?.value
-      const statusId = 'bulkImportStatus'
-      const summary = document.getElementById('bulkImportSummary')
-      const button = document.getElementById('bulkImportBtn')
-      const ids = parseBulkIds(input.value)
-
-      if (!ids.length) {
-        showStatus(statusId, 'Bitte mindestens eine External ID eingeben.', false)
-        if (summary) summary.style.display = 'none'
-        return
-      }
-
-      if (button) button.disabled = true
-      if (summary) summary.style.display = 'none'
-
-      try {
-        const res = await fetch('/api/admin/import-games', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ids, platform, storefront, status }),
-        })
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error ?? 'Import fehlgeschlagen')
-        const parts = ['Importiert: ' + (data.imported ?? 0)]
-        if (data.skippedCount) parts.push('Übersprungen: ' + data.skippedCount)
-        showStatus(statusId, parts.join(' · '), true)
-        if (summary) {
-          if (data.skipped?.length) {
-            summary.textContent = 'Übersprungene IDs: ' + data.skipped.map(s => s.externalId ?? s).join(', ')
-            summary.style.display = 'block'
-          } else {
-            summary.style.display = 'none'
-          }
-        }
-        input.value = ''
+        const res = await fetch(\`/api/admin/\${endpoint}\`, { method: 'POST' })
+        if (!res.ok) throw new Error('Failed')
+        showStatus(statusId, 'Cache cleared', true)
       } catch (err) {
         showStatus(statusId, err.message, false)
-      } finally {
-        if (button) button.disabled = false
       }
     }
   </script>

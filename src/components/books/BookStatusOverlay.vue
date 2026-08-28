@@ -555,7 +555,7 @@ function isbn10To13(isbn10) {
   display: grid;
   grid-template-columns: minmax(120px, 170px) 1fr;
   gap: 18px;
-  align-items: center;
+  align-items: start;
 }
 
 .options-cover-col {
@@ -614,7 +614,7 @@ function isbn10To13(isbn10) {
 .book-options-actions {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .book-options-actions .status-buttons {

@@ -4,7 +4,6 @@ import AiAssistant from './shared/AiAssistant.vue'
 import CompletionDateEditor from './shared/CompletionDateEditor.vue'
 import MediaSwitcher from './shared/MediaSwitcher.vue'
 import MediaCard from './shared/MediaCard.vue'
-import MediaImageViewer from './shared/MediaImageViewer.vue'
 import { formatReleaseDate, isFutureRelease } from '../utils/releaseDate.js'
 import { allowsCompactGrid, allowsDenseGrid, readStoredGridDensity } from '../utils/gridDensity.js'
 import {
@@ -55,6 +54,8 @@ const providerFilter = ref([])
 const noRatingFilter = ref(false)
 const sortBy = ref('title') // title | year | rating
 const sortDirection = ref('asc')
+const sortSectionOpen = ref(true)
+const filterSectionOpen = ref(false)
 
 function clampDensityToViewport() {
   allowCompactGrid.value = allowsCompactGrid()
@@ -76,12 +77,38 @@ const overlayMovie = ref(null)
 const showOverlay = ref(false)
 const deleteConfirm = ref(false)
 const overlayTab = ref('options')
+const showPosterLightbox = ref(false)
+const overviewExpanded = ref(false)
+const overviewRef = ref(null)
+const overviewOverflows = ref(false)
+let overviewResizeObserver = null
 
-const sortedTrailerLinks = computed(() => {
-  const videos = overlayMovie.value?.videos ?? []
-  if (!videos.length) return []
-  return [...videos].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
-})
+function measureOverviewOverflow() {
+  const el = overviewRef.value
+  if (!el || overviewExpanded.value) return
+  overviewOverflows.value = el.scrollHeight > el.clientHeight + 1
+}
+
+function setupOverviewObserver() {
+  if (overviewResizeObserver) { overviewResizeObserver.disconnect(); overviewResizeObserver = null }
+  const el = overviewRef.value
+  if (!el) return
+  overviewResizeObserver = new ResizeObserver(() => measureOverviewOverflow())
+  overviewResizeObserver.observe(el)
+}
+
+function teardownOverviewObserver() {
+  if (overviewResizeObserver) { overviewResizeObserver.disconnect(); overviewResizeObserver = null }
+}
+
+async function refreshOverviewOverflow() {
+  await nextTick()
+  measureOverviewOverflow()
+  if (overlayTab.value === 'details' && overlayMovie.value?.overview)
+    setupOverviewObserver()
+  else
+    teardownOverviewObserver()
+}
 
 // TMDB Search Overlay
 const showSearchOverlay = ref(false)
@@ -97,6 +124,23 @@ watch(gridDensity, val => localStorage.setItem('gridDensity', val))
 watch(darkMode, val => localStorage.setItem('darkMode', val))
 watch(isSidebarOverlay, (overlay) => {
   if (overlay) sidebarOpen.value = false
+})
+
+watch(overlayMovie, async (movie) => {
+  overviewExpanded.value = false
+  overviewOverflows.value = false
+  showPosterLightbox.value = false
+  if (movie) await refreshOverviewOverflow()
+  else teardownOverviewObserver()
+})
+
+watch(overlayTab, async (tab) => {
+  if (tab === 'details') await refreshOverviewOverflow()
+  else teardownOverviewObserver()
+})
+
+watch(overviewExpanded, async (expanded) => {
+  if (!expanded) await refreshOverviewOverflow()
 })
 
 onMounted(async () => {
@@ -115,6 +159,7 @@ onMounted(async () => {
 onUnmounted(() => {
   document.removeEventListener('keydown', handleGlobalKeydown)
   window.removeEventListener('resize', handleResize)
+  teardownOverviewObserver()
 })
 
 const statusCounts = computed(() => {
@@ -459,6 +504,7 @@ function toggleProvider(id) {
 
 function handleGlobalKeydown(e) {
   if (e.key !== 'Escape') return
+  if (showPosterLightbox.value) { showPosterLightbox.value = false; return }
   if (showSearchOverlay.value) closeSearchOverlay()
   else if (showOverlay.value) closeOverlay()
 }
@@ -692,8 +738,11 @@ function handleGlobalKeydown(e) {
         </div>
 
         <div class="sidebar-section">
-          <div class="sidebar-section-label">Sort</div>
-          <div class="filter-options filter-options-single">
+          <div class="sidebar-section-label collapsible" @click="sortSectionOpen = !sortSectionOpen">
+            Sort
+            <span class="collapse-arrow">{{ sortSectionOpen ? '▲' : '▼' }}</span>
+          </div>
+          <div v-show="sortSectionOpen" class="filter-options filter-options-single">
             <button :class="['filter-btn', { active: sortBy === 'title' }]" @click="setSort('title')">
               <span class="filter-label">Title</span>
               <span class="sort-indicator" v-if="sortBy === 'title'">{{ sortDirection === 'asc' ? 'A→Z' : 'Z→A' }}</span>
@@ -710,49 +759,57 @@ function handleGlobalKeydown(e) {
         </div>
 
         <div class="sidebar-section">
-          <div class="sidebar-section-label">Filters</div>
-          <div class="filter-options" style="margin-bottom: 8px">
-            <button
-              :class="['filter-btn', { active: noRatingFilter }]"
-              @click="noRatingFilter = !noRatingFilter"
-            >
-              No Rating
-            </button>
+          <div class="sidebar-section-label collapsible" @click="filterSectionOpen = !filterSectionOpen">
+            Filters
+            <span class="collapse-arrow">{{ filterSectionOpen ? '▲' : '▼' }}</span>
           </div>
-          <div v-if="allGenres.length">
-            <div class="filter-subsection-label">Genres</div>
-            <div class="filter-options">
+          <div v-show="filterSectionOpen">
+            <div class="filter-options" style="margin-bottom: 8px">
               <button
-                v-for="g in allGenres"
-                :key="g"
-                :class="['filter-btn', { active: genreFilter.includes(g) }]"
-                @click="toggleGenre(g)"
+                :class="['filter-btn', { active: noRatingFilter }]"
+                @click="noRatingFilter = !noRatingFilter"
               >
-                <span>{{ g }}</span>
+                No Rating
               </button>
             </div>
-          </div>
-          <div>
-            <div class="filter-subsection-label">Streaming Providers</div>
-            <div class="provider-grid">
-              <button
-                v-for="provider in providerDefinitions"
-                :key="provider.id"
-                :class="['provider-logo-btn', { active: providerFilter.includes(provider.id) }]"
-                @click="toggleProvider(provider.id)"
-              >
-                <img :src="provider.logo" :alt="provider.name" />
-              </button>
+            <div v-if="allGenres.length">
+              <div class="filter-subsection-label">Genres</div>
+              <div class="filter-options">
+                <button
+                  v-for="g in allGenres"
+                  :key="g"
+                  :class="['filter-btn', { active: genreFilter.includes(g) }]"
+                  @click="toggleGenre(g)"
+                >
+                  <span>{{ g }}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
+        <div class="sidebar-section">
+          <div class="sidebar-section-label">Streaming Providers</div>
+          <div class="provider-grid">
+            <button
+              v-for="provider in providerDefinitions"
+              :key="provider.id"
+              :class="['provider-logo-btn', { active: providerFilter.includes(provider.id) }]"
+              @click="toggleProvider(provider.id)"
+            >
+              <img :src="provider.logo" :alt="provider.name" />
+            </button>
+          </div>
+        </div>
+
         <div class="sidebar-footer">
+          <!-- AI recommendation (under review, temporarily hidden)
           <div class="sidebar-section-label">AI Assistant</div>
           <button class="ai-assistant-btn" type="button" @click="showAiAssistant = true">
             Recommendation
           </button>
-          <div class="sidebar-section-label" style="margin-top: 12px">VIEW</div>
+          -->
+          <div class="sidebar-section-label">VIEW</div>
           <div class="view-toggle">
             <button :class="['view-btn', { active: viewMode === 'grid' }]" @click="viewMode = 'grid'">Grid</button>
             <button :class="['view-btn', { active: viewMode === 'list' }]" @click="viewMode = 'list'">List</button>
@@ -780,7 +837,8 @@ function handleGlobalKeydown(e) {
 
     <!-- Movie Overlay -->
     <div v-if="showOverlay && overlayMovie" class="overlay" @click="closeOverlay">
-      <div class="overlay-content" @click.stop>
+      <div class="overlay-content movie-overlay-content" @click.stop>
+        <button type="button" class="movie-overlay-close-btn" aria-label="Close overlay" @click="closeOverlay">×</button>
         <div class="overlay-title">
           <a
             v-if="overlayMovie.linkUrl"
@@ -814,15 +872,31 @@ function handleGlobalKeydown(e) {
         </div>
 
         <template v-if="overlayTab === 'options'">
-          <div class="status-buttons">
-            <button
-              v-for="opt in statusOptions"
-              :key="opt.id"
-              :class="['status-btn', { active: overlayMovie.status === opt.id }]"
-              @click="changeStatus(opt.id)"
-            >
-              {{ opt.label }}
-            </button>
+          <div :class="['movie-options-top', { 'with-cover': overlayMovie.imageFullUrl || overlayMovie.imageUrl }]">
+            <div v-if="overlayMovie.imageFullUrl || overlayMovie.imageUrl" class="options-poster-col">
+              <button
+                type="button"
+                class="options-poster-btn"
+                title="View poster full size"
+                @click.stop="showPosterLightbox = true"
+              >
+                <img :src="overlayMovie.imageFullUrl || overlayMovie.imageUrl" :alt="overlayMovie.title" />
+                <span class="options-poster-zoom-hint" aria-hidden="true">⤢</span>
+              </button>
+            </div>
+            <div class="movie-options-actions">
+              <div class="overlay-section-label">Status</div>
+              <div class="status-buttons">
+                <button
+                  v-for="opt in statusOptions"
+                  :key="opt.id"
+                  :class="['status-btn', { active: overlayMovie.status === opt.id }]"
+                  @click="changeStatus(opt.id)"
+                >
+                  {{ opt.label }}
+                </button>
+              </div>
+            </div>
           </div>
 
           <div class="overlay-tags">
@@ -836,21 +910,19 @@ function handleGlobalKeydown(e) {
               >{{ n }}</button>
             </div>
           </div>
-            <button
-              v-if="overlayMovie.status === 'watchlist' && !isNotReleased(overlayMovie)"
-              class="clear-cache-btn"
-              :disabled="!nextList.includes(String(overlayMovie.id)) && nextList.length >= 6"
-              @click="nextList.includes(String(overlayMovie.id)) ? removeNext(overlayMovie.id) : addToNext(overlayMovie)"
-            >
-              {{ nextList.includes(String(overlayMovie.id)) ? '★ Watch Next' : '☆ Watch Next' }}
-            </button>
+          <button
+            v-if="overlayMovie.status === 'watchlist' && !isNotReleased(overlayMovie)"
+            class="watch-next-btn"
+            :disabled="!nextList.includes(String(overlayMovie.id)) && nextList.length >= 6"
+            @click="nextList.includes(String(overlayMovie.id)) ? removeNext(overlayMovie.id) : addToNext(overlayMovie)"
+          >
+            {{ nextList.includes(String(overlayMovie.id)) ? '★ Watch Next' : '☆ Watch Next' }}
+          </button>
           <div class="overlay-danger-zone">
             <div class="cache-actions">
               <button class="clear-cache-btn" @click="clearMovieCache">Clear Cache</button>
               <button class="clear-cache-btn" @click="refreshMovieImage">Refresh Image</button>
             </div>
-            
-
             <template v-if="!deleteConfirm">
               <button class="delete-trigger-btn" @click="deleteConfirm = true">Delete</button>
             </template>
@@ -865,30 +937,81 @@ function handleGlobalKeydown(e) {
         </template>
 
         <template v-else-if="overlayTab === 'details'">
-          <div class="movie-detail-page">
-            <div v-if="overlayMovie.imageFullUrl || overlayMovie.imageUrl" class="movie-detail-cover-large">
-              <MediaImageViewer :src="overlayMovie.imageFullUrl || overlayMovie.imageUrl" :alt="overlayMovie.title" />
+          <div class="media-detail-page">
+            <div v-if="overlayMovie.overview" class="media-detail-section">
+              <div class="media-detail-section-title">About</div>
+              <p
+                ref="overviewRef"
+                :class="['media-overview-text', { expanded: overviewExpanded }]"
+              >{{ overlayMovie.overview }}</p>
+              <button
+                v-if="overviewOverflows || overviewExpanded"
+                class="media-overview-toggle"
+                type="button"
+                @click="overviewExpanded = !overviewExpanded"
+              >
+                {{ overviewExpanded ? 'Show less' : 'Show more' }}
+              </button>
             </div>
-            <div class="movie-detail-genres">
-              <span class="detail-label" v-if="overlayMovie.genres?.length">Genres</span>
-              <div class="detail-genres">
-                <span v-for="genre in overlayMovie.genres" :key="genre">{{ genre }}</span>
+            <div v-if="overlayMovie.genres?.length" class="media-detail-section">
+              <div class="media-detail-section-title">Genres</div>
+              <p class="media-inline-list">
+                <template v-for="(g, i) in overlayMovie.genres" :key="g">{{ g }}<span v-if="i < overlayMovie.genres.length - 1" class="media-sep"> · </span></template>
+              </p>
+            </div>
+            <div v-if="overlayMovie.directors?.length" class="media-detail-section">
+              <div class="media-detail-section-title">Director</div>
+              <p class="media-inline-list">
+                <template v-for="(d, i) in overlayMovie.directors" :key="d">{{ d }}<span v-if="i < overlayMovie.directors.length - 1" class="media-sep"> · </span></template>
+              </p>
+            </div>
+            <div v-if="overlayMovie.cast?.length" class="media-detail-section">
+              <div class="media-detail-section-title">Cast</div>
+              <p class="media-inline-list">
+                <template v-for="(c, i) in overlayMovie.cast" :key="c.name">{{ c.name }}<span v-if="i < overlayMovie.cast.length - 1" class="media-sep"> · </span></template>
+              </p>
+            </div>
+            <div v-if="overlayMovie.videos?.length" class="media-detail-section media-detail-section-videos">
+              <div class="media-detail-section-title">Videos</div>
+              <div class="media-video-list">
+                <a
+                  v-for="v in overlayMovie.videos"
+                  :key="v.id"
+                  :href="v.url"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="media-video-item"
+                >
+                  <span class="media-video-play">▶</span>
+                  <span class="media-video-name">{{ v.name }}</span>
+                </a>
               </div>
-            </div>
-          </div>
-          <div class="movie-detail-page" v-if="sortedTrailerLinks.length">
-            <div class="movie-detail-trailers">
-              <span class="detail-label">Videos</span>
-              <ul>
-                <li v-for="video in sortedTrailerLinks" :key="video.id">
-                  <a :href="video.url" target="_blank" rel="noopener noreferrer">{{ video.name }}</a>
-                </li>
-              </ul>
             </div>
           </div>
         </template>
       </div>
     </div>
+
+    <Teleport to="body">
+      <div
+        v-if="showPosterLightbox && (overlayMovie?.imageFullUrl || overlayMovie?.imageUrl)"
+        class="poster-lightbox"
+        @click="showPosterLightbox = false"
+      >
+        <button
+          type="button"
+          class="poster-lightbox-close"
+          aria-label="Close poster view"
+          @click.stop="showPosterLightbox = false"
+        >✕</button>
+        <img
+          :src="overlayMovie.imageFullUrl || overlayMovie.imageUrl"
+          :alt="overlayMovie.title"
+          class="poster-lightbox-img"
+          @click.stop
+        />
+      </div>
+    </Teleport>
 
     <!-- TMDB Search Overlay -->
     <div v-if="showSearchOverlay" class="overlay search-overlay" @click="closeSearchOverlay">
@@ -958,70 +1081,256 @@ function handleGlobalKeydown(e) {
 </template>
 
 <style scoped>
-.movie-detail-page {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  gap: 16px;
-  padding: 16px 0;
+/* ── Overlay scroll ── */
+.movie-overlay-content {
+  position: relative;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.movie-overlay-content::-webkit-scrollbar { display: none; }
+
+.movie-overlay-close-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--border2);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+}
+.movie-overlay-close-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+  background: var(--surface2);
 }
 
-.movie-detail-cover-large {
-  width: 100%;
-  max-width: 240px;
+/* ── Options: poster + controls grid ── */
+.movie-options-top { margin-bottom: 16px; }
+
+.movie-options-top.with-cover {
+  display: grid;
+  grid-template-columns: minmax(120px, 170px) 1fr;
+  gap: 18px;
+  align-items: start;
 }
 
-.movie-detail-cover-large img {
+.options-poster-col { display: flex; flex-direction: column; }
+
+.options-poster-btn {
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: zoom-in;
+  position: relative;
+  text-align: left;
   width: 100%;
-  max-width: 240px;
-  border-radius: 6px;
+}
+
+.options-poster-btn img {
+  width: 100%;
+  height: auto;
+  border-radius: 4px;
   object-fit: cover;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-}
-
-.movie-detail-genres {
-  width: 100%;
-  text-align: left;
-}
-
-.detail-label {
   display: block;
-  text-transform: uppercase;
-  font-size: 11px;
-  letter-spacing: 0.2em;
-  color: var(--text-muted);
-  margin-bottom: 6px;
 }
 
-.detail-genres {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+.options-poster-btn:hover img {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), 0 0 0 1px rgb(var(--accent-rgb) / 0.45);
 }
 
-.detail-genres span {
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--border2);
-  font-size: 11px;
-  color: var(--text);
+.options-poster-zoom-hint {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: 13px;
+  line-height: 22px;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
 }
 
-.movie-detail-trailers ul {
-  margin: 6px 0 0;
-  padding-left: 0;
-  list-style: none;
+.options-poster-btn:hover .options-poster-zoom-hint { opacity: 1; }
+
+.movie-options-actions {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  justify-content: center;
 }
 
-.movie-detail-trailers li {
-  font-size: 13px;
+.movie-options-actions .status-buttons { margin: 0; }
+
+/* ── Details tab ── */
+.media-detail-page {
+  display: flex;
+  flex-direction: column;
+  padding-top: 4px;
 }
 
-.movie-detail-trailers a {
+.media-detail-section {
+  margin-bottom: 14px;
+}
+
+.media-detail-section-videos {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+  margin-top: 4px;
+}
+
+.media-detail-section-title {
+  margin: 0 0 5px;
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.media-overview-text {
+  max-width: 850px;
+  font-size: 0.78rem;
+  color: var(--text);
+  line-height: 1.65;
+  display: -webkit-box;
+  -webkit-line-clamp: 7;
+  line-clamp: 7;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0 0 8px;
+}
+
+.media-overview-text.expanded {
+  display: block;
+  overflow: visible;
+}
+
+.media-overview-toggle {
+  padding: 0;
+  border: none;
+  background: transparent;
   color: var(--accent-light);
-  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.media-inline-list {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text);
+  line-height: 1.55;
+}
+
+.media-sep {
+  color: var(--text-muted);
+}
+
+.media-video-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.media-video-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  padding: 5px 6px;
+  border-radius: 2px;
+  transition: background 0.12s;
+}
+
+.media-video-item:hover { background: var(--surface2); }
+
+.media-video-play {
+  color: var(--accent-light);
+  font-size: 9px;
+  flex-shrink: 0;
+}
+
+.media-video-name {
+  color: var(--text);
+  font-size: 0.82rem;
+}
+
+/* ── Poster Lightbox ── */
+.poster-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.92);
+}
+
+.poster-lightbox-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.poster-lightbox-close:hover { background: rgba(0, 0, 0, 0.75); }
+
+.poster-lightbox-img {
+  max-width: min(600px, 92vw);
+  max-height: 92vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 4px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+}
+
+.watch-next-btn {
+  width: 100%;
+  padding: 7px;
+  margin-bottom: 12px;
+  border-radius: 2px;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+.watch-next-btn:hover { background: var(--surface2); color: var(--text); }
+.watch-next-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.watch-next-btn:disabled:hover { background: transparent; color: var(--text-muted); }
+
+/* ── Mobile ── */
+@media (max-width: 768px) {
+  .movie-options-top.with-cover {
+    grid-template-columns: 150px 1fr;
+    gap: 12px;
+  }
+
+  .movie-options-actions .status-buttons {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
