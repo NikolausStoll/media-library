@@ -338,6 +338,45 @@ function onSwipeEnd(e) {
   else if (deltaX < 0 && idx >= 0 && idx < tabs.length - 1) activeTab.value = tabs[idx + 1].id
 }
 
+// Sidebar swipe gestures (tablet/mobile)
+const SIDEBAR_SWIPE_THRESHOLD = 55
+const SIDEBAR_EDGE_ZONE = 30
+let sidebarEdgeSwipeStartX = 0
+let sidebarEdgeSwipeStartY = 0
+let sidebarEdgeSwipeActive = false
+let sidebarCloseSwipeStartX = 0
+let sidebarCloseSwipeStartY = 0
+
+function onSidebarEdgeTouchStart(e) {
+  if (!isSidebarOverlay.value || sidebarOpen.value || !e.touches?.length) return
+  const t = e.touches[0]
+  if (t.clientX >= window.innerWidth - SIDEBAR_EDGE_ZONE) {
+    sidebarEdgeSwipeStartX = t.clientX
+    sidebarEdgeSwipeStartY = t.clientY
+    sidebarEdgeSwipeActive = true
+  }
+}
+function onSidebarEdgeTouchEnd(e) {
+  if (!sidebarEdgeSwipeActive || !e.changedTouches?.length) return
+  sidebarEdgeSwipeActive = false
+  const deltaX = e.changedTouches[0].clientX - sidebarEdgeSwipeStartX
+  const deltaY = e.changedTouches[0].clientY - sidebarEdgeSwipeStartY
+  if (deltaX < -SIDEBAR_SWIPE_THRESHOLD && Math.abs(deltaX) > Math.abs(deltaY))
+    sidebarOpen.value = true
+}
+function onSidebarCloseTouchStart(e) {
+  if (!isSidebarOverlay.value || !sidebarOpen.value || !e.touches?.length) return
+  sidebarCloseSwipeStartX = e.touches[0].clientX
+  sidebarCloseSwipeStartY = e.touches[0].clientY
+}
+function onSidebarCloseTouchEnd(e) {
+  if (!isSidebarOverlay.value || !sidebarOpen.value || !e.changedTouches?.length) return
+  const deltaX = e.changedTouches[0].clientX - sidebarCloseSwipeStartX
+  const deltaY = e.changedTouches[0].clientY - sidebarCloseSwipeStartY
+  if (deltaX > SIDEBAR_SWIPE_THRESHOLD && Math.abs(deltaX) > Math.abs(deltaY))
+    sidebarOpen.value = false
+}
+
 // Sort toggles
 function toggleTitleSort() {
   if (sortBy.value !== 'title') { sortBy.value = 'title'; sortDirection.value = 'asc' }
@@ -1144,7 +1183,11 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div :class="['app-layout theme-book', { 'light-mode': !darkMode }]">
+  <div
+    :class="['app-layout theme-book', { 'light-mode': !darkMode }]"
+    @touchstart.passive="onSidebarEdgeTouchStart"
+    @touchend="onSidebarEdgeTouchEnd"
+  >
     <div :class="['main-content', { 'sidebar-closed': !sidebarOpen }]">
       <div class="game-list-container" :class="{ 'list-view': viewMode === 'list', 'grid-compact': viewMode === 'grid' && gridDensity === 'compact', 'grid-dense': viewMode === 'grid' && gridDensity === 'dense' }">
 
@@ -1305,9 +1348,13 @@ onUnmounted(() => {
     <button
       :class="['sidebar-toggle-external', { 'sidebar-closed': !sidebarOpen }]"
       @click="sidebarOpen = !sidebarOpen"
-    >{{ sidebarOpen ? '›' : '‹' }}</button>
+    ><span class="toggle-handle">{{ sidebarOpen ? '›' : '‹' }}</span></button>
 
-    <aside :class="['sidebar', { collapsed: !sidebarOpen }]">
+    <aside
+      :class="['sidebar', { collapsed: !sidebarOpen }]"
+      @touchstart.passive="onSidebarCloseTouchStart"
+      @touchend.stop="onSidebarCloseTouchEnd"
+    >
       <div v-show="sidebarOpen">
         <BookFilters
           :mediaType="mediaType"
