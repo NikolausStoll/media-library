@@ -1067,6 +1067,22 @@ body.light-mode {
 
 .clear-cache-btn:hover { background: var(--surface2); color: var(--text); }
 
+.read-next-btn {
+  width: 100%;
+  padding: 7px;
+  margin-bottom: 12px;
+  border-radius: 2px;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+.read-next-btn:hover { background: var(--surface2); color: var(--text); }
+.read-next-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.read-next-btn:disabled:hover { background: transparent; color: var(--text-muted); }
+
 .delete-trigger-btn {
   width: 100%;
   padding: 7px;

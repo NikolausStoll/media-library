@@ -216,7 +216,7 @@ const formatFetchedAt = (value) => {
                 <div v-if="game?.genre" class="hltb-field"><strong>Genres</strong><span>{{ game.genre }}</span></div>
                 <div v-if="game?.developer" class="hltb-field"><strong>Developer</strong><span>{{ game.developer }}</span></div>
                 <div v-if="game?.publisher" class="hltb-field"><strong>Publisher</strong><span>{{ game.publisher }}</span></div>
-                <div v-if="game?.hltbFetchedAt" class="hltb-field"><strong>HLTB abgerufen</strong><span>{{ formatFetchedAt(game.hltbFetchedAt) }}</span></div>
+                <div v-if="game?.hltbFetchedAt" class="hltb-field"><strong>HLTB fetched</strong><span>{{ formatFetchedAt(game.hltbFetchedAt) }}</span></div>
               </div>
             </section>
             <section v-if="game?.dlcs?.length" class="detail-section dlc-section">

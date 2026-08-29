@@ -99,6 +99,10 @@ export async function getMovie(id) {
 
   const isGerman = de.original_language === 'de'
 
+  const collection = de.belongs_to_collection
+    ? { id: de.belongs_to_collection.id, name: en.belongs_to_collection?.name ?? de.belongs_to_collection.name ?? null }
+    : null
+
   const overview = en.overview ?? de.overview ?? null
 
   const directors = (en.credits?.crew ?? [])
@@ -141,10 +145,30 @@ export async function getMovie(id) {
     linkUrl:            `https://www.themoviedb.org/movie/${id}`,
     releaseDateDe:      de.release_date ?? null,
     originalLang:       de.original_language ?? null,
+    collection,
     overview,
     directors,
     cast,
     videos,
+  }
+}
+
+export async function getCollection(id) {
+  const res = await fetch(buildUrl(`/collection/${id}`, { language: 'en-US' }))
+  if (!res.ok) throw new Error(`TMDB collection nicht gefunden: ${res.status}`)
+  const data = await res.json()
+  return {
+    id: String(data.id),
+    name: data.name ?? null,
+    parts: (data.parts ?? [])
+      .map(p => ({
+        id: String(p.id),
+        titleEn: p.original_title ?? p.title ?? null,
+        imageUrl: p.poster_path ? `${IMGBASE}${p.poster_path}` : null,
+        year: p.release_date?.slice(0, 4) ?? null,
+        releaseDateDe: p.release_date ?? null,
+      }))
+      .sort((a, b) => (a.releaseDateDe ?? '').localeCompare(b.releaseDateDe ?? '')),
   }
 }
 

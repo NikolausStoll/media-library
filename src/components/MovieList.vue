@@ -83,6 +83,38 @@ const overviewRef = ref(null)
 const overviewOverflows = ref(false)
 let overviewResizeObserver = null
 
+// Collection
+const collectionMovies = ref(null)
+const collectionLoading = ref(false)
+const collectionError = ref(null)
+
+const libraryExternalIds = computed(() => new Set(movieList.value.map(m => String(m.externalId))))
+
+async function fetchCollectionMovies(collectionId) {
+  if (collectionMovies.value !== null) return
+  collectionLoading.value = true
+  collectionError.value = null
+  try {
+    const res = await fetch(`/api/tmdb/collection/${collectionId}`)
+    if (!res.ok) throw new Error(`${res.status}`)
+    collectionMovies.value = await res.json()
+  } catch (err) {
+    collectionError.value = err.message
+    collectionMovies.value = { parts: [] }
+  } finally {
+    collectionLoading.value = false
+  }
+}
+
+async function addMovieFromCollection(part) {
+  try {
+    const movie = await addMovie({ externalId: part.id, status: 'watchlist' })
+    movieList.value.push(movie)
+  } catch (err) {
+    console.error('addMovieFromCollection:', err)
+  }
+}
+
 function measureOverviewOverflow() {
   const el = overviewRef.value
   if (!el || overviewExpanded.value) return
@@ -130,13 +162,26 @@ watch(overlayMovie, async (movie) => {
   overviewExpanded.value = false
   overviewOverflows.value = false
   showPosterLightbox.value = false
-  if (movie) await refreshOverviewOverflow()
-  else teardownOverviewObserver()
+  collectionMovies.value = null
+  collectionLoading.value = false
+  collectionError.value = null
+  if (movie) {
+    await refreshOverviewOverflow()
+    if (overlayTab.value === 'details' && movie.collection?.id)
+      fetchCollectionMovies(movie.collection.id)
+  } else {
+    teardownOverviewObserver()
+  }
 })
 
 watch(overlayTab, async (tab) => {
-  if (tab === 'details') await refreshOverviewOverflow()
-  else teardownOverviewObserver()
+  if (tab === 'details') {
+    await refreshOverviewOverflow()
+    if (overlayMovie.value?.collection?.id)
+      fetchCollectionMovies(overlayMovie.value.collection.id)
+  } else {
+    teardownOverviewObserver()
+  }
 })
 
 watch(overviewExpanded, async (expanded) => {
@@ -987,6 +1032,27 @@ function handleGlobalKeydown(e) {
                 </a>
               </div>
             </div>
+            <div v-if="overlayMovie.collection" class="media-detail-section media-detail-section-collection">
+              <div class="media-detail-section-title">Collection: {{ overlayMovie.collection.name }}</div>
+              <div v-if="collectionLoading" class="collection-loading">Loading...</div>
+              <div v-else-if="collectionMovies?.parts?.length" class="collection-grid">
+                <div
+                  v-for="part in collectionMovies.parts"
+                  :key="part.id"
+                  :class="['collection-item', {
+                    'collection-item-current': part.id === overlayMovie.externalId,
+                    'collection-item-addable': !libraryExternalIds.has(part.id) && part.id !== overlayMovie.externalId,
+                  }]"
+                  @click="!libraryExternalIds.has(part.id) && part.id !== overlayMovie.externalId ? addMovieFromCollection(part) : undefined"
+                >
+                  <img v-if="part.imageUrl" :src="part.imageUrl" :alt="part.titleEn ?? ''" class="collection-item-img" />
+                  <div v-else class="collection-item-img collection-item-no-img"></div>
+                  <div v-if="!libraryExternalIds.has(part.id) && part.id !== overlayMovie.externalId" class="collection-item-add-hint">+</div>
+                  <div class="collection-item-title">{{ part.titleEn }}</div>
+                  <div v-if="part.year" class="collection-item-year">{{ part.year }}</div>
+                </div>
+              </div>
+            </div>
           </div>
         </template>
       </div>
@@ -1188,6 +1254,95 @@ function handleGlobalKeydown(e) {
   border-top: 1px solid var(--border);
   padding-top: 14px;
   margin-top: 4px;
+}
+
+.media-detail-section-collection {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+  margin-top: 4px;
+}
+
+.collection-loading {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.collection-grid {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+.collection-grid::-webkit-scrollbar { display: none; }
+
+.collection-item {
+  flex-shrink: 0;
+  width: 80px;
+}
+
+.collection-item-current {
+  opacity: 0.45;
+}
+
+.collection-item-addable {
+  cursor: pointer;
+  position: relative;
+}
+
+.collection-item-addable:hover .collection-item-img {
+  filter: brightness(0.55);
+}
+
+.collection-item-add-hint {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 80px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 300;
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+
+.collection-item-addable:hover .collection-item-add-hint {
+  opacity: 1;
+}
+
+.collection-item-img {
+  width: 80px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 2px;
+  display: block;
+}
+
+.collection-item-no-img {
+  background: var(--surface3);
+}
+
+.collection-item-title {
+  font-size: 0.7rem;
+  color: var(--text);
+  margin-top: 4px;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.collection-item-year {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  margin-top: 2px;
 }
 
 .media-detail-section-title {

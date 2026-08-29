@@ -38,6 +38,7 @@ function mapRow(row) {
     cast:               JSON.parse(row.cast ?? '[]'),
     creators:           JSON.parse(row.creators ?? '[]'),
     productionStatus:   row.productionStatus ?? null,
+    collection:         row.collectionId ? { id: row.collectionId, name: row.collectionName ?? null } : null,
     imagePath:          row.imagePath ?? null,
     imageThumbPath:     row.imageThumbPath ?? null,
     sourceImageUrl:     row.sourceImageUrl ?? null,
@@ -70,12 +71,14 @@ export function saveToCache(item) {
        runtime, seasons, episodes, genres, streamingProviders, linkUrl, releaseDateDe, originalLang,
        videos, updatedAt, ttlMs,
        overview, directors, cast, creators, productionStatus,
+       collectionId, collectionName,
        imagePath, imageThumbPath, sourceImageUrl, imageHash, imageETag, imageLastModified, imageCheckedAt, imageCheckIntervalMs, imageUnchangedChecks)
     VALUES
       (@id, @mediaType, @titleEn, @titleDe, @year, @certification, @rating,
        @runtime, @seasons, @episodes, @genres, @streamingProviders, @linkUrl, @releaseDateDe, @originalLang,
        @videos, @updatedAt, @ttlMs,
        @overview, @directors, @cast, @creators, @productionStatus,
+       @collectionId, @collectionName,
        @imagePath, @imageThumbPath, @sourceImageUrl, @imageHash, @imageETag, @imageLastModified, @imageCheckedAt, @imageCheckIntervalMs, @imageUnchangedChecks)
     ON CONFLICT(id, mediaType) DO UPDATE SET
       titleEn=excluded.titleEn, titleDe=excluded.titleDe,
@@ -90,6 +93,7 @@ export function saveToCache(item) {
       ttlMs=excluded.ttlMs,
       overview=excluded.overview,
       directors=excluded.directors, cast=excluded.cast, creators=excluded.creators, productionStatus=excluded.productionStatus,
+      collectionId=excluded.collectionId, collectionName=excluded.collectionName,
       imagePath=COALESCE(excluded.imagePath, tmdbcache.imagePath),
       imageThumbPath=COALESCE(excluded.imageThumbPath, tmdbcache.imageThumbPath),
       sourceImageUrl=COALESCE(excluded.sourceImageUrl, tmdbcache.sourceImageUrl),
@@ -108,6 +112,8 @@ export function saveToCache(item) {
     cast: JSON.stringify(item.cast ?? []),
     creators: JSON.stringify(item.creators ?? []),
     productionStatus: item.productionStatus ?? null,
+    collectionId: item.collection?.id ?? null,
+    collectionName: item.collection?.name ?? null,
     updatedAt: Date.now(),
     ttlMs,
     imagePath: item.imagePath ?? null,

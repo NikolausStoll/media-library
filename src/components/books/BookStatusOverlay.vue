@@ -354,7 +354,7 @@ function isbn10To13(isbn10) {
 
         <div v-if="book?.status === 'backlog'">
           <button
-            class="clear-cache-btn"
+            class="read-next-btn"
             :disabled="readNextAtLimit"
             @click="emit('toggle-read-next', book)"
           >

@@ -85,6 +85,7 @@ async function aggregateMovie(movie) {
     directors:          tmdb?.directors ?? [],
     cast:               tmdb?.cast ?? [],
     videos:             videos,
+    collection:         tmdb?.collection ?? null,
     completedAt:        movie.completedAt ?? null,
     lastTouched:        movie.lastTouched ?? null,
   }

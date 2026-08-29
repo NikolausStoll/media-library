@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { searchMedia, getMovie, getSeries } from '../services/tmdbService.js'
+import { searchMedia, getMovie, getSeries, getCollection } from '../services/tmdbService.js'
 import { getFromCache, saveToCache, deleteFromCache } from '../services/tmdbCache.js'
 
 const router = Router()
@@ -22,6 +22,15 @@ router.delete('/cache/:id', (req, res) => {
   try {
     deleteFromCache(req.params.id, type)
     res.json({ success: true })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// GET /api/tmdb/collection/:id
+router.get('/collection/:id', async (req, res) => {
+  try {
+    res.json(await getCollection(req.params.id))
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
