@@ -86,7 +86,7 @@ describe('Overlay – Game-Detail', () => {
     expect(wrapper.find('.hltb-fields').text()).toContain('Nintendo')
     expect(wrapper.find('.hltb-fields').text()).toContain(game.platform)
     expect(wrapper.find('.detail-section-title').text()).toContain('HowLongToBeat')
-    expect(wrapper.find('.hltb-fields').text()).toContain('HLTB abgerufen')
+    expect(wrapper.find('.hltb-fields').text()).toContain('HLTB fetched')
     expect(wrapper.find('.hltb-fields').text()).not.toContain('EU')
 
     wrapper.unmount()
