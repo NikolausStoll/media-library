@@ -3,7 +3,7 @@ import * as cheerio from 'cheerio'
 
 const BASE_URL = 'https://howlongtobeat.com'
 // HLTB rotates obfuscated search paths; try current first, then recent fallbacks.
-const SEARCH_API_CANDIDATES = ['/api/bleed', '/api/find', '/api/finder']
+const SEARCH_API_CANDIDATES = ['/api/search/site', '/api/bleed', '/api/find', '/api/finder']
 
 const HEADERS = {
   'Referer': 'https://howlongtobeat.com/',
