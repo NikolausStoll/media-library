@@ -7,7 +7,7 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM node:20-bookworm AS runtime
+FROM node:20-bookworm-slim AS runtime
 
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ sqlite3 && rm -rf /var/lib/apt/lists/*
