@@ -52,6 +52,7 @@ const searchQuery = ref('')
 const genreFilter = ref([])
 const providerFilter = ref([])
 const noRatingFilter = ref(false)
+const fskFilter = ref(null) // null | 0 | 6 | 12 | 16 | 18
 const sortBy = ref('title') // title | year | rating
 const sortDirection = ref('asc')
 const sortSectionOpen = ref(true)
@@ -271,6 +272,13 @@ function applyFilters(list) {
 
   if (noRatingFilter.value)
     base = base.filter(m => m.userRating == null)
+
+  if (fskFilter.value !== null)
+    base = base.filter(m => {
+      if (m.certification == null) return true
+      const cert = parseInt(m.certification)
+      return !isNaN(cert) && cert <= fskFilter.value
+    })
 
   return applySort(base)
 }
@@ -863,6 +871,20 @@ function handleGlobalKeydown(e) {
               >
                 No Rating
               </button>
+            </div>
+            <div>
+              <div class="filter-subsection-label">FSK</div>
+              <div class="filter-options" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 8px">
+                <button
+                  v-for="age in [0, 6, 12, 16]"
+                  :key="age"
+                  :class="['filter-btn', { active: fskFilter === age }]"
+                  style="padding: 4px 6px; justify-content: center; font-size: 11px"
+                  @click="fskFilter = fskFilter === age ? null : age"
+                >
+                  {{ age }}
+                </button>
+              </div>
             </div>
             <div v-if="allGenres.length">
               <div class="filter-subsection-label">Genres</div>
