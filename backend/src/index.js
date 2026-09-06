@@ -61,7 +61,7 @@ if (hasStatic) {
   app.use(express.static(STATIC_DIR))
 }
 
-app.get('*', (req, res, next) => {
+app.get('/{*path}', (req, res, next) => {
   if (req.path.startsWith('/api')) return next()
   if (!hasStatic) return res.status(404).json({ error: 'Static assets not found' })
   res.sendFile(path.join(STATIC_DIR, 'index.html'))
