@@ -67,8 +67,7 @@ const serveSpaIndex = (req, res, next) => {
   res.sendFile(path.join(STATIC_DIR, 'index.html'))
 }
 
-app.get('/', serveSpaIndex)
-app.get('/*path', serveSpaIndex)
+app.get(/.*/, serveSpaIndex)
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`API läuft auf Port ${PORT}`)
