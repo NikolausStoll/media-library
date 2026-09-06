@@ -61,13 +61,11 @@ if (hasStatic) {
   app.use(express.static(STATIC_DIR))
 }
 
-const serveSpaIndex = (req, res, next) => {
+app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api')) return next()
   if (!hasStatic) return res.status(404).json({ error: 'Static assets not found' })
   res.sendFile(path.join(STATIC_DIR, 'index.html'))
-}
-
-app.get(/.*/, serveSpaIndex)
+})
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`API läuft auf Port ${PORT}`)
