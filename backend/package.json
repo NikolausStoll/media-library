@@ -1,6 +1,6 @@
 {
   "name": "backend-api",
-  "version": "1.27.4",
+  "version": "1.27.5",
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
@@ -13,7 +13,7 @@
     "cheerio": "^1.2.0",
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",
-    "express": "^5.2.1",
+    "express": "^4.22.2",
     "node-fetch": "^3.3.2",
     "openai": "^4.104.0",
     "sharp": "^0.35.4"
