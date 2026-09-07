@@ -261,8 +261,9 @@ function isbn10To13(isbn10) {
           aria-label="Edit details"
           @click="emit('edit-details', book)"
         >
-          <span class="book-edit-btn-icon" aria-hidden="true">✎</span>
-          <span class="book-edit-btn-label">Edit</span>
+          <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 20H20.5M18 10L21 7L17 3L14 6M18 10L8 20H4V16L14 6M18 10L14 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
         </button>
         <button
           class="book-close-btn"
@@ -514,17 +515,6 @@ function isbn10To13(isbn10) {
   background: rgb(var(--accent-rgb) / 0.24);
 }
 
-.book-edit-btn-icon {
-  display: inline-block;
-  transform: scaleX(-1) rotate(5deg);
-}
-
-.book-edit-btn-label {
-  display: none;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
 
 .book-close-btn {
   width: 28px;
@@ -751,22 +741,6 @@ function isbn10To13(isbn10) {
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
 }
 
-/* ── Desktop: show Edit label ── */
-
-@media (min-width: 769px) {
-  .book-edit-btn-icon {
-    display: none;
-  }
-
-  .book-edit-btn-label {
-    display: inline;
-  }
-
-  .book-edit-btn {
-    font-size: 12px;
-    padding: 0 10px;
-  }
-}
 
 /* ── Mobile ── */
 
