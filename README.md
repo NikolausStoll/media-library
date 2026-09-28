@@ -110,7 +110,7 @@ npm install
 Copy `.env.example` to `.env` and adjust values.
 
 ```env
-PORT=8098
+PORT=8099
 FRONTEND_URL=http://localhost:5173
 TMDB_API_KEY=
 AI_API_KEY=
@@ -120,7 +120,7 @@ DB_PATH=backend.db
 STATIC_DIR=dist
 ```
 
-For local Vite development, use `PORT=8098` because `vite.config.js` proxies `/api` to `http://localhost:8098`.
+For local Vite development, use `PORT=8099` because `vite.config.js` proxies `/api` to `http://localhost:8099`.
 
 ### Run The App
 
@@ -129,7 +129,7 @@ npm run dev
 ```
 
 - Frontend: `http://localhost:5173`
-- Backend: `http://localhost:8098` when `.env` uses `PORT=8098`
+- Backend: `http://localhost:8099` when `.env` uses `PORT=8099`
 
 You can also run each side separately:
 

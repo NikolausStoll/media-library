@@ -10,7 +10,7 @@ This is the source of truth for AI assistants working in this repository. Keep i
 - Backend: Node.js, Express, SQLite via `better-sqlite3`.
 - API base: relative `/api` paths only.
 - Local dev frontend: Vite on `localhost:5173`.
-- Local dev backend: `npm run dev:backend`, should use `PORT=8098` because `vite.config.js` proxies `/api` to `http://localhost:8098`.
+- Local dev backend: `npm run dev:backend`, should use `PORT=8099` because `vite.config.js` proxies `/api` to `http://localhost:8099`.
 - Container/Home Assistant backend: defaults to `PORT=8099`, `DB_PATH=/data/backend.db`, `STATIC_DIR=/app/public`.
 - Current package/add-on version: `1.27.8`.
 
@@ -30,7 +30,7 @@ This is the source of truth for AI assistants working in this repository. Keep i
 npm install
 npm run dev              # frontend + backend via concurrently
 npm run dev:frontend     # Vite only, port 5173
-npm run dev:backend      # Express only, use PORT=8098 in .env for Vite proxy
+npm run dev:backend      # Express only, use PORT=8099 in .env for Vite proxy
 npm run build            # Vite production build to dist/
 npm start                # Express backend, serves STATIC_DIR when present
 npm test                 # Vitest watch mode
@@ -82,11 +82,11 @@ IMAGE_MAX_DIMENSION_THUMB=600
 For local Vite development, set:
 
 ```env
-PORT=8098
+PORT=8099
 STATIC_DIR=dist
 ```
 
-because `vite.config.js` proxies `/api` to `localhost:8098`.
+because `vite.config.js` proxies `/api` to `localhost:8099`.
 
 Container defaults are set in `Dockerfile`:
 
@@ -512,7 +512,7 @@ Rules:
 ## Implementation Gotchas
 
 - Do not introduce a client-side API base environment variable unless the app architecture changes; services use relative `/api`.
-- Keep Vite dev proxy target and local backend port in sync. The current target is `localhost:8098`.
+- Keep Vite dev proxy target and local backend port in sync. The current target is `localhost:8099`.
 - `media-library/run.sh` no longer exists. Home Assistant/runtime option wiring is in `docker/entrypoint.js`.
 - Admin backup is not a byte-for-byte database dump. It preserves user-owned state and intentionally omits rebuildable metadata caches.
 - `POST /api/admin/import` wipes and rebuilds the imported tables. Back up before using it.
