@@ -1,6 +1,6 @@
 {
   "name": "backend-api",
-  "version": "1.27.8",
+  "version": "1.27.9",
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
@@ -19,6 +19,10 @@
     "sharp": "^0.35.4"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "nodemon": "^3.1.11"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true,
+    "fsevents@2.3.3": true
   }
 }

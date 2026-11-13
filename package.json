@@ -1,7 +1,7 @@
 {
   "name": "media-library",
   "private": true,
-  "version": "1.27.8",
+  "version": "1.27.9",
   "type": "module",
   "scripts": {
     "dev:frontend": "vite",
@@ -27,11 +27,14 @@
     "@testing-library/vue": "^8.1.0",
     "@types/node": "^26.4.1",
     "@vitejs/plugin-vue": "^6.0.8",
-    "@vue/test-utils": "^2.5.0",
+    "@vue/test-utils": "^2.4.11",
     "concurrently": "^10.0.5",
     "jsdom": "^30.0.1",
-    "nodemon": "^3.1.14",
+    "nodemon": "^3.1.11",
     "vite": "^8.2.2",
     "vitest": "^5.0.0"
+  },
+  "allowScripts": {
+    "fsevents@2.3.3": true
   }
 }
